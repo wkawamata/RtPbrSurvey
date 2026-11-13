@@ -28,6 +28,8 @@ enum class PathTracingInputSignal : uint32_t
     SpecularDistance,
     // Actual radiance continuation, distinct from independent NRD lobe probes.
     PrimaryContinuation,
+    // xyz: continuation distance/kind/query status; w: primary material TF in RR
+    // sampling profiles (0 otherwise). TF describes the material, not the sampled lobe.
     SecondaryRayData,
     SecondarySurfaceDistance,
     Count,

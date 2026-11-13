@@ -136,7 +136,7 @@ float4 RrLiveSpecularDistance(float4 ray, float4 surface)
         return invalid;
     if (all(ray == 0) && all(surface == 0))
         return 0;
-    if ((ray.y != 1 && ray.y != 2 && ray.y != 3) || ray.x <= 0 || ray.w != 0 || any(surface.zw != 0) || surface.y != ray.z ||
+    if ((ray.y != 1 && ray.y != 2 && ray.y != 3) || ray.x <= 0 || ray.w < 0 || ray.w > 1 || any(surface.zw != 0) || surface.y != ray.z ||
         !((ray.z == 1 && surface.x > 0) || (ray.z == 2 && surface.x == 0)))
         return invalid;
     // Transmission (kind 3) contributes color without a reflection distance.
@@ -174,7 +174,7 @@ RrConvertedInputs ConvertRrLiveInputs(float3 radiance,
         result.diagnostics.x = kRrConversionCandidate;
         return result;
     }
-    return ConvertRrInputs(radiance,
+    RrConvertedInputs result = ConvertRrInputs(radiance,
                            normal,
                            depth,
                            motion,
@@ -185,5 +185,11 @@ RrConvertedInputs ConvertRrLiveInputs(float3 radiance,
                            view,
                            true,
                            true);
+    // SecondaryRayData.w is the primary material transmission fraction, not
+    // the sampled reflection/transmission event. Pure glass has no diffuse lobe.
+    // Preserve the specular guide on reflected samples as well as transmitted ones.
+    if (result.diagnostics.x == kRrConversionCandidate)
+        result.diffuseAlbedo.xyz *= 1.0 - ray.w;
+    return result;
 }
 #endif

@@ -4,7 +4,7 @@ RWStructuredBuffer<RrConvertedInputs> g_results : register(u0);
 
 [numthreads(64, 1, 1)] void CSMain(uint3 id : SV_DispatchThreadID)
 {
-    uint test = id.x % 32;
+    uint test = id.x % 40;
     if (test >= 16)
     {
         float4 ray = float4(2, 2, 1, 0);
@@ -54,6 +54,25 @@ RWStructuredBuffer<RrConvertedInputs> g_results : register(u0);
             normal.w = 1;
         if (test == 31)
             material.w = .5;
+        if (test == 32 || test == 33 || test == 38 || test == 39)
+            ray.w = 1;
+        if (test == 33)
+            ray.y = 3;
+        if (test == 34)
+        {
+            ray.w = .5;
+            material.w = .25;
+        }
+        if (test == 35)
+            ray.w = -1;
+        if (test == 36)
+            ray.w = 2;
+        if (test == 37)
+            ray.w = asfloat(0x7fc00000);
+        if (test == 38)
+            material.xyz = 0; // IOR 1: no diffuse or reflection albedo.
+        if (test == 39)
+            normal.w = .2;
         g_results[id.x] = ConvertRrLiveInputs(
             radiance, normal, depth, motion, base, material, primary, ray, surface, float3(0, 0, 1));
         return;

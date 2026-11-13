@@ -71,11 +71,11 @@ inline void ValidateRrInputConversion(const float* values, unsigned int count)
 
 inline void ValidateRrLiveDistance(const float* values, unsigned int count)
 {
-    const int statuses[32] = {0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1, 5, 5, 0, 4,
-                              0, 0, 0, 0, 0, 5, 0, 3, 2, 3, 4, 5, 5, 0, 0, 0};
+    const int statuses[40] = {0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1, 5, 5, 0, 4,
+                              0, 0, 0, 0, 0, 5, 0, 3, 2, 3, 4, 5, 5, 0, 0, 0, 0, 0, 0, 5, 5, 5, 0, 0};
     for (unsigned int index = 0; index < count; ++index)
     {
-        const unsigned int test = index % 32;
+        const unsigned int test = index % 40;
         const float* actual = values + index * 24;
         for (unsigned int channel = 0; channel < 24; ++channel)
         {
@@ -89,19 +89,20 @@ inline void ValidateRrLiveDistance(const float* values, unsigned int count)
         if (test >= 16)
         {
             const bool background = test == 22;
-            const float expectedDistance = test == 17 ? 65504.f : test == 16 || test >= 30 ? 2.f : 0.f;
-            const float metallic = test == 31 ? .5f : 0.f;
+            const float expectedDistance = test == 17 ? 65504.f : test == 16 || (test >= 30 && test != 33) ? 2.f : 0.f;
+            const float metallic = test == 31 ? .5f : test == 34 ? .25f : 0.f;
+            const float transmission = test == 34 ? .5f : test == 32 || test == 33 || test == 38 || test == 39 ? 1.f : 0.f;
             if (actual[0] != .25f || actual[1] != 2 || actual[2] != 70000 || actual[3] != 1 || actual[7] != 1 ||
                 actual[11] != 1 || actual[19] != expectedDistance || actual[16] != (background ? 65504.f : 2.f) ||
                 !Near(actual[17], .1, 1e-7, 1e-7) || !Near(actual[18], .2, 1e-7, 1e-7) ||
-                actual[14] != (background ? 0.f : 1.f) || actual[15] != (background || test == 30 ? 1.f : .5f))
+                actual[14] != (background ? 0.f : 1.f) || actual[15] != (background || test == 30 ? 1.f : test == 39 ? .2f : .5f))
                 throw std::runtime_error("General/background RR geometry or distance mismatch");
             const float base[] = {.7f, .5f, .3f};
             const float sky[] = {.25f, 1, 1};
             for (unsigned int channel = 0; channel < 3; ++channel)
                 if (!Near(
-                        actual[4 + channel], background ? sky[channel] : base[channel] * (1 - metallic), 1e-6, 1e-6) ||
-                    (background && actual[8 + channel] != 0))
+                        actual[4 + channel], background ? sky[channel] : base[channel] * (1 - metallic) * (1 - transmission), 1e-6, 1e-6) ||
+                    ((background || test == 38) && actual[8 + channel] != 0))
                     throw std::runtime_error("General/background RR albedo mismatch");
             continue;
         }
@@ -112,7 +113,7 @@ inline void ValidateRrLiveDistance(const float* values, unsigned int count)
             !Near(actual[17], .1, 1e-7, 1e-7) || !Near(actual[18], .2, 1e-7, 1e-7))
             throw std::runtime_error("Live RR distance changed radiance, geometry or distance convention");
     }
-    std::cout << "Validated 32 live RR cases including general materials, absent specular samples and background.\n";
+    std::cout << "Validated 40 live RR cases including general materials, absent specular samples and background.\n";
 }
 
 } // namespace RrInputTests
