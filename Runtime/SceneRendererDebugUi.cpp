@@ -607,7 +607,8 @@ namespace
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = renderer.GetPathTracingSettings();
             bool settingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
-                "Albedo + Emissive", "World Normal", "Emissive", "Radiance"};
+                "Albedo + Emissive", "World Normal", "Emissive", "Radiance", "Volume Boundaries", "Volume Status",
+                "Volume Outgoing Direction", "Volume Exit Position", "Volume Transmittance", "Thin Shadow Status"};
             int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
             if (ImGui::Combo("Primary Hit Output",
                              &debugOutput,
@@ -627,7 +628,7 @@ namespace
                 Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
             if (context.pathTracingDiagnostics.thinTransmissionActive)
             {
-                ImGui::TextWrapped("Thin transmission: Native PT only; shadows remain opaque; no volume refraction.");
+                ImGui::TextWrapped("Smooth thin glass: RGB direct-light shadows. Rough/Volume shadows, environment and emissive visibility remain opaque.");
             }
             if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
             {

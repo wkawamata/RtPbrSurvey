@@ -42,6 +42,15 @@ float ThinTransmissionFresnel(float cosine, float ior)
     return saturate(0.5 * (parallel * parallel + perpendicular * perpendicular));
 }
 
+// Expected weight of the existing smooth, straight-through thin-sheet branch.
+// Each distinct geometric interface is evaluated once; this is not a volume BTDF.
+float3 EvaluateSmoothThinShadowTransmission(float cosine, float ior, float3 tint,
+                                            float transmission, float metallic)
+{
+    return saturate(transmission) * (1.0 - saturate(metallic)) *
+        (1.0 - ThinTransmissionFresnel(cosine, ior)) * saturate(tint);
+}
+
 struct ThinTransmissionSample
 {
     float3 direction;

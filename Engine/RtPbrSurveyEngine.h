@@ -303,6 +303,7 @@ public:
         VolumeOutgoingDirection,
         VolumeExitPosition,
         VolumeTransmittance,
+        ThinShadowStatus,
     };
 
     struct PathTracingSettings

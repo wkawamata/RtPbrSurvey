@@ -172,7 +172,11 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     UINT renderWidth,
     UINT renderHeight,
     const RtPbrSurveyEngine::PathTracingSettings& settings,
-    bool shadowRayEnabled)
+    bool shadowRayEnabled,
+    bool directLightEnabled,
+    UINT lightCount,
+    bool thinTransmission,
+    bool emissiveNeeActive)
 {
     RtPbrSurveyEngine::PathTracingDiagnostics diagnostics;
     for (size_t i = 1; i < checkPoints.size(); ++i)
@@ -188,9 +192,16 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     {
         diagnostics.maxRayQueriesPerFrame += 2ull * renderWidth * renderHeight;
     }
-    if (settings.directLightingEnabled && shadowRayEnabled)
+    if (settings.directLightingEnabled && directLightEnabled && shadowRayEnabled)
     {
-        diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
+        // Thin direct shadows use up to sixteen interfaces and a final miss query.
+        diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame *
+            (std::min)(lightCount, 16u) * (thinTransmission ? 17ull : 1ull);
+    }
+    if (emissiveNeeActive)
+    {
+        diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
+            ((std::max)(settings.maxBounces, 1u) - 1u);
     }
     if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
     {
@@ -572,7 +583,13 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                                     m_renderWidth,
                                     m_renderHeight,
                                     m_pathTracingSettings,
-                                    m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
+                                    m_shadowSettings.enabled,
+                                    m_lightingParams.directLightEnabled,
+                                    static_cast<UINT>(m_lightingParams.lights.size()),
+                                    m_sceneHasThinTransmission,
+                                    m_shadowSettings.enabled && m_pathTracingSettings.emissiveEnabled &&
+                                        m_lightingParams.emissiveEnabled && m_pathTracingSettings.emissiveSamplingMode >= 1 &&
+                                        !m_emissiveTriangles.empty());
     pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     pathTracingDiagnostics.thinTransmissionActive = m_sceneHasThinTransmission;
     pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
