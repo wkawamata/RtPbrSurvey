@@ -72,5 +72,6 @@ This removes a frame-order mismatch; RR image publication itself remains delayed
 Debug build passed with zero warnings/errors. Native and verified RR automated
 orbit captures with the Debug window enabled completed without ERROR/CORRUPTION.
 Evidence: build/wireframe-frame-sync/report.json and native/rr logs/PNGs (local).
-These smoke checks cover UI frame lifecycle and backend execution; full-mesh
-wireframe alignment during interactive camera motion still requires visual review.
+These smoke checks cover UI frame lifecycle and backend execution. The user
+confirmed interactive wireframe camera alignment OK on 2026-11-14 and requested
+PR merge. This acceptance does not extend to all glass-edge optical quality cases.

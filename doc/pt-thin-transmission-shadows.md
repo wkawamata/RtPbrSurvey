@@ -34,4 +34,4 @@ Local evidence lives under `build/thin-shadow-20261114/`: `analytic-split/report
 
 ## Next scope
 
-Implement thick planar Volume shadow connection with refraction and distance absorption, then hollow boundaries and caustics as separate changes. User visual acceptance of the new thin-shadow scene remains available as the next review step.
+Implement thick planar Volume shadow connection with refraction and distance absorption, then hollow boundaries and caustics as separate changes. The user visually accepted the thin-shadow scene on 2026-11-14.
