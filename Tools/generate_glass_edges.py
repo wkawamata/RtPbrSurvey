@@ -114,7 +114,7 @@ def rounded_box(size, radius, subdivisions):
     return positions, normals, triangles
 
 
-def tumbler(wall, base, segments):
+def tumbler(wall, base, segments, rim_radius):
     # Analytic tangent continuity at the base fillets, tapered walls and rolled rim.
     profile = []
     def line(a, b):
@@ -127,8 +127,9 @@ def tumbler(wall, base, segments):
             tangent = tuple(3*q*q*(b[k]-a[k])+6*q*t*(c[k]-b[k])+3*t*t*(d[k]-c[k]) for k in range(2))
             profile.append((point, unit((tangent[1], -tangent[0]))))
     outer = .49
-    lip = wall/2
-    center_r, center_y = outer-lip, 1.65-lip
+    lip = rim_radius
+    assert 0 < lip < wall/2
+    center_y = 1.65-lip
     slope = (outer-.405)/(center_y-.06)
     # A vertical tangent at the rolled rim is blended into the tapered body.
     line((0, 0), (.35, 0))
@@ -136,11 +137,17 @@ def tumbler(wall, base, segments):
     line((.405, .06), (outer-.07*slope, center_y-.07))
     bezier((outer-.07*slope, center_y-.07), (outer-.045*slope, center_y-.045),
            (outer, center_y-.025), (outer, center_y))
-    for i in range(17):
+    # Preserve wall width with a flat top land and small outside/inside fillets.
+    for i in range(9):
         angle = math.pi*i/16
-        profile.append(((center_r+lip*math.cos(angle), center_y+lip*math.sin(angle)),
+        profile.append(((outer-lip+lip*math.cos(angle), center_y+lip*math.sin(angle)),
                         (math.cos(angle), math.sin(angle))))
     inner = outer-wall
+    line((outer-lip, 1.65), (inner+lip, 1.65))
+    for i in range(9):
+        angle = math.pi/2+math.pi*i/16
+        profile.append(((inner+lip+lip*math.cos(angle), center_y+lip*math.sin(angle)),
+                        (math.cos(angle), math.sin(angle))))
     bottom = .405-wall
     inner_slope = (inner-bottom)/(center_y-(base+.06))
     bezier((inner, center_y), (inner, center_y-.025),
@@ -222,9 +229,9 @@ def main():
     scene.update(sceneId='warm-glass-edges', name='PT Warm Glass Edges',
                  description='Rounded rims and beveled glass panels. Same smooth thin optics and warm studio lighting as the thin-shadow control.')
     meshes = {}
-    for name, wall, base in [('thin', .036, .11), ('thick', .132, .28)]:
+    for name, wall, base, rim in [('thin', .012, .11, .002), ('thick', .132, .28, .006)]:
         material = json.loads((source/f'{name}-tumbler.gltf').read_text())['materials'][0]
-        meshes[f'{name}-tumbler'] = save_mesh(args.output/f'{name}-tumbler.gltf', tumbler(wall, base, args.segments), material)
+        meshes[f'{name}-tumbler'] = save_mesh(args.output/f'{name}-tumbler.gltf', tumbler(wall, base, args.segments, rim), material)
     material = dict(name='Smooth thin cyan sheet', doubleSided=True,
                     pbrMetallicRoughness=dict(baseColorFactor=[.45, .85, 1, 1], metallicFactor=0, roughnessFactor=0),
                     extensions=dict(KHR_materials_transmission=dict(transmissionFactor=1), KHR_materials_ior=dict(ior=1.5)))

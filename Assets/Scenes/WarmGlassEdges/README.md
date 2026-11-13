@@ -4,10 +4,11 @@ Open **PT Warm Glass Edges** from Saved Scenes. This fixture extends the accepte
 **PT Warm Glass Thin Shadows** scene. The camera, lighting, Studio environment,
 exposure, seed and optical modes are retained; the four glass meshes are replaced.
 
-- Tumblers: 128 radial segments (the control uses 48), a 16-segment semicircular
-  rolled rim, smooth tangent normals, and rounded base transitions. Top height is
-  1.65, outer lip radius 0.49; upper wall widths remain 0.036 and 0.132. Base
-  thickness remains 0.11 and 0.28. Both tumblers still use thin-surface optics.
+- Tumblers: 128 radial segments (the control uses 48), eight-segment inside/outside
+  rim fillets with a flat top land, smooth tangent normals and rounded bases.
+  Top height is 1.65; outer lip radius is 0.49. Upper wall widths are 0.012 and
+  0.132, rim fillet radii 0.002 and 0.006, and base thicknesses 0.11 and 0.28.
+  Both tumblers still use thin-surface optics.
 - Thin panel: 1.02 x 1.82 x 0.026, with a 0.004 rounded edge radius.
 - Solid slab: 1.03 x 1.82 x 0.30, with a 0.025 rounded edge radius. It remains the
   single solid Volume object, IOR 1.5, no absorption.
