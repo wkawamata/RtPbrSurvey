@@ -1,3 +1,7 @@
+#ifndef RTPBRSURVEY_THIN_DIRECT_SHADOWS
+#define RTPBRSURVEY_THIN_DIRECT_SHADOWS 0
+#endif
+
 #include "Material.hlsli"
 
 RWTexture2D<float4> g_sceneColor : register(u0);
@@ -378,6 +382,7 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
 
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
 struct ThinShadowResult
 {
     float3 transmittance;
@@ -468,6 +473,8 @@ ThinShadowResult TraceThinDirectShadow(float3 worldPosition, float3 normal, Path
     result.transmittance = 0.0;
     return result;
 }
+
+#endif
 
 uint FindSampledEmitter(uint instanceId, uint primitiveIndex)
 {
@@ -629,9 +636,11 @@ float3 TracePath(uint2 pixel,
     float volumeDistance = 0.0;
     float volumeInternalReflections = 0.0;
     uint volumeError = 0;
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
     uint thinShadowStatus = 0;
     uint thinShadowInterfaces = 0;
     uint thinShadowQueries = 0;
+#endif
     float3 volumeOutgoingDirection = 0.0;
     float3 volumeExitPosition = 0.0;
     const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
@@ -1041,11 +1050,15 @@ float3 TracePath(uint2 pixel,
                 {
                     continue;
                 }
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
                 const ThinShadowResult shadow = TraceThinDirectShadow(hitPosition, geometryNormal, candidate.lightSample);
                 thinShadowStatus |= shadow.status;
                 thinShadowInterfaces = max(thinShadowInterfaces, shadow.interfaces);
                 thinShadowQueries += shadow.queries;
                 const float3 visibility = shadow.transmittance;
+#else
+                const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample, 0);
+#endif
                 const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
                 const float3 lighting = candidate.lightSample.radiance *
                     (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
@@ -1268,10 +1281,12 @@ float3 TracePath(uint2 pixel,
     {
         return volumeTransmittance;
     }
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
     if (debugOutput == 13)
     {
         return float3(thinShadowStatus, thinShadowInterfaces, thinShadowQueries);
     }
+#endif
     return radiance;
 }
 

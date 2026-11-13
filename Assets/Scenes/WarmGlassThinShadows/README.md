@@ -8,7 +8,7 @@ zero). The panel is tinted cyan so transmitted direct light is easy to identify.
 The thick Volume slab is unchanged and retains an opaque direct shadow.
 
 Only analytic directional/point/spot direct shadows transmit in this step.
-Rough thin glass, Volume refraction/absorption, environment visibility and emissive
+Non-delta rough thin glass, Volume refraction/absorption, environment visibility and emissive
 NEE visibility keep their existing opaque-shadow behavior. This is not a caustic
 implementation. The original Warm Glass Table materials remain unchanged.
 
@@ -25,9 +25,13 @@ The seventeenth interface blocks conservatively. In Rendering > Path Tracing
 Output, Thin Shadow Status stores raw R=status bits (1 budget, 2 unsupported
 rough/Volume, 4 invalid data/advance), G=max interfaces and B=shadow query count.
 The channels aggregate analytic shadow calls along the traced camera path.
-Use a raw SceneColor capture for numeric inspection; the display is tone mapped.
+Use one sample/frame with Accumulate OFF and a raw SceneColor capture for numeric
+flags/counts; otherwise they are averaged. The display is tone mapped.
 
 A useful review is to compare the cyan panel shadow with the dark solid slab
 shadow, then inspect the softer/lighter tumbler footprints and visible wood grain.
 Use Native first. For RR, enable thin/smooth-volume/transmission-motion opt-ins
 and SDK evaluation as in the original scene README.
+
+A specialized PSO is selected only for thin-material scenes or this diagnostic.
+The shared HLSL is compiled without the traversal in ordinary opaque scenes.

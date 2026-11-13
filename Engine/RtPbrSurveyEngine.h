@@ -1337,6 +1337,7 @@ private:
     ComPtr<ID3D12PipelineState> m_proceduralEnvPipeline;
     ComPtr<ID3D12PipelineState> m_hybridReflectionPipeline;
     ComPtr<ID3D12PipelineState> m_pathTracingPipeline;
+    ComPtr<ID3D12PipelineState> m_pathTracingThinShadowPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryShadowPipeline;
     ComPtr<ID3D12PipelineState> m_specularDebugRayQueryPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryTlasDebugPipeline;
@@ -1815,6 +1816,7 @@ private:
         GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
         ShaderBytecode pathTracing;
+        ShaderBytecode pathTracingThinShadows;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
         ShaderBytecode specularDebugRayQuery;

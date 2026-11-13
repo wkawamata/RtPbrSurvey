@@ -3494,6 +3494,7 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                                   LoadShaderBytecode(L"shaders_DebugBufferPreview_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
     shaders.pathTracing = LoadShaderBytecode(L"shaders_PathTracing_CSMain.cso");
+    shaders.pathTracingThinShadows = LoadShaderBytecode(L"shaders_PathTracingThinShadows_CSMain.cso");
     shaders.proceduralEnv = LoadShaderBytecode(L"shaders_ProceduralEnvMap_CSMain.cso");
     shaders.rayQueryShadow = LoadShaderBytecode(L"shaders_RayQueryShadow_CSMain.cso");
     shaders.specularDebugRayQuery = LoadShaderBytecode(L"shaders_SpecularDebugRayQuery_CSMain.cso");
@@ -3757,6 +3758,9 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         pathTracingDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.pathTracing.data, shaders.pathTracing.size);
         ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
             &pathTracingDesc, IID_PPV_ARGS(&m_pathTracingPipeline)));
+        pathTracingDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.pathTracingThinShadows.data, shaders.pathTracingThinShadows.size);
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
+            &pathTracingDesc, IID_PPV_ARGS(&m_pathTracingThinShadowPipeline)));
     }
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC rayQueryShadowDesc = {};
@@ -7258,7 +7262,9 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 
     Engine::PathTracingPassDesc passDesc = {};
     passDesc.rootSignature = m_pathTracingRootSignature.Get();
-    passDesc.pipelineState = m_pathTracingPipeline.Get();
+    passDesc.pipelineState =
+        (m_sceneHasThinTransmission || m_pathTracingSettings.debugOutput == PathTracingDebugOutput::ThinShadowStatus)
+            ? m_pathTracingThinShadowPipeline.Get() : m_pathTracingPipeline.Get();
     passDesc.sceneColorUav = m_pathTracingSceneColorUav.gpu;
     passDesc.accumulationUav = m_pathTracingAccumulationUav.gpu;
     passDesc.normalRoughnessUav = m_pathTracingGuideTextureUavs[PathTracingGuideNormalRoughness].gpu;
