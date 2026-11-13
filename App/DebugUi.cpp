@@ -611,7 +611,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     struct WorkMeterHistory
     {
         enum { Capacity = 240 };
-        std::array<float, Capacity> cpu{}, gpu{}, fps{}, rrSdk{}, rrConversion{};
+        std::array<float, Capacity> cpu{}, gpu{}, fps{}, frameFps{}, rrSdk{}, rrConversion{};
         int count = 0;
         int next = 0;
         int lastFrame = -1;
@@ -630,6 +630,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         const int index = history.next;
         history.cpu[index] = std::isfinite(context.cpuFrameTime) ? (std::max)(context.cpuFrameTime, 0.0f) : 0.0f;
         history.fps[index] = history.cpu[index] > 0.0f ? 1000.0f / history.cpu[index] : 0.0f;
+        // Win32 NewFrame measures wall-clock time, including frame waits.
+        // This is independent of scene simulation time and CPU work duration.
+        const float frameSeconds = ImGui::GetIO().DeltaTime;
+        history.frameFps[index] = std::isfinite(frameSeconds) && frameSeconds > 0.0f ? 1.0f / frameSeconds : 0.0f;
         history.gpu[index] = context.gpuCheckPoints.size() >= 2 ? context.gpuCheckPoints.back().timeStamp : 0.0f;
         const auto& timing = context.pathTracingDiagnostics.reconstructionTimings;
         history.rrSdk[index] = timing.rrSdk.available ? timing.rrSdk.milliseconds : 0.0f;
@@ -666,6 +670,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                              ImVec2(ImGui::GetContentRegionAvail().x, 72.0f));
             ImGui::PopID();
         };
+        plot("FPS (wall-clock frame interval)", history.frameFps, history.fpsRange);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("1 / elapsed time between UI frames, including waits. This is not the RR output update rate.");
         plot("CPU Frame Time (ms)", history.cpu, history.timeRange);
         plot("GPU Total Time (ms)", history.gpu, history.timeRange);
         plot("CPU FPS (1000 / CPU Frame Time)", history.fps, history.fpsRange);
