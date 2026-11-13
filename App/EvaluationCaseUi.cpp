@@ -177,115 +177,119 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
     }
 
     ImGui::Text("Path: %s", app.m_evaluationStates.Path().c_str());
-    if (ImGui::Checkbox("Show Comments", &preferences.evaluationCommentsVisible))
+    if (ImGui::TreeNode("Scenes"))
     {
-        RtPbrSurvey::MarkDebugUiPreferencesDirty();
-    }
-    if (scope == EvaluationCaseScope::CurrentScene)
-    {
-        ImGui::SameLine();
-        if (ImGui::Button("Save as New Case"))
+        if (ImGui::Checkbox("Show Comments", &preferences.evaluationCommentsVisible))
         {
-            RtPbrSurvey::EvaluationState state;
-            state.id = app.m_evaluationStates.NextStateId();
-            state.name = "Evaluation " + std::to_string(state.id);
-            std::string error;
-            if (app.CaptureEvaluationState(state, &error))
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+        if (scope == EvaluationCaseScope::CurrentScene)
+        {
+            ImGui::SameLine();
+            if (ImGui::Button("Save as New Case"))
             {
-                states.push_back(std::move(state));
-                app.m_selectedEvaluationStateIndex = static_cast<int>(states.size()) - 1;
-                if (app.m_evaluationStates.Save(&error))
+                RtPbrSurvey::EvaluationState state;
+                state.id = app.m_evaluationStates.NextStateId();
+                state.name = "Evaluation " + std::to_string(state.id);
+                std::string error;
+                if (app.CaptureEvaluationState(state, &error))
                 {
-                    app.m_evaluationStatus = "Evaluation case created.";
+                    states.push_back(std::move(state));
+                    app.m_selectedEvaluationStateIndex = static_cast<int>(states.size()) - 1;
+                    if (app.m_evaluationStates.Save(&error))
+                    {
+                        app.m_evaluationStatus = "Evaluation case created.";
+                    }
+                    else
+                    {
+                        states.pop_back();
+                        app.m_selectedEvaluationStateIndex = -1;
+                        app.m_evaluationStatus = "Save failed: " + error;
+                    }
                 }
                 else
                 {
-                    states.pop_back();
-                    app.m_selectedEvaluationStateIndex = -1;
-                    app.m_evaluationStatus = "Save failed: " + error;
+                    app.m_evaluationStatus = "Capture failed: " + error;
                 }
             }
-            else
-            {
-                app.m_evaluationStatus = "Capture failed: " + error;
-            }
         }
-    }
 
-    const int columnCount = preferences.evaluationCommentsVisible ? 8 : 7;
-    const ImGuiTableFlags tableFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
-                                       ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY |
-                                       ImGuiTableFlags_SizingStretchProp;
-    if (ImGui::BeginTable("EvaluationCaseTable", columnCount, tableFlags, ImVec2(0.0f, 190.0f)))
-    {
-        ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 1.5f);
-        ImGui::TableSetupColumn("Scene", ImGuiTableColumnFlags_WidthStretch, 1.3f);
-        ImGui::TableSetupColumn("Rendering", ImGuiTableColumnFlags_WidthFixed, 74.0f);
-        ImGui::TableSetupColumn("DLSS SR", ImGuiTableColumnFlags_WidthFixed, 92.0f);
-        ImGui::TableSetupColumn("DLSS RR", ImGuiTableColumnFlags_WidthFixed, 72.0f);
-        ImGui::TableSetupColumn("ROI", ImGuiTableColumnFlags_WidthFixed, 38.0f);
-        ImGui::TableSetupColumn("Results", ImGuiTableColumnFlags_WidthFixed, 108.0f);
-        if (preferences.evaluationCommentsVisible)
+        const int columnCount = preferences.evaluationCommentsVisible ? 8 : 7;
+        const ImGuiTableFlags tableFlags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
+                                           ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY |
+                                           ImGuiTableFlags_SizingStretchProp;
+        if (ImGui::BeginTable("EvaluationCaseTable", columnCount, tableFlags, ImVec2(0.0f, 190.0f)))
         {
-            ImGui::TableSetupColumn("Comment", ImGuiTableColumnFlags_WidthStretch, 1.7f);
-        }
-        ImGui::TableHeadersRow();
-
-        std::optional<size_t> restoreIndex;
-        for (size_t index : visibleIndices)
-        {
-            const RtPbrSurvey::EvaluationState& state = states[index];
-            ImGui::PushID(static_cast<int>(state.id));
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            const std::string rowLabel = state.name.empty() ? "Untitled" : state.name;
-            const bool selected = app.m_selectedEvaluationStateIndex == static_cast<int>(index);
-            if (ImGui::Selectable(rowLabel.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
-            {
-                app.m_selectedEvaluationStateIndex = static_cast<int>(index);
-            }
-            const bool openFromDoubleClick = scope == EvaluationCaseScope::AllScenes && ImGui::IsItemHovered() &&
-                                             ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(state.sceneName.c_str());
-            ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(RenderingPathName(state));
-            ImGui::TableSetColumnIndex(3);
-            const std::string srSummary = DlssSrSummary(state);
-            ImGui::TextUnformatted(srSummary.c_str());
-            ImGui::TableSetColumnIndex(4);
-            ImGui::TextUnformatted(DlssRrSummary(state));
-            ImGui::TableSetColumnIndex(5);
-            ImGui::TextUnformatted(state.roi.enabled ? "Set" : "Off");
-            ImGui::TableSetColumnIndex(6);
-            const std::string resultSummary = ResultSummary(state);
-            ImGui::TextUnformatted(resultSummary.c_str());
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 1.5f);
+            ImGui::TableSetupColumn("Scene", ImGuiTableColumnFlags_WidthStretch, 1.3f);
+            ImGui::TableSetupColumn("Rendering", ImGuiTableColumnFlags_WidthFixed, 74.0f);
+            ImGui::TableSetupColumn("DLSS SR", ImGuiTableColumnFlags_WidthFixed, 92.0f);
+            ImGui::TableSetupColumn("DLSS RR", ImGuiTableColumnFlags_WidthFixed, 72.0f);
+            ImGui::TableSetupColumn("ROI", ImGuiTableColumnFlags_WidthFixed, 38.0f);
+            ImGui::TableSetupColumn("Results", ImGuiTableColumnFlags_WidthFixed, 108.0f);
             if (preferences.evaluationCommentsVisible)
             {
-                ImGui::TableSetColumnIndex(7);
-                ImGui::TextUnformatted(state.comment.c_str());
-                if (!state.comment.empty() && ImGui::IsItemHovered())
-                {
-                    ImGui::BeginTooltip();
-                    ImGui::PushTextWrapPos(420.0f);
-                    ImGui::TextUnformatted(state.comment.c_str());
-                    ImGui::PopTextWrapPos();
-                    ImGui::EndTooltip();
-                }
+                ImGui::TableSetupColumn("Comment", ImGuiTableColumnFlags_WidthStretch, 1.7f);
             }
-            if (openFromDoubleClick)
-            {
-                restoreIndex = index;
-            }
-            ImGui::PopID();
-        }
-        ImGui::EndTable();
+            ImGui::TableHeadersRow();
 
-        if (restoreIndex.has_value())
-        {
-            app.m_pendingEvaluationRestore = states[*restoreIndex];
+            std::optional<size_t> restoreIndex;
+            for (size_t index : visibleIndices)
+            {
+                const RtPbrSurvey::EvaluationState& state = states[index];
+                ImGui::PushID(static_cast<int>(state.id));
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                const std::string rowLabel = state.name.empty() ? "Untitled" : state.name;
+                const bool selected = app.m_selectedEvaluationStateIndex == static_cast<int>(index);
+                if (ImGui::Selectable(rowLabel.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
+                {
+                    app.m_selectedEvaluationStateIndex = static_cast<int>(index);
+                }
+                const bool openFromDoubleClick = scope == EvaluationCaseScope::AllScenes && ImGui::IsItemHovered() &&
+                                                 ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(state.sceneName.c_str());
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextUnformatted(RenderingPathName(state));
+                ImGui::TableSetColumnIndex(3);
+                const std::string srSummary = DlssSrSummary(state);
+                ImGui::TextUnformatted(srSummary.c_str());
+                ImGui::TableSetColumnIndex(4);
+                ImGui::TextUnformatted(DlssRrSummary(state));
+                ImGui::TableSetColumnIndex(5);
+                ImGui::TextUnformatted(state.roi.enabled ? "Set" : "Off");
+                ImGui::TableSetColumnIndex(6);
+                const std::string resultSummary = ResultSummary(state);
+                ImGui::TextUnformatted(resultSummary.c_str());
+                if (preferences.evaluationCommentsVisible)
+                {
+                    ImGui::TableSetColumnIndex(7);
+                    ImGui::TextUnformatted(state.comment.c_str());
+                    if (!state.comment.empty() && ImGui::IsItemHovered())
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::PushTextWrapPos(420.0f);
+                        ImGui::TextUnformatted(state.comment.c_str());
+                        ImGui::PopTextWrapPos();
+                        ImGui::EndTooltip();
+                    }
+                }
+                if (openFromDoubleClick)
+                {
+                    restoreIndex = index;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+
+            if (restoreIndex.has_value())
+            {
+                app.m_pendingEvaluationRestore = states[*restoreIndex];
+            }
         }
+        ImGui::TreePop();
     }
 
     if (visibleIndices.empty())
