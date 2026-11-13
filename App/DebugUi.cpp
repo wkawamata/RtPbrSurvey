@@ -687,24 +687,44 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
                     context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
 
-        const auto& gpuCheckPoints = context.gpuCheckPoints;
-        const size_t gpuCheckPointCount = gpuCheckPoints.size();
-        if (gpuCheckPointCount >= 2)
+        struct GpuTimingRow
         {
-            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            std::string name;
+            float milliseconds = 0.0f;
+            bool available = false;
+        };
+        static std::vector<GpuTimingRow> gpuRows;
+        for (auto& row : gpuRows)
+            row.available = false;
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        for (size_t i = 1; i + 1 < gpuCheckPoints.size(); ++i)
+        {
+            const auto& checkPoint = gpuCheckPoints[i];
+            // Match each occurrence separately when a pass name is repeated.
+            auto row = std::find_if(gpuRows.begin(), gpuRows.end(), [&checkPoint](const GpuTimingRow& candidate)
             {
-                const auto& checkPoint = gpuCheckPoints[i];
-                if (i < static_cast<int>(gpuCheckPointCount) - 1)
-                {
-                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
-                }
-                else
-                {
-                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
-                }
+                return !candidate.available && candidate.name == checkPoint.name;
+            });
+            if (row == gpuRows.end())
+            {
+                gpuRows.push_back({checkPoint.name});
+                row = gpuRows.end() - 1;
             }
+            row->milliseconds = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+            row->available = true;
         }
+        for (size_t i = 0; i < gpuRows.size(); ++i)
+        {
+            const auto& row = gpuRows[i];
+            if (row.available)
+                ImGui::Text("GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
+            else
+                ImGui::Text("GPU[%d] %s: -- (not executed)", static_cast<int>(i + 1), row.name.c_str());
+        }
+        if (gpuCheckPoints.size() >= 2)
+            ImGui::Text("GPU Total: %.6f ms", gpuCheckPoints.back().timeStamp);
+        else
+            ImGui::TextUnformatted("GPU Total: -- (not executed)");
     };
 
     if (ImGui::CollapsingHeader("Basic Settings###Scene", ImGuiTreeNodeFlags_DefaultOpen))
