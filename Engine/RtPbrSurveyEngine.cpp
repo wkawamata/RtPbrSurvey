@@ -3790,6 +3790,15 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
     // GBuffer PSO
     //
     RegisterGBufferPipeline(psoDesc, {Pipe::GBuffer, meshInputLayout, shaders.gbuffer});
+    {
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC maskBase = psoDesc;
+        maskBase.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        maskBase.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+        RegisterGBufferPipeline(maskBase,
+            {"MaterialHighlightMask", meshInputLayout,
+             {LoadShaderBytecode(L"shaders_MaterialHighlightMask_VSMain.cso"),
+              LoadShaderBytecode(L"shaders_MaterialHighlightMask_PSMain.cso")}});
+    }
 
     // Light Pass PSO, ToneMap PSO, GBuffer Debug PSO
     RegisterFullscreenPipelines(
@@ -5698,8 +5707,32 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
         [this](UINT rootParameterIndex)
         {
             const bool nearestSampling = m_debugViewSettings.renderViewMode == RenderViewMode::DlssInputColor;
-            const auto constants = m_toneMapPass.MakeShaderConstants(m_hdrOutputPolicy.settings, nearestSampling);
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
+            auto constants = m_toneMapPass.MakeShaderConstants(m_hdrOutputPolicy.settings, nearestSampling);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+            if (constants.highlightEnabled && m_renderingPath == RenderingPath::PathTracing &&
+                ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+            {
+                const auto* key = m_ptRrLive->PublishedKey();
+                const UINT slot = m_ptRrLive->PublishedSlot();
+                XMFLOAT4X4 currentViewProjection;
+                XMStoreFloat4x4(&currentViewProjection,
+                    XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.viewProjection)));
+                bool aligned = key && key->resetToken ==
+                    m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr) &&
+                    memcmp(key->viewProjection.data(), &currentViewProjection, sizeof(currentViewProjection)) == 0 &&
+                    m_rrInstancePoseFrameIds[slot] == key->frameId &&
+                    m_rrInstancePoses[slot].size() == m_scene.instances.size();
+                for (size_t i = 0; aligned && i < m_scene.instances.size(); ++i)
+                {
+                    const auto& retained = m_rrInstancePoses[slot][i];
+                    const auto& current = m_scene.instances[i];
+                    aligned = memcmp(&retained.world, &current.world, sizeof(current.world)) == 0 &&
+                        retained.materialId == current.materialId && retained.meshId == current.meshId;
+                }
+                constants.highlightEnabled = aligned ? 1u : 0u;
+            }
+#endif
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, sizeof(constants) / sizeof(UINT), &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(m_renderGraphRuntime.RegisterConstants(ConstName::GBufferDebugTarget),
                                               [this](UINT rootParameterIndex)

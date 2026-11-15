@@ -1469,6 +1469,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             ImGuiWidgets::SliderIntWithControls("Material", &app.m_selectedMaterialIndex, 0, materialCount - 1, 1, 0);
 
+            Engine::MaterialHighlightSettings& highlight = app.m_sceneRenderer.MaterialHighlight();
+            highlight.materialId = static_cast<UINT>(app.m_selectedMaterialIndex);
+            ImGui::Checkbox("Highlight Selected Material", &highlight.enabled);
+            if (highlight.enabled)
+            {
+                if (ImGui::Checkbox("Complementary Color", &highlight.complementary) && highlight.complementary)
+                {
+                    highlight.opacity = 1.0f;
+                }
+                if (!highlight.complementary)
+                {
+                    ImGui::ColorEdit3("Highlight RGB", highlight.color);
+                }
+                ImGui::SliderFloat("Highlight Opacity", &highlight.opacity, 0.0f, 1.0f);
+                ImGui::TextWrapped("Highlights the front visible surface; reflected and transmitted surfaces are excluded.");
+            }
+
             Engine::SceneMaterial& material = sceneMesh.materials[app.m_selectedMaterialIndex];
             bool materialChanged = false;
             materialChanged |= ImGuiWidgets::SliderFloatWithControls("Roughness", &material.roughnessFactor,
