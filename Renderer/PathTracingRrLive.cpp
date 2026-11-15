@@ -93,7 +93,7 @@ void PathTracingRrLive::MarkSubmitted(uint64_t fence)
     }
 }
 
-void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction)
+void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction, bool eagerProduction)
 {
     if (m_phase == Phase::InputPending)
         ++m_packetLatency.inputPolls;
@@ -129,7 +129,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         m_failure.clear();
         m_retryInput = false;
     }
-    if (m_phase == Phase::Ready && m_presented && advanceProduction)
+    if (m_phase == Phase::Ready && (m_presented || eagerProduction) && advanceProduction)
     {
         m_phase = Phase::Idle;
         m_presented = false;
@@ -178,7 +178,9 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             m_packetLatency.totalMs = std::chrono::duration<double, std::milli>(now - m_packetStarted).count();
             m_lastPacketLatency = m_packetLatency;
             ++m_completedCount;
-            m_phase = Phase::Ready;
+            // A verified published image is immutable and the next production
+            // uses the other output slot. No presentation-only tick is needed.
+            m_phase = eagerProduction && advanceProduction ? Phase::Idle : Phase::Ready;
         }
         else
         {

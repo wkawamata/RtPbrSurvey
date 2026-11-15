@@ -409,6 +409,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrStrictSchedule"))
+        {
+            options.pathTracingRrStrictSchedule = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrContinuous"))
         {
             options.enablePathTracing = true;

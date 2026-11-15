@@ -31,7 +31,7 @@ public:
         return m_lastPacketLatency;
     }
     void Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE validationShader);
-    void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false);
+    void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false, bool eagerProduction = false);
     void MarkSubmitted(uint64_t fence);
     void MarkPresented()
     {

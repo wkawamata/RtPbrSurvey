@@ -347,6 +347,12 @@ void RtPbrSurveyApp::OnInit()
     }
 
     InitializeImGui();
+    // First-output/lifecycle validators require the observable Ready phase.
+    m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
+        !m_commandLineOptions.pathTracingRrStrictSchedule &&
+        m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() &&
+        m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() &&
+        m_commandLineOptions.pathTracingHistoryValidationDirectory.empty());
     m_sceneRenderer.SetUpdateHandler([this]()
     {
         UpdateSampleState();

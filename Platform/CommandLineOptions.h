@@ -90,6 +90,7 @@ struct CommandLineOptions
     bool nrdContinuousCameraHistory = false;
     bool nrdPreview = false;
     bool pathTracingRrContinuous = false;
+    bool pathTracingRrStrictSchedule = false;
     bool pathTracingRrThinExperiment = false;
     bool pathTracingRrSmoothVolumeExperiment = false;
     bool pathTracingRrRoughVolumeExperiment = false;

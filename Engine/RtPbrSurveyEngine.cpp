@@ -6098,14 +6098,6 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
 {
     PIXBeginEvent(0, L"RenderFrame");
 
-#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_ptRrLive)
-        m_ptRrLive->Poll(m_graphicsDevice.CompletedFenceValue(),
-                         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
-                         m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused &&
-                             m_pathTracingFrameAdvance);
-#endif
-
     ProcessCompletedScreenshot();
 
     // Select the per-frame chunk within the main heap's reserved range and
@@ -6229,7 +6221,28 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     m_pathTracingFrameAdvance = advanceFrame;
 
     m_workMeter.Start();
+    // Publish completed history before camera/instance history is prepared.
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    const uint64_t rrEpochBeforeUpdate =
+        m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
+    if (m_ptRrLive)
+        m_ptRrLive->Poll(m_graphicsDevice.CompletedFenceValue(),
+                         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
+                         m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused &&
+                             m_pathTracingFrameAdvance, m_rrEagerProduction);
+#endif
+
     UpdateFrame(advanceFrame);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    // Scene updates can invalidate history after the early publication poll.
+    // Drain/reconcile that epoch before recording a new immutable packet.
+    const uint64_t rrEpochAfterUpdate =
+        m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
+    if (m_ptRrLive && rrEpochAfterUpdate != rrEpochBeforeUpdate)
+        m_ptRrLive->Poll(m_graphicsDevice.CompletedFenceValue(), rrEpochAfterUpdate,
+            m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused && advanceFrame,
+            m_rrEagerProduction);
+#endif
     RenderFrame(uiRenderHandler);
     m_workMeter.End();
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
