@@ -907,7 +907,7 @@ namespace RtPbrSurvey
             }
         }
 
-        ImGui::Text("Passes: %zu  Resources: %zu  Links: %zu", passCount, resourceCount, document.links.size());
+        ImGui::Text("Scheduled: %zu passes  %zu resources  %zu links", passCount, resourceCount, document.links.size());
         ImGui::RadioButton("Text", &dumpFormat, 0);
         ImGui::SameLine();
         ImGui::RadioButton("DOT", &dumpFormat, 1);

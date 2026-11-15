@@ -2503,6 +2503,23 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
             static_cast<unsigned long long>(rr.rrOutputPolls),
             rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
     const auto& checkPoints = context.gpuCheckPoints;
+    const auto graph = m_sceneRenderer.CaptureRenderGraphDocument();
+    nlohmann::json scheduled = nlohmann::json::array();
+    for (const auto& node : graph.nodes)
+        if (node.kind == Engine::RenderGraphNodeKind::Pass)
+            scheduled.push_back(node.name);
+    nlohmann::json measured = nlohmann::json::array();
+    for (const auto& point : checkPoints)
+        if (point.passIndex >= 0)
+            measured.push_back(point.name);
+    const nlohmann::json observation = {
+        {"uiFrame", m_fpsLogFrameCounter},
+        {"gpuPacket", checkPoints.empty() ? 0 : checkPoints.front().frameId},
+        {"rrPhase", rr.rrLivePhase}, {"rrInput", rr.rrInputFrameId},
+        {"rrPublished", rr.rrRetainedFrameId}, {"rrCompleted", rr.rrCompletedCount},
+        {"nativeEvaluateCalls", context.rayReconstructionDiagnostics.nativeEvaluateCallCount},
+        {"scheduled", scheduled}, {"measured", measured}};
+    fprintf(m_logFile, "[RenderGraphFrame] %s\n", observation.dump().c_str());
     if (checkPoints.size() >= 2)
     {
         fprintf(m_logFile, "[GPU] Frame %llu: latest completed total %.6f ms\n",

@@ -6555,8 +6555,11 @@ void RtPbrSurveyEngine::ExecutePasses()
                                     [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); },
                                     [this](int passIndex, const RenderPass& pass)
                                     {
-                                        m_gpuWorkMeter.SetCheckPoint(
-                                            m_commandList.Get(), WideToUtf8(pass.name), passIndex);
+                                        const auto node = std::find_if(m_renderGraphBarrierDocument.nodes.begin(),
+                                            m_renderGraphBarrierDocument.nodes.end(), [&](const auto& value)
+                                            { return value.kind == Engine::RenderGraphNodeKind::Pass && value.passIndex == passIndex; });
+                                        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), WideToUtf8(pass.name), passIndex,
+                                            node == m_renderGraphBarrierDocument.nodes.end() ? 0 : node->id.value);
                                     }});
     m_hasRenderGraphBarrierEvents = true;
 }
@@ -9008,6 +9011,16 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     registerPingPongGroup(kReflectionResolvedSpecularEstimateResourceNames, "ReflectionResolvedSpecularEstimate");
     registerPingPongGroup(kReflectionSpecularMomentsResourceNames, "ReflectionSpecularMoments");
     registerPingPongGroup(kReflectionSpecularConfidenceResourceNames, "ReflectionSpecularConfidence");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    for (unsigned int i = 0; i < 2; ++i)
+    {
+        auto& resource = metadata[kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput + i]];
+        resource.logicalGroupName = "PathTracing.RrOutput";
+        resource.physicalIndex = static_cast<int>(i);
+        resource.pingPongRole = m_ptRrLive && m_ptRrLive->OutputReady() && i == m_ptRrLive->PublishedSlot()
+            ? Engine::RenderGraphPingPongRole::HistoryRead : Engine::RenderGraphPingPongRole::CurrentWrite;
+    }
+#endif
 
     const auto isThumbnailPass = [](const wchar_t* passName)
     {

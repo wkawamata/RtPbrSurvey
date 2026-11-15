@@ -14,6 +14,7 @@
 #include "Runtime/RenderGraphNodeEditorView.h"
 
 #include "Runtime/DebugBufferInspector.h"
+#include "Runtime/RenderGraphObservation.h"
 
 #include "third_party/imgui-node-editor/imgui_node_editor.h"
 
@@ -1245,6 +1246,9 @@ struct RenderGraphNodeEditorView::Impl
     std::unordered_map<int, PassTimingHistory> passTimings;
     PassTimingHistory totalTiming;
     int timingMode = 1;
+    RenderGraphObservation observation;
+    bool stableStructure = true;
+    uint64_t lastTimingFrame = 0;
     std::optional<Engine::RenderGraphDocument> baselineDocument;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
@@ -1433,13 +1437,16 @@ struct RenderGraphNodeEditorView::Impl
 
     void UpdateTimings(const RenderGraphGpuTimingSnapshot* timing)
     {
-        if (timing == nullptr || timing->samples.empty())
+        if (timing == nullptr || timing->samples.empty() ||
+            (timing->frameId != 0 && timing->frameId == lastTimingFrame))
         {
             return;
         }
+        lastTimingFrame = timing->frameId;
         for (const RenderGraphGpuTimingSample& sample : timing->samples)
         {
-            passTimings[sample.passIndex].Add(sample.durationMs);
+            if (sample.passIndex >= 0)
+                passTimings[sample.passIndex].Add(sample.durationMs);
         }
         totalTiming.Add(timing->totalGpuTimeMs);
     }
@@ -1449,18 +1456,56 @@ RenderGraphNodeEditorView::RenderGraphNodeEditorView() : m_impl(std::make_unique
 
 RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
-void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document,
+void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& currentDocument,
                                      const RenderGraphGpuTimingSnapshot* timing,
                                      const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics,
                                      const Engine::DebugResourceViewRegistry* resourceViewRegistry,
                                      const RenderGraphResourceActions* resourceActions,
                                      const RenderGraphTechnologyMetadata* technologyMetadata)
 {
-    m_impl->UpdateTimings(timing);
+    const bool structureModeChanged = ImGui::Checkbox("Stable observed structure", &m_impl->stableStructure);
+    ImGui::SameLine();
+    const bool clearObserved = ImGui::Button("Clear observed structure");
+    if (clearObserved)
+        m_impl->observation.Clear();
+    if (structureModeChanged || clearObserved)
+    {
+        // Stable slots and per-frame indices are distinct timing namespaces.
+        m_impl->passTimings.clear();
+        m_impl->totalTiming = {};
+        m_impl->lastTimingFrame = 0;
+        m_impl->baselineDocument.reset();
+    }
+    m_impl->observation.Observe(currentDocument);
+    const auto& document = m_impl->stableStructure ? m_impl->observation.Document() : currentDocument;
+    ImGui::TextWrapped(m_impl->stableStructure
+        ? "Observed structure; slots and use spans are not a single-frame execution order. Idle nodes remain visible."
+        : "Latest scheduled graph. GPU timings belong to a delayed completed packet.");
+    RenderGraphGpuTimingSnapshot mappedTiming;
+    if (timing)
+    {
+        mappedTiming = *timing;
+        for (auto& sample : mappedTiming.samples)
+        {
+            if (sample.passName.empty())
+            {
+                const auto raw = std::find_if(currentDocument.nodes.begin(), currentDocument.nodes.end(),
+                    [&](const auto& n) { return n.kind == Engine::RenderGraphNodeKind::Pass && n.passIndex == sample.passIndex; });
+                if (raw != currentDocument.nodes.end())
+                    sample.passName = raw->name;
+            }
+            const auto slot = std::find_if(document.nodes.begin(), document.nodes.end(),
+                [&](const auto& n) { return n.kind == Engine::RenderGraphNodeKind::Pass &&
+                    (sample.passNodeId != 0 ? n.id.value == sample.passNodeId : n.name == sample.passName); });
+            sample.passIndex = slot == document.nodes.end() ? -1 : slot->passIndex;
+        }
+    }
+    m_impl->UpdateTimings(timing ? &mappedTiming : nullptr);
+    // Validate the real scheduled graph only, never the historical union.
     const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
-        Engine::BuildRenderGraphStateDiagnostics(document);
+        Engine::BuildRenderGraphStateDiagnostics(currentDocument);
     const std::vector<Engine::RenderGraphValidationMessage> validationMessages =
-        Engine::ValidateRenderGraphDocument(document);
+        Engine::ValidateRenderGraphDocument(currentDocument);
     const bool deferredFitRequested = m_impl->fitGraphRequested;
     m_impl->fitGraphRequested = false;
     const int previousLayoutMode = m_impl->layoutMode;
@@ -1487,7 +1532,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
     ImGui::SameLine();
-    constexpr const char* timingModes[] = {"GPU Current", "GPU Average (120)", "GPU Max (120)"};
+    constexpr const char* timingModes[] = {"GPU Last measured", "GPU Average (120 samples)", "GPU Max (120 samples)"};
     ImGui::SetNextItemWidth(150.0f);
     ImGui::Combo("##RenderGraphTimingMode", &m_impl->timingMode, timingModes, _countof(timingModes));
     ImGui::SameLine();
@@ -1797,6 +1842,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         {
             ImGui::TextUnformatted(NodeDisplayName(node));
         }
+        ImGui::TextDisabled(m_impl->observation.IsCurrent(node.id) ? "Scheduled / used" : "Idle this schedule");
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ImGui::TextDisabled("%s", ResourceKindLabel(node.resourceKind));
@@ -2144,6 +2190,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                                                                                 &m_impl->connectedOnly,
                                                                                                 &m_impl->fitGraphRequested);
     ImGui::EndChild();
+    if (m_impl->stableStructure)
+        ImGui::TextWrapped("Timeline: observed use spans in stable slots, not this frame's allocation lifetime.");
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
     DrawStateDiagnostics(document, stateDiagnostics, barrierDiagnostics);

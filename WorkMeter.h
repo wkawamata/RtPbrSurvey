@@ -59,10 +59,13 @@ public:
     class CheckPoint
     {
     public:
-        CheckPoint(const std::string& name, int passIndex = -1) : name(name), timeStamp(0.f), passIndex(passIndex) {}
+        CheckPoint(const std::string& name, int passIndex = -1, UINT64 frameId = 0, UINT64 passNodeId = 0)
+            : name(name), timeStamp(0.f), passIndex(passIndex), frameId(frameId), passNodeId(passNodeId) {}
         std::string name;
         float timeStamp;
         int passIndex;
+        UINT64 frameId;
+        UINT64 passNodeId;
     };
 
     void Init(ID3D12Device* device, UINT maxQueryCount, UINT frameCount)
@@ -95,13 +98,14 @@ public:
         m_activeFrameIndex = frameIndex;
         FrameQueries& frame = m_frames[frameIndex];
         frame.queryIndex = 0;
+        frame.frameId = ++m_submissionSerial;
         frame.checkPoints = &checkPoints;
         frame.checkPoints->clear();
         query(commandList, frame, frame.queryIndex, std::string("StartGpu"));
         frame.queryIndex++;
     }
 
-    void SetCheckPoint(ID3D12GraphicsCommandList* commandList, const std::string& name, int passIndex = -1)
+    void SetCheckPoint(ID3D12GraphicsCommandList* commandList, const std::string& name, int passIndex = -1, UINT64 passNodeId = 0)
     {
         FrameQueries& frame = m_frames[m_activeFrameIndex];
         if (frame.queryIndex >= m_maxQueryCount)
@@ -110,7 +114,7 @@ public:
             assert(false && "Exceeded maximum query count");
             return;
         }
-        query(commandList, frame, frame.queryIndex, name, passIndex);
+        query(commandList, frame, frame.queryIndex, name, passIndex, passNodeId);
         frame.queryIndex++;
     }
 
@@ -164,20 +168,22 @@ private:
         ComPtr<ID3D12Resource> queryReadback;
         std::vector<CheckPoint>* checkPoints = nullptr;
         int queryIndex = 0;
+        UINT64 frameId = 0;
     };
 
     std::vector<FrameQueries> m_frames;
     UINT m_activeFrameIndex = 0;
+    UINT64 m_submissionSerial = 0;
     int m_maxQueryCount = 0;
 
     void query(ID3D12GraphicsCommandList* commandList,
                FrameQueries& frame,
                UINT queryIndex,
                const std::string& name,
-               int passIndex = -1)
+               int passIndex = -1, UINT64 passNodeId = 0)
     {
         commandList->EndQuery(frame.queryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, queryIndex);
-        frame.checkPoints->emplace_back(CheckPoint(name, passIndex));
+        frame.checkPoints->emplace_back(CheckPoint(name, passIndex, frame.frameId, passNodeId));
     }
 };
 
