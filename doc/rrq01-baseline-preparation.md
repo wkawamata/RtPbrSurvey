@@ -1,6 +1,6 @@
 # RRQ-01 baseline preparation
 
-Status: prepared; GPU measurement pending external GPU availability.
+Status: completed on 2026-11-17; see [baseline results](rrq01-baseline-results.md).
 
 Rendering source baseline: 1b3120e (eager publication), with strict comparison
 selected using -PathTracingRrStrictSchedule. No rendering policy changes are made
@@ -52,5 +52,5 @@ is scheduled by this preparation.
 
 CPU-only parser verification passed four tests: rate/count separation, duplicate
 packet deduplication, missing interval/counter regression rejection and nonfinite/
-negative timing rejection. RRQ-01 is not complete until the isolated cohort and
-its summary report have been produced.
+negative timing rejection. The initial and extended cohorts have now completed;
+see the results report for observations and limitations.
