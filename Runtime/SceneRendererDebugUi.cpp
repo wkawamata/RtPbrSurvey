@@ -23,6 +23,12 @@
 
 namespace
 {
+    RenderGraphNodeEditorView& GetRenderGraphNodeEditorView()
+    {
+        static RenderGraphNodeEditorView nodeEditorView;
+        return nodeEditorView;
+    }
+
     struct ShadowPreset
     {
         const char* label;
@@ -926,7 +932,7 @@ namespace RtPbrSurvey
 
         if (dumpFormat == 2)
         {
-            static RenderGraphNodeEditorView nodeEditorView;
+            RenderGraphNodeEditorView& nodeEditorView = GetRenderGraphNodeEditorView();
             const std::vector<Engine::RenderGraphBarrierDiagnostic> barrierDiagnostics =
                 renderer.GetRenderGraphBarrierDiagnostics();
             nodeEditorView.Draw(document,
@@ -995,6 +1001,12 @@ namespace RtPbrSurvey
                     restoreSize = ImGui::GetWindowSize();
                     maximized = true;
                 }
+            }
+            ImGui::SameLine();
+            RenderGraphNodeEditorView& nodeEditorView = GetRenderGraphNodeEditorView();
+            if (ImGui::SmallButton(nodeEditorView.IsDetailsPaneOpen() ? "[-] Details" : "[+] Details"))
+            {
+                nodeEditorView.ToggleDetailsPane();
             }
             ImGui::SameLine();
             ImGui::TextDisabled("Read-only diagnostics");

@@ -1,6 +1,8 @@
 #include "FullscreenTriangle.hlsli"
 
 Texture2D<float4> g_hdrSceneColor : register(t0, space4);
+Texture2D<uint> g_highlightMaterial : register(t2, space3);
+Texture2D<uint> g_highlightObject : register(t6, space3);
 SamplerState g_sampler : register(s0);
 
 cbuffer ToneMapConstants : register(b3)
@@ -11,6 +13,13 @@ cbuffer ToneMapConstants : register(b3)
     float paperWhiteNits;
     float maxDisplayNits;
     uint nearestSampling;
+    uint highlightEnabled;
+    uint highlightMaterialId;
+    uint highlightComplementary;
+    float highlightOpacity;
+    float highlightRed;
+    float highlightGreen;
+    float highlightBlue;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -163,6 +172,19 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         hdr = g_hdrSceneColor.Sample(g_sampler, input.uv);
     }
     float3 mapped = ApplyToneMap(hdr.rgb);
+    if (highlightEnabled != 0)
+    {
+        uint width, height;
+        g_highlightMaterial.GetDimensions(width, height);
+        int2 pixel = min(int2(input.uv * float2(width, height)), int2(width - 1, height - 1));
+        if (g_highlightObject.Load(int3(pixel, 0)) != 0 &&
+            g_highlightMaterial.Load(int3(pixel, 0)) == highlightMaterialId)
+        {
+            float3 tint = highlightComplementary != 0 ? 1.0 - saturate(mapped) :
+                float3(highlightRed, highlightGreen, highlightBlue);
+            mapped = lerp(mapped, tint, saturate(highlightOpacity));
+        }
+    }
 
     float3 nits = ToneMappedLinearToNits(mapped);
     float3 outputColor = ApplyTransferFunction(nits);

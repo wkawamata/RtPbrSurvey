@@ -508,6 +508,7 @@ public:
     const std::array<float, 4>& GetBackBufferClearColor() const { return m_backBufferClearColor; }
     void SetDisplayInstanceCount(int count);
     void SetToneMapParams(const ToneMapParams& params);
+    Engine::MaterialHighlightSettings& MaterialHighlight() { return m_toneMapPass.settings.highlight; }
     ToneMapParams GetToneMapParams() const
     {
         return {m_toneMapPass.settings.operatorIndex,

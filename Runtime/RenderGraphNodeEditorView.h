@@ -69,6 +69,9 @@ public:
               const RenderGraphResourceActions* resourceActions = nullptr,
               const RenderGraphTechnologyMetadata* technologyMetadata = nullptr);
 
+    bool IsDetailsPaneOpen() const;
+    void ToggleDetailsPane();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;

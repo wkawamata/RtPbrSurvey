@@ -99,6 +99,7 @@ namespace RtPbrSurvey
         const std::array<float, 4>& GetBackBufferClearColor() const;
         void SetDisplayInstanceCount(int count);
         void SetToneMapParams(const RtPbrSurveyEngine::ToneMapParams& params);
+        Engine::MaterialHighlightSettings& MaterialHighlight() { return m_engine.MaterialHighlight(); }
         RtPbrSurveyEngine::ToneMapParams GetToneMapParams() const;
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
