@@ -347,6 +347,7 @@ void RtPbrSurveyApp::OnInit()
     }
 
     InitializeImGui();
+    m_sceneRenderer.EngineForDebugTools().SetRrSafeInputs(m_commandLineOptions.pathTracingRrSafeSerial);
     // First-output/lifecycle validators require the observable Ready phase.
     m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
         !m_commandLineOptions.pathTracingRrStrictSchedule &&

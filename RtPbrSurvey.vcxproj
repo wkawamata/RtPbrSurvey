@@ -456,12 +456,13 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\RayReconstructionInputConversion.hlsli" />
+    <None Include="Shaders\RayReconstructionInputSafety.hlsli" />
     <CustomBuild Include="Shaders\shaders_PathTracingRrConversion.hlsl">
       <FileType>Document</FileType>
       <Message>%(Identity)</Message>
       <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -D RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1 -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
-      <AdditionalInputs>$(ProjectDir)Shaders\RayReconstructionInputConversion.hlsli;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\RayReconstructionInputSafety.hlsli;$(ProjectDir)Shaders\RayReconstructionInputConversion.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_PathTracingRrValidation.hlsl">
       <FileType>Document</FileType>

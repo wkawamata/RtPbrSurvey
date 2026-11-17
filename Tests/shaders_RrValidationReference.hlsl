@@ -17,7 +17,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     {
         // Preserve the input status category in the existing 8-byte summary.
         // Output validation continues to use bit zero for nonfinite RGB.
-        uint category = isfinite(value.x) && value.x >= 1 && value.x <= 6 ? (uint)value.x : 31;
+        uint category = isfinite(value.x) && value.x >= 1 && value.x <= 7 && value.x == floor(value.x) ? (uint)value.x : 31;
         g_summary.InterlockedOr(0, outputMode != 0 ? 1u : (1u << category), ignored);
     }
     g_summary.InterlockedAdd(4, 1, ignored);

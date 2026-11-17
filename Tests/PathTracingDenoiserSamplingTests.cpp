@@ -889,6 +889,7 @@ int main(int argc, char** argv)
         bool inputConversion = false;
         bool rrInputConversion = false;
         bool rrLiveDistance = false;
+        bool rrInputSafety = false;
         bool thinTransmission = false;
         bool roughThinTransmission = false;
         bool thinMetallic = false;
@@ -948,6 +949,10 @@ int main(int argc, char** argv)
             {
                 rrInputConversion = true;
             }
+            else if (std::strcmp(argv[index], "--rr-input-safety") == 0)
+            {
+                rrInputSafety = true;
+            }
             else if (std::strcmp(argv[index], "--rr-live-distance") == 0)
             {
                 rrLiveDistance = true;
@@ -965,7 +970,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) + int(rrInputSafety) +
                 int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) + int(ggxPrecision) + int(roughVolume) >
             1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
@@ -1021,7 +1026,7 @@ int main(int argc, char** argv)
         pipelineDesc.CS = {shader.data(), shader.size()};
         ComPtr<ID3D12PipelineState> pipeline;
         Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
-        const UINT64 byteCount = UINT64(sampleCount) * (rrInputConversion || rrLiveDistance ? 24 : 16) * sizeof(float);
+        const UINT64 byteCount = UINT64(sampleCount) * (rrInputConversion || rrLiveDistance || rrInputSafety ? 24 : 16) * sizeof(float);
         ComPtr<ID3D12Resource> inputBuffer;
         if (inputPath)
         {
@@ -1123,6 +1128,10 @@ int main(int argc, char** argv)
         else if (roughThinTransmission)
         {
             ValidateRoughThinTransmission(static_cast<const float*>(data));
+        }
+        else if (rrInputSafety)
+        {
+            RrInputTests::ValidateRrInputSafety(static_cast<const float*>(data), sampleCount);
         }
         else if (rrInputConversion)
         {

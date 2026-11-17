@@ -409,6 +409,13 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrSchedule"))
+        {
+            if (i + 1 >= argc || !IsCommandLineArg(argv[i + 1], L"safe-serial"))
+                throw std::invalid_argument("-PathTracingRrSchedule currently expects safe-serial.");
+            ++i;
+            options.pathTracingRrSafeSerial = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrStrictSchedule"))
         {
             options.pathTracingRrStrictSchedule = true;

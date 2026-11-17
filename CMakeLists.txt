@@ -619,6 +619,15 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_link_libraries(RtPbrSurvey.RrValidationTests PRIVATE d3d12 dxgi)
     add_test(NAME RtPbrSurvey.RrValidation
         COMMAND RtPbrSurvey.RrValidationTests "${rr_validation_shader}" "${rr_validation_reference_shader}")
+    set(rr_safety_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputSafety_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_safety_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_safety_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrInputSafety.hlsl"
+        DEPENDS Tests/shaders_RrInputSafety.hlsl Shaders/RayReconstructionInputSafety.hlsli
+            Shaders/RayReconstructionInputConversion.hlsli VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rr_safety_shader}")
+    add_test(NAME RtPbrSurvey.RrInputSafety
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rr_safety_shader}" --rr-input-safety)
     set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
     set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
     set(rr_live_distance_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrLiveDistance_CSMain.cso")
@@ -630,6 +639,7 @@ if(RTPBRSURVEY_BUILD_TESTS)
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
             "-Fo${rr_live_distance_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrLiveDistance.hlsl"
         DEPENDS Tests/shaders_RrInputConversion.hlsl Shaders/shaders_PathTracingRrConversion.hlsl
+            Shaders/RayReconstructionInputSafety.hlsli
             Shaders/RayReconstructionInputConversion.hlsli Tests/shaders_RrLiveDistance.hlsl
         VERBATIM)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE
@@ -644,7 +654,30 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_features(RtPbrSurvey.RrTextureConversionTests PRIVATE cxx_std_17)
     target_compile_definitions(RtPbrSurvey.RrTextureConversionTests PRIVATE NOMINMAX)
     target_link_libraries(RtPbrSurvey.RrTextureConversionTests PRIVATE d3d12 dxgi)
+    set(rr_safe_texture_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrSafeTexture_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_safe_texture_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            -DRTPBRSURVEY_RR_SAFE_INPUT_TEST=1 "-Fo${rr_safe_texture_shader}"
+            "${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrConversion.hlsl"
+        DEPENDS Shaders/shaders_PathTracingRrConversion.hlsl Shaders/RayReconstructionInputSafety.hlsli
+            Shaders/RayReconstructionInputConversion.hlsli VERBATIM)
+    target_sources(RtPbrSurvey.RrTextureConversionTests PRIVATE "${rr_safe_texture_shader}")
+    set(rr_safe_probe_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrSafeSdkProbe_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_safe_probe_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_safe_probe_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrSafeSdkProbe.hlsl"
+        DEPENDS Tests/shaders_RrSafeSdkProbe.hlsl Shaders/shaders_PathTracingRrConversion.hlsl
+            Shaders/RayReconstructionInputSafety.hlsli Shaders/RayReconstructionInputConversion.hlsli VERBATIM)
+    set(rr_placeholder_probe_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrPlaceholderProbe_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_placeholder_probe_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            -DRTPBRSURVEY_RR_PLACEHOLDER_ONLY=1 "-Fo${rr_placeholder_probe_shader}"
+            "${RTPBRSURVEY_ROOT}/Tests/shaders_RrSafeSdkProbe.hlsl"
+        DEPENDS Tests/shaders_RrSafeSdkProbe.hlsl Shaders/shaders_PathTracingRrConversion.hlsl
+            Shaders/RayReconstructionInputSafety.hlsli Shaders/RayReconstructionInputConversion.hlsli VERBATIM)
     add_executable(RtPbrSurvey.RrNativeReplay Tests/RrTextureConversionTests.cpp Tests/RrNativeReplay.h
+        "${rr_placeholder_probe_shader}"
+        "${rr_safe_probe_shader}"
         "${rr_texture_conversion_shader}")
     target_compile_definitions(RtPbrSurvey.RrNativeReplay PRIVATE RTPBRSURVEY_RR_NATIVE_REPLAY=1 NOMINMAX)
     target_link_libraries(RtPbrSurvey.RrNativeReplay PRIVATE RtPbrSurvey::SceneRenderer d3d12 dxgi)

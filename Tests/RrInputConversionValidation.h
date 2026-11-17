@@ -116,4 +116,33 @@ inline void ValidateRrLiveDistance(const float* values, unsigned int count)
     std::cout << "Validated 40 live RR cases including general materials, absent specular samples and background.\n";
 }
 
+inline void ValidateRrInputSafety(const float* values, unsigned int count)
+{
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        const unsigned int test = i % 32;
+        const bool valid = test == 0 || test == 18 || test == 19 || test == 20;
+        const float expectedStatus = valid ? 0.f : test >= 21 && test <= 26 ? float(test - 20) : 7.f;
+        const float* actual = values + i * 24;
+        const float placeholder[24] = {0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,1,1, 1,0,0,0, expectedStatus,0,0,0};
+        for (unsigned int c = 0; c < 24; ++c)
+        {
+            float expected = placeholder[c];
+            if (valid && test == 18 && c == 16) expected = .0001f;
+            if (valid && test == 20 && c == 16) expected = 65504.f;
+            if (valid && test == 19)
+            {
+                if (c < 3 || (c >= 8 && c <= 10) || c == 16 || c == 19) expected = 65504.f;
+                if (c >= 4 && c <= 6) expected = 1.f;
+                if (c == 17) expected = -1.f;
+                if (c == 18) expected = 1.f;
+            }
+            if (!std::isfinite(actual[c]) || actual[c] != expected)
+                throw std::runtime_error("RR safety mismatch at case " + std::to_string(test) +
+                                         " channel " + std::to_string(c));
+        }
+    }
+    std::cout << "Validated 32 RR safety cases, including original status preservation.\n";
+}
+
 } // namespace RrInputTests

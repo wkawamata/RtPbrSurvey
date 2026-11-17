@@ -180,7 +180,7 @@ int main(int argc, char** argv)
                             if (!valid)
                             {
                                 const UINT category =
-                                    std::isfinite(value[0]) && value[0] >= 1 && value[0] <= 6 ? UINT(value[0]) : 31;
+                                    std::isfinite(value[0]) && value[0] >= 1 && value[0] <= 7 && value[0] == std::floor(value[0]) ? UINT(value[0]) : 31;
                                 expectedMask |= mode != 0 ? 1u : (1u << category);
                             }
                             std::memcpy(static_cast<char*>(mapped) + y * footprint.Footprint.RowPitch + x * 16,

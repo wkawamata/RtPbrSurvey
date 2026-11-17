@@ -22,7 +22,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
         if (!valid)
         {
             // Preserve the original category bits and output RGB-only check.
-            uint category = isfinite(value.x) && value.x >= 1 && value.x <= 6 ? (uint)value.x : 31;
+            uint category = isfinite(value.x) && value.x >= 1 && value.x <= 7 && value.x == floor(value.x) ? (uint)value.x : 31;
             mask = outputMode != 0 ? 1u : (1u << category);
         }
     }
