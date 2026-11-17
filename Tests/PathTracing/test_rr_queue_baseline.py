@@ -32,6 +32,13 @@ class QueueBaselineParserTests(unittest.TestCase):
         self.assertEqual(result['packetLatencyMs']['totalMs']['count'],3)
         self.assertEqual(result['cpuMs']['mean'],10)
 
+    def test_chained_has_no_admission_wait_metric(self):
+        result = parse(fixture().replace('inputWaitMs=2 admittedWaitMs=1',
+                                        'inputWaitMs=N/A admittedWaitMs=N/A'), 3, 10)
+        self.assertIsNone(result['packetLatencyMs']['inputWaitMs'])
+        self.assertIsNone(result['packetLatencyMs']['admittedWaitMs'])
+        self.assertEqual(result['packetLatencyMs']['totalMs']['count'], 3)
+
     def test_incomplete_interval_rejected(self):
         with self.assertRaises(ValueError):
             parse(fixture(skip=7),3,10)

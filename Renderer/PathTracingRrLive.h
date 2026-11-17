@@ -86,6 +86,9 @@ public:
     {
         return m_inputRejectionCount;
     }
+    bool ChainedPacket() const { return m_chainedPacket; }
+    bool HistoryDirty() const { return m_historyDirty; }
+    uint64_t FinalFence() const { return m_fence; }
     bool LastReset() const
     {
         return m_lastReset;
@@ -112,7 +115,7 @@ public:
                      const RayReconstructionFrameConstants& constants,
                      const std::array<ID3D12Resource*, 8>& inputs,
                      ID3D12Resource* output,
-                     unsigned int outputSlot = 0);
+                     unsigned int outputSlot = 0, bool chained = false);
     void RecordEvaluate(ID3D12GraphicsCommandList* commands,
                         ID3D12DescriptorHeap* heap,
                         D3D12_GPU_DESCRIPTOR_HANDLE outputSrv);
@@ -125,7 +128,8 @@ private:
         Evaluate,
         OutputPending,
         Ready,
-        Rejected
+        Rejected,
+        DrainingRejected
     };
     void RecordValidation(ID3D12GraphicsCommandList* commands, D3D12_GPU_DESCRIPTOR_HANDLE srv, bool output);
     using Clock = std::chrono::steady_clock;
@@ -138,6 +142,9 @@ private:
     uint64_t m_epoch = 0;
     uint64_t m_fence = 0;
     bool m_submissionPending = false;
+    bool m_chainedPacket = false;
+    bool m_historyDirty = true;
+    uint64_t m_productionSerial = 0;
     uint64_t m_ticket = 0;
     bool m_presented = false;
     bool m_publishedReady = false;
@@ -158,7 +165,7 @@ private:
     std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 8> m_inputs;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_output;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_publishedOutput;
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_summary;
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 2> m_summaries;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_zero;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_readback;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_signature;

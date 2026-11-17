@@ -5,11 +5,19 @@ cbuffer ValidationFrame : register(b0)
     uint width;
     uint height;
     uint outputMode;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+    uint serialLow;
+    uint serialHigh;
+#endif
 };
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= width || id.y >= height) return;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+    if (id.x == 0 && id.y == 0)
+        g_summary.Store2(8, uint2(serialLow, serialHigh));
+#endif
     float4 value = g_source[id.xy];
     bool valid = outputMode != 0 ? all(isfinite(value.xyz)) : value.x == 0;
     uint ignored;

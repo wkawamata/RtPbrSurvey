@@ -467,7 +467,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <CustomBuild Include="Shaders\shaders_PathTracingRrValidation.hlsl">
       <FileType>Document</FileType>
       <Message>%(Identity)</Message>
-      <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -D RTPBRSURVEY_RR_PACKET_SUMMARY=1 -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <AdditionalInputs>%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>

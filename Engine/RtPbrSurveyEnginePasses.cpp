@@ -56,7 +56,9 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             holdRrProduction = CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->HoldProduction();
             if (holdRrProduction)
                 traceFrame = false;
-            if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanEvaluate())
+            if (m_rrChainedSchedule && m_ptRrLive && m_ptRrLive->CanCapture())
+                m_rrReservedOutputSlot = m_ptRrLive->NextOutputSlot();
+            if (!m_rrChainedSchedule && CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanEvaluate())
                 AddPass(MakePtRrEvaluatePass());
 #endif
             // Keep the last Native image while an invalidated RR packet drains.
@@ -81,7 +83,11 @@ void RtPbrSurveyEngine::BuildRenderPasses()
                     AddPass(MakeRrConversionPass());
                     if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanCapture() &&
                         m_rayReconstructionSupport.IsAvailable())
+                    {
                         AddPass(MakePtRrValidationPass());
+                        if (m_rrChainedSchedule)
+                            AddPass(MakePtRrEvaluatePass());
+                    }
                 }
 #endif
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
@@ -587,7 +593,8 @@ auto RtPbrSurveyEngine::MakePtRrEvaluatePass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PT DLSS RR Native")
         .Reads(std::move(reads))
-        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput + m_ptRrLive->WritingSlot()],
+        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput +
+                      (m_rrChainedSchedule ? m_rrReservedOutputSlot : m_ptRrLive->WritingSlot())],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PtRrEvaluate, &RtPbrSurveyEngine::ExecutePtRrEvaluatePass)
         .Build();

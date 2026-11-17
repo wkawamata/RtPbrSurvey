@@ -44,7 +44,7 @@ def parse(text, warmup, frames):
         if line.startswith('[RenderGraphFrame] '):
             current.update(json.loads(line[len('[RenderGraphFrame] '):]))
         if line.startswith('[RR Packet] '):
-            current['latency'] = {k: float(v) for k, v in
+            current['latency'] = {k: None if v == "N/A" else float(v) for k, v in
                                   (item.split('=') for item in line[len('[RR Packet] '):].split())}
         match = re.match(r'\[GPU\] Frame \d+: latest completed total (\S+) ms', line)
         if match:
@@ -75,8 +75,8 @@ def parse(text, warmup, frames):
                 updatesPerDisplay=count/frames, cpuMs=stats([r['cpu'] for r in selected]),
                 completedGpuPacketMs=stats([r['gpu'] for r in packets.values()]),
                 gpuPassMs={n: stats(v) for n, v in passes.items()},
-                packetLatencyMs={n: stats([r[n] for r in latency.values()]) for n in
-                                 ['inputWaitMs', 'admittedWaitMs', 'evaluateCpuMs', 'outputWaitMs', 'totalMs']},
+                packetLatencyMs={n: stats([r[n] for r in latency.values() if r.get(n) is not None]) for n in
+                                 ['inputWaitMs', 'admittedWaitMs', 'evaluateCpuMs', 'outputWaitMs', 'totalMs', 'finalGpuWaitMs']},
                 phaseCounts={n: sum(r['rrPhase'] == n for r in selected)
                              for n in sorted({r['rrPhase'] for r in selected})})
 

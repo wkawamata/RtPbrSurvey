@@ -1,6 +1,7 @@
 # RRQ-02: RR連続実行の安全性と所有権の設計
 
-Status: design complete; implementation and SDK safety validation pending.
+Status: design complete. Opt-in prototype and numeric SDK probes are implemented;
+see [RRQ-03](rrq03-chained-prototype.md). Broader lifecycle/adoption validation is pending.
 
 対象はWork4のPT RRです。RRQ-01の基準測定を受け、入力検証のCPU往復を
 取り除くための実装契約を決めます。この文書の追加ではレンダラーの動作は変えません。

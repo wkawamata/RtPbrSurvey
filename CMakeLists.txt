@@ -295,10 +295,12 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     set(RTPBRSURVEY_SHADER_OUTPUTS)
     if(RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS)
         target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1)
-        rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_PathTracingRrValidation.hlsl cs_6_0 CSMain)
+        rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_PathTracingRrValidation.hlsl cs_6_0 CSMain
+            DEFINITIONS RTPBRSURVEY_RR_PACKET_SUMMARY=1)
         rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_PathTracingRrConversion.hlsl cs_6_0 CSMain
             DEFINITIONS RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1
-            DEPENDS "${RTPBRSURVEY_ROOT}/Shaders/RayReconstructionInputConversion.hlsli")
+            DEPENDS "${RTPBRSURVEY_ROOT}/Shaders/RayReconstructionInputConversion.hlsli"
+                "${RTPBRSURVEY_ROOT}/Shaders/RayReconstructionInputSafety.hlsli")
     endif()
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl ps_6_0 PSMain)
@@ -619,6 +621,23 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_link_libraries(RtPbrSurvey.RrValidationTests PRIVATE d3d12 dxgi)
     add_test(NAME RtPbrSurvey.RrValidation
         COMMAND RtPbrSurvey.RrValidationTests "${rr_validation_shader}" "${rr_validation_reference_shader}")
+    set(rr_packet_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrPacketValidation_CSMain.cso")
+    set(rr_packet_reference_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrPacketReference_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_packet_shader}" "${rr_packet_reference_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            -DRTPBRSURVEY_RR_PACKET_SUMMARY=1 "-Fo${rr_packet_shader}"
+            "${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrValidation.hlsl"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            -DRTPBRSURVEY_RR_PACKET_SUMMARY=1 "-Fo${rr_packet_reference_shader}"
+            "${RTPBRSURVEY_ROOT}/Tests/shaders_RrValidationReference.hlsl"
+        DEPENDS Shaders/shaders_PathTracingRrValidation.hlsl Tests/shaders_RrValidationReference.hlsl VERBATIM)
+    add_executable(RtPbrSurvey.RrPacketValidationTests Tests/RrValidationTests.cpp
+        "${rr_packet_shader}" "${rr_packet_reference_shader}")
+    target_compile_features(RtPbrSurvey.RrPacketValidationTests PRIVATE cxx_std_17)
+    target_compile_definitions(RtPbrSurvey.RrPacketValidationTests PRIVATE NOMINMAX RTPBRSURVEY_RR_PACKET_SUMMARY_TEST=1)
+    target_link_libraries(RtPbrSurvey.RrPacketValidationTests PRIVATE d3d12 dxgi)
+    add_test(NAME RtPbrSurvey.RrPacketValidation
+        COMMAND RtPbrSurvey.RrPacketValidationTests "${rr_packet_shader}" "${rr_packet_reference_shader}")
     set(rr_safety_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputSafety_CSMain.cso")
     add_custom_command(OUTPUT "${rr_safety_shader}"
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain

@@ -16,6 +16,13 @@
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY_TEST
+constexpr UINT kSummaryBytes = 16;
+constexpr UINT kRootConstants = 5;
+#else
+constexpr UINT kSummaryBytes = 8;
+constexpr UINT kRootConstants = 3;
+#endif
 namespace
 {
 void Check(HRESULT result)
@@ -85,7 +92,7 @@ int main(int argc, char** argv)
         parameters[0].DescriptorTable = {1, &range};
         parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
         parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        parameters[2].Constants.Num32BitValues = 3;
+        parameters[2].Constants.Num32BitValues = kRootConstants;
         D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
         rootDesc.NumParameters = 3;
         rootDesc.pParameters = parameters;
@@ -195,17 +202,17 @@ int main(int argc, char** argv)
                     srv.Texture2D.MipLevels = 1;
                     device->CreateShaderResourceView(
                         texture.Get(), &srv, descriptors->GetCPUDescriptorHandleForHeapStart());
-                    auto zeros = Buffer(device.Get(), 8, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+                    auto zeros = Buffer(device.Get(), kSummaryBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
                     Check(zeros->Map(0, &noRead, &mapped));
-                    std::memset(mapped, 0, 8);
+                    std::memset(mapped, 0, kSummaryBytes);
                     zeros->Unmap(0, nullptr);
                     std::array<double, 2> duration = {};
                     for (UINT variant = 0; variant < 2; ++variant)
                     {
                         auto summary =
-                            Buffer(device.Get(), 8, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST, true);
+                            Buffer(device.Get(), kSummaryBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST, true);
                         auto readback =
-                            Buffer(device.Get(), 24, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
+                            Buffer(device.Get(), kSummaryBytes + 16, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
                         ComPtr<ID3D12CommandAllocator> allocator;
                         Check(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator)));
                         ComPtr<ID3D12GraphicsCommandList> commands;
@@ -228,7 +235,7 @@ int main(int argc, char** argv)
                                        D3D12_RESOURCE_STATE_COPY_DEST,
                                        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
                         }
-                        commands->CopyBufferRegion(summary.Get(), 0, zeros.Get(), 0, 8);
+                        commands->CopyBufferRegion(summary.Get(), 0, zeros.Get(), 0, kSummaryBytes);
                         Transition(commands.Get(),
                                    summary.Get(),
                                    D3D12_RESOURCE_STATE_COPY_DEST,
@@ -238,8 +245,8 @@ int main(int argc, char** argv)
                         commands->SetComputeRootSignature(root.Get());
                         commands->SetComputeRootDescriptorTable(0, descriptors->GetGPUDescriptorHandleForHeapStart());
                         commands->SetComputeRootUnorderedAccessView(1, summary->GetGPUVirtualAddress());
-                        const UINT constants[] = {width, height, mode};
-                        commands->SetComputeRoot32BitConstants(2, 3, constants, 0);
+                        const UINT constants[] = {width, height, mode, 1234, 0x80001234};
+                        commands->SetComputeRoot32BitConstants(2, kRootConstants, constants, 0);
                         commands->EndQuery(queries.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0);
                         commands->Dispatch((width + 7) / 8, (height + 7) / 8, 1);
                         Transition(commands.Get(),
@@ -247,8 +254,8 @@ int main(int argc, char** argv)
                                    D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                                    D3D12_RESOURCE_STATE_COPY_SOURCE);
                         commands->EndQuery(queries.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 1);
-                        commands->ResolveQueryData(queries.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, 2, readback.Get(), 8);
-                        commands->CopyBufferRegion(readback.Get(), 0, summary.Get(), 0, 8);
+                        commands->ResolveQueryData(queries.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, 2, readback.Get(), kSummaryBytes);
+                        commands->CopyBufferRegion(readback.Get(), 0, summary.Get(), 0, kSummaryBytes);
                         Check(commands->Close());
                         ID3D12CommandList* lists[] = {commands.Get()};
                         queue->ExecuteCommandLists(1, lists);
@@ -262,12 +269,16 @@ int main(int argc, char** argv)
                         Check(result);
                         if (wait != WAIT_OBJECT_0)
                             throw std::runtime_error("GPU test timed out");
-                        const D3D12_RANGE read = {0, 24};
+                        const D3D12_RANGE read = {0, kSummaryBytes + 16};
                         Check(readback->Map(0, &read, &mapped));
-                        std::array<UINT, 2> actual;
+                        std::array<UINT, 4> actual = {};
                         std::array<UINT64, 2> times;
-                        std::memcpy(actual.data(), mapped, 8);
-                        std::memcpy(times.data(), static_cast<char*>(mapped) + 8, 16);
+                        std::memcpy(actual.data(), mapped, kSummaryBytes);
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY_TEST
+                        if (actual[2] != 1234 || actual[3] != 0x80001234)
+                            throw std::runtime_error("GPU packet serial mismatch");
+#endif
+                        std::memcpy(times.data(), static_cast<char*>(mapped) + kSummaryBytes, 16);
                         const D3D12_RANGE noWrite = {};
                         readback->Unmap(0, &noWrite);
                         if (actual[0] != expectedMask || actual[1] != width * height)

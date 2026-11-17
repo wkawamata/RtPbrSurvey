@@ -5,6 +5,10 @@ cbuffer ValidationFrame : register(b0)
     uint width;
     uint height;
     uint outputMode;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+    uint serialLow;
+    uint serialHigh;
+#endif
 };
 // Reduce within each 8x8 group before updating the shared 8-byte summary.
 // Every lane participates, including padding lanes in partial edge groups.
@@ -40,6 +44,10 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
     }
     if (lane == 0)
     {
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+        if (id.x == 0 && id.y == 0)
+            g_summary.Store2(8, uint2(serialLow, serialHigh));
+#endif
         uint ignored;
         if (g_masks[0] != 0)
             g_summary.InterlockedOr(0, g_masks[0], ignored);

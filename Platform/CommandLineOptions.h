@@ -92,6 +92,7 @@ struct CommandLineOptions
     bool pathTracingRrContinuous = false;
     bool pathTracingRrStrictSchedule = false;
     bool pathTracingRrSafeSerial = false;
+    bool pathTracingRrChained = false;
     bool pathTracingRrThinExperiment = false;
     bool pathTracingRrSmoothVolumeExperiment = false;
     bool pathTracingRrRoughVolumeExperiment = false;

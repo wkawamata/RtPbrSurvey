@@ -375,6 +375,9 @@ public:
         uint64_t rrCancelledCount = 0;
         uint64_t rrInputRejectionCount = 0;
         bool rrLastReset = true;
+        bool rrChainedPacket = false;
+        bool rrHistoryDirty = true;
+        uint64_t rrFinalFence = 0;
         uint64_t rrLatencyFrameId = 0;
         uint64_t rrInputPolls = 0;
         uint64_t rrOutputPolls = 0;
@@ -485,6 +488,7 @@ public:
     void SetUpdateHandler(UpdateHandler handler);
     void SetRrEagerProduction(bool enabled) { m_rrEagerProduction = enabled; }
     void SetRrSafeInputs(bool enabled) { m_rrSafeInputs = enabled; }
+    void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
     void SetLightingParams(const LightingParams& params);
     const LightingParams& GetLightingParams() const { return m_lightingParams; }
     void SetShadowSettings(const ShadowSettings& settings);
@@ -1568,6 +1572,8 @@ private:
     UpdateHandler m_updateHandler;
     bool m_rrEagerProduction = true;
     bool m_rrSafeInputs = false;
+    bool m_rrChainedSchedule = false;
+    unsigned int m_rrReservedOutputSlot = 0;
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";

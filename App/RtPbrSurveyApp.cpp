@@ -348,6 +348,13 @@ void RtPbrSurveyApp::OnInit()
 
     InitializeImGui();
     m_sceneRenderer.EngineForDebugTools().SetRrSafeInputs(m_commandLineOptions.pathTracingRrSafeSerial);
+    if (m_commandLineOptions.pathTracingRrChained &&
+        (m_commandLineOptions.pathTracingRrStrictSchedule ||
+         !m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty()))
+        throw std::invalid_argument("Chained RR cannot use strict first-output/lifecycle validators.");
+    m_sceneRenderer.EngineForDebugTools().SetRrChainedSchedule(m_commandLineOptions.pathTracingRrChained);
     // First-output/lifecycle validators require the observable Ready phase.
     m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
         !m_commandLineOptions.pathTracingRrStrictSchedule &&
@@ -2503,12 +2510,19 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
             static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
             static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
     const auto& rr = context.pathTracingDiagnostics;
-    fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=%llu outputPolls=%llu inputWaitMs=%.6f admittedWaitMs=%.6f evaluateCpuMs=%.6f outputWaitMs=%.6f totalMs=%.6f\n",
-            static_cast<unsigned long long>(rr.rrCompletedCount),
-            static_cast<unsigned long long>(rr.rrLatencyFrameId),
-            static_cast<unsigned long long>(rr.rrInputPolls),
-            static_cast<unsigned long long>(rr.rrOutputPolls),
-            rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
+    if (rr.rrChainedPacket)
+        fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=0 outputPolls=%llu inputWaitMs=N/A admittedWaitMs=N/A evaluateCpuMs=%.6f outputWaitMs=N/A finalGpuWaitMs=%.6f totalMs=%.6f\n",
+                static_cast<unsigned long long>(rr.rrCompletedCount),
+                static_cast<unsigned long long>(rr.rrLatencyFrameId),
+                static_cast<unsigned long long>(rr.rrOutputPolls),
+                rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
+    else
+        fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=%llu outputPolls=%llu inputWaitMs=%.6f admittedWaitMs=%.6f evaluateCpuMs=%.6f outputWaitMs=%.6f totalMs=%.6f\n",
+                static_cast<unsigned long long>(rr.rrCompletedCount),
+                static_cast<unsigned long long>(rr.rrLatencyFrameId),
+                static_cast<unsigned long long>(rr.rrInputPolls),
+                static_cast<unsigned long long>(rr.rrOutputPolls),
+                rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
     const auto& checkPoints = context.gpuCheckPoints;
     const auto graph = m_sceneRenderer.CaptureRenderGraphDocument();
     nlohmann::json scheduled = nlohmann::json::array();
@@ -2632,6 +2646,9 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
           {"inputRejectedCount", context.pathTracingDiagnostics.rrInputRejectionCount},
           {"lastReset", context.pathTracingDiagnostics.rrLastReset},
           {"outputVerified", context.pathTracingDiagnostics.rrRetainedOutputVerified},
+          {"chained", context.pathTracingDiagnostics.rrChainedPacket},
+          {"historyDirty", context.pathTracingDiagnostics.rrHistoryDirty},
+          {"finalFence", context.pathTracingDiagnostics.rrFinalFence},
           {"nativeEvaluateCallCount", context.rayReconstructionDiagnostics.nativeEvaluateCallCount}}},
         {"adapter",
          {{"name", WideToUtf8(adapter.Description)},

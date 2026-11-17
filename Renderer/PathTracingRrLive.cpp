@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <stdexcept>
+#include <limits>
 
 namespace Engine
 {
@@ -15,7 +16,7 @@ void PathTracingRrLive::Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE s
     CD3DX12_ROOT_PARAMETER1 parameters[3];
     parameters[0].InitAsDescriptorTable(1, &range);
     parameters[1].InitAsUnorderedAccessView(0);
-    parameters[2].InitAsConstants(3, 0);
+    parameters[2].InitAsConstants(5, 0);
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
     desc.Init_1_1(3, parameters);
     Microsoft::WRL::ComPtr<ID3DBlob> signature, error;
@@ -26,18 +27,20 @@ void PathTracingRrLive::Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE s
     pipeline.pRootSignature = m_signature.Get();
     pipeline.CS = shader;
     ThrowIfFailed(device->CreateComputePipelineState(&pipeline, IID_PPV_ARGS(&m_pipeline)));
-    const auto buffer = CD3DX12_RESOURCE_DESC::Buffer(8, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    const auto buffer = CD3DX12_RESOURCE_DESC::Buffer(16, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     const auto defaultHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(device->CreateCommittedResource(
-        &defaultHeap, D3D12_HEAP_FLAG_NONE, &buffer, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_summary)));
-    const auto plain = CD3DX12_RESOURCE_DESC::Buffer(8);
+    for (auto& summary : m_summaries)
+        ThrowIfFailed(device->CreateCommittedResource(
+            &defaultHeap, D3D12_HEAP_FLAG_NONE, &buffer, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+            IID_PPV_ARGS(&summary)));
+    const auto plain = CD3DX12_RESOURCE_DESC::Buffer(32);
     const auto uploadHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     ThrowIfFailed(device->CreateCommittedResource(
         &uploadHeap, D3D12_HEAP_FLAG_NONE, &plain, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_zero)));
     void* mapped;
     const D3D12_RANGE noRead = {};
     ThrowIfFailed(m_zero->Map(0, &noRead, &mapped));
-    memset(mapped, 0, 8);
+    memset(mapped, 0, 32);
     m_zero->Unmap(0, nullptr);
     const auto readbackHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
     ThrowIfFailed(device->CreateCommittedResource(&readbackHeap,
@@ -78,6 +81,8 @@ const char* PathTracingRrLive::Status() const
             return "output-gpu-pending";
         case Phase::Ready:
             return "retained-output-ready";
+        case Phase::DrainingRejected:
+            return "rejected-gpu-pending";
         case Phase::Rejected:
             return "native-fallback";
     }
@@ -99,14 +104,18 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         ++m_packetLatency.inputPolls;
     else if (m_phase == Phase::OutputPending)
         ++m_packetLatency.outputPolls;
+    if (completedFence == (std::numeric_limits<uint64_t>::max)())
+        throw std::runtime_error("RR device removed before packet completion");
     // Drain cancelled work before reusing its summary/readback allocations.
     if (m_submissionPending || (m_fence != 0 && completedFence < m_fence))
         return;
     if (currentEpoch != m_epoch)
     {
-        if (m_phase == Phase::InputPending || m_phase == Phase::Evaluate || m_phase == Phase::OutputPending)
+        if (m_phase == Phase::InputPending || m_phase == Phase::Evaluate || m_phase == Phase::OutputPending ||
+            m_phase == Phase::DrainingRejected)
             ++m_cancelledCount;
         m_history.Invalidate();
+        m_historyDirty = true;
         m_phase = Phase::Idle;
         m_epoch = currentEpoch;
         m_failure.clear();
@@ -119,12 +128,20 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             input.Reset();
         return;
     }
+    if (m_phase == Phase::DrainingRejected)
+    {
+        m_fence = 0;
+        m_history.Invalidate();
+        m_historyDirty = true;
+        m_phase = Phase::Rejected;
+    }
     if (m_phase == Phase::Rejected && m_retryInput && advanceProduction)
     {
         // A transient unsupported sample must not permanently disable live RR.
         // Keep whole-frame Native fallback; only a newly admitted packet may
         // re-enter the SDK, with history reset after the rejected production.
         m_history.Invalidate();
+        m_historyDirty = true;
         m_phase = Phase::Idle;
         m_failure.clear();
         m_retryInput = false;
@@ -136,23 +153,32 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
     }
     if (m_fence == 0 || (m_phase != Phase::InputPending && m_phase != Phase::OutputPending))
         return;
-    const D3D12_RANGE read = {0, 8};
+    const D3D12_RANGE read = {0, 32};
     void* mapped;
     ThrowIfFailed(m_readback->Map(0, &read, &mapped));
-    uint32_t counts[2];
+    uint32_t counts[8];
     memcpy(counts, mapped, sizeof(counts));
     const D3D12_RANGE noWrite = {};
     m_readback->Unmap(0, &noWrite);
     m_fence = 0;
-    if (counts[0] != 0 || counts[1] != uint64_t(m_key.renderWidth) * m_key.renderHeight)
+    const auto passed = [&](unsigned int offset)
     {
-        m_retryInput = m_phase == Phase::InputPending;
-        if (m_retryInput)
+        const uint64_t serial = uint64_t(counts[offset + 2]) | (uint64_t(counts[offset + 3]) << 32);
+        return serial == m_productionSerial && counts[offset] == 0 &&
+            counts[offset + 1] == uint64_t(m_key.renderWidth) * m_key.renderHeight;
+    };
+    const bool inputPassed = passed(0);
+    const bool outputPassed = m_phase != Phase::OutputPending || passed(4);
+    if (!inputPassed || !outputPassed)
+    {
+        m_retryInput = m_chainedPacket || m_phase == Phase::InputPending;
+        if (!inputPassed)
             ++m_inputRejectionCount;
-        m_failure = m_phase == Phase::InputPending ? "unsupported RR input pixels" : "incomplete/nonfinite RR output";
-        m_failure += " (mask=" + std::to_string(counts[0]) + ", pixels=" + std::to_string(counts[1]) + ")";
+        m_failure = !inputPassed ? "unsupported/stale RR input pixels" : "incomplete/nonfinite/stale RR output";
         m_history.Invalidate();
-        m_publishedReady = false;
+        m_historyDirty = true;
+        if (!m_chainedPacket)
+            m_publishedReady = false;
         m_phase = Phase::Rejected;
         return;
     }
@@ -165,7 +191,9 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
     }
     else
     {
-        if (m_history.Finish(m_ticket, true, true) == PathTracingRrCompletion::Completed &&
+        const auto completion = m_chainedPacket ? m_history.FinishSpeculative(m_ticket, true, true, true)
+                                                : m_history.Finish(m_ticket, true, true);
+        if (completion == PathTracingRrCompletion::Completed &&
             m_history.CanPresent(m_key, m_output.Get()))
         {
             m_publishedKey = m_key;
@@ -177,6 +205,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             m_packetLatency.outputWaitMs = std::chrono::duration<double, std::milli>(now - m_outputRecorded).count();
             m_packetLatency.totalMs = std::chrono::duration<double, std::milli>(now - m_packetStarted).count();
             m_lastPacketLatency = m_packetLatency;
+            m_historyDirty = false;
             ++m_completedCount;
             // A verified published image is immutable and the next production
             // uses the other output slot. No presentation-only tick is needed.
@@ -184,6 +213,8 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         }
         else
         {
+            m_history.Invalidate();
+            m_historyDirty = true;
             m_publishedReady = false;
             m_phase = Phase::Rejected;
         }
@@ -194,23 +225,25 @@ void PathTracingRrLive::RecordValidation(ID3D12GraphicsCommandList* commands,
                                          D3D12_GPU_DESCRIPTOR_HANDLE srv,
                                          bool output)
 {
-    commands->CopyBufferRegion(m_summary.Get(), 0, m_zero.Get(), 0, 8);
+    ID3D12Resource* summary = m_summaries[output ? 1 : 0].Get();
+    commands->CopyBufferRegion(summary, 0, m_zero.Get(), 0, 16);
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_summary.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        summary, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     commands->ResourceBarrier(1, &barrier);
     commands->SetComputeRootSignature(m_signature.Get());
     commands->SetPipelineState(m_pipeline.Get());
     commands->SetComputeRootDescriptorTable(0, srv);
-    commands->SetComputeRootUnorderedAccessView(1, m_summary->GetGPUVirtualAddress());
-    const UINT constants[] = {m_key.renderWidth, m_key.renderHeight, output ? 1u : 0u};
-    commands->SetComputeRoot32BitConstants(2, 3, constants, 0);
+    commands->SetComputeRootUnorderedAccessView(1, summary->GetGPUVirtualAddress());
+    const UINT constants[] = {m_key.renderWidth, m_key.renderHeight, output ? 1u : 0u,
+        static_cast<UINT>(m_productionSerial), static_cast<UINT>(m_productionSerial >> 32)};
+    commands->SetComputeRoot32BitConstants(2, 5, constants, 0);
     commands->Dispatch((m_key.renderWidth + 7) / 8, (m_key.renderHeight + 7) / 8, 1);
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_summary.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        summary, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
     commands->ResourceBarrier(1, &barrier);
-    commands->CopyBufferRegion(m_readback.Get(), 0, m_summary.Get(), 0, 8);
+    commands->CopyBufferRegion(m_readback.Get(), output ? 16 : 0, summary, 0, 16);
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_summary.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+        summary, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
     commands->ResourceBarrier(1, &barrier);
     m_submissionPending = true;
 }
@@ -221,10 +254,14 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
                                     const RayReconstructionFrameConstants& constants,
                                     const std::array<ID3D12Resource*, 8>& inputs,
                                     ID3D12Resource* output,
-                                    unsigned int outputSlot)
+                                    unsigned int outputSlot, bool chained)
 {
     if (!CanCapture())
         throw std::logic_error("RR production already retained");
+    if (m_productionSerial == (std::numeric_limits<uint64_t>::max)())
+        throw std::overflow_error("RR production serial exhausted");
+    ++m_productionSerial;
+    m_chainedPacket = chained;
     m_packetStarted = Clock::now();
     m_packetLatency = {};
     m_packetLatency.frameId = key.frameId;
@@ -238,14 +275,17 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
     if (m_publishedReady && m_output.Get() == m_publishedOutput.Get())
         throw std::logic_error("RR cannot overwrite its published output");
     RecordValidation(commands, statusSrv, false);
-    m_phase = Phase::InputPending;
+    m_phase = chained ? Phase::Evaluate : Phase::InputPending;
 }
 
 void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
                                        ID3D12DescriptorHeap* heap,
                                        D3D12_GPU_DESCRIPTOR_HANDLE outputSrv)
 {
-    const auto decision = m_history.Begin(m_key, m_output.Get(), true, true);
+    if (!CanEvaluate())
+        throw std::logic_error("RR evaluation without a retained input packet");
+    const auto decision = m_chainedPacket ? m_history.BeginSpeculative(m_key, m_output.Get())
+                                          : m_history.Begin(m_key, m_output.Get(), true, true);
     if (decision.action != PathTracingRrHistoryAction::Evaluate)
         throw std::logic_error("RR retained history rejected");
     m_ticket = decision.ticket;
@@ -273,7 +313,7 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     inputs.enableNativeEvaluation = true;
     inputs.frameConstants = m_constants;
     const auto evaluateStarted = Clock::now();
-    m_packetLatency.admittedWaitMs = std::chrono::duration<double, std::milli>(
+    m_packetLatency.admittedWaitMs = m_chainedPacket ? 0 : std::chrono::duration<double, std::milli>(
         evaluateStarted - m_inputAdmitted).count();
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
     m_packetLatency.evaluateCpuMs = std::chrono::duration<double, std::milli>(
@@ -284,8 +324,13 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     {
         m_failure = result.inputReady ? QueryStreamlineRayReconstructionDiagnostics().lastEvaluateResultName
                                       : ToString(result.inputReadinessReason);
-        m_publishedReady = false;
-        m_phase = Phase::Rejected;
+        m_historyDirty = true;
+        if (!m_chainedPacket)
+            m_publishedReady = false;
+        m_retryInput = m_chainedPacket;
+        // The SDK may have recorded commands before reporting failure.
+        m_submissionPending = true;
+        m_phase = Phase::DrainingRejected;
         return;
     }
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
