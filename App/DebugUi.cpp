@@ -1183,6 +1183,15 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             {
                 pathTracingSettingsChanged |=
                     ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
+                if (ImGui::Checkbox("Nonblocking frame acquisition (experimental)",
+                                    &app.m_commandLineOptions.nonblockingFrameAcquisition))
+                {
+                    app.m_sceneRenderer.EngineForDebugTools().SetNonblockingFrameAcquisition(
+                        app.m_commandLineOptions.nonblockingFrameAcquisition);
+                }
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Return to Windows input processing while frame resources are busy. "
+                                      "Process-local; not saved in Evaluation Cases.");
                 if (!pathTracingSettings.rrTransmissionMotionExperiment)
                     ImGui::TextWrapped("Glass camera/object motion resets RR history: transmission motion experiment is OFF.");
                 if (ImGui::TreeNode("RR Transmission Experiments"))

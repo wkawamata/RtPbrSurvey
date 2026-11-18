@@ -1,7 +1,11 @@
 # RRQ-09 nonblocking frame acquisition experiment
 
 Status: prototype implemented; opt-in only. Default acquisition remains blocking.
-Use `-NonblockingFrameAcquisition` for the experiment. No saved scene setting or
+Use `-NonblockingFrameAcquisition` at startup, or toggle
+Rendering > DLSS RR > Nonblocking frame acquisition (experimental) in the UI.
+UI changes occur after host acquisition and before recording, so switching OFF
+cannot bypass a pending retire fence. The checkbox is process-local and not saved
+in Evaluation Cases. No saved scene setting or
 RR admission policy changes. This flag is a host/frame-resource experiment, not
 an async GPU queue or GPU-only RR publication mode.
 
