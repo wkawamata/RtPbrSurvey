@@ -218,6 +218,28 @@ EvaluationState StateFromJson(const json& value, int schemaVersion)
 }
 } // namespace
 
+int ResolveEvaluationSampleScene(const EvaluationState& state, const std::vector<EvaluationSampleScene>& scenes)
+{
+    // Older cases used the same ID for the viewer and grid. Their saved index
+    // disambiguates them when the scene at that index still has the same name.
+    const bool legacyId = state.sceneReference.id.empty() || state.sceneReference.id == "sample:" + state.sceneName;
+    if (legacyId && state.sceneIndex >= 0 && state.sceneIndex < static_cast<int>(scenes.size()) &&
+        scenes[state.sceneIndex].name == state.sceneName)
+    {
+        return state.sceneIndex;
+    }
+
+    for (size_t i = 0; i < scenes.size(); ++i)
+    {
+        if ((!state.sceneReference.id.empty() && scenes[i].id == state.sceneReference.id) ||
+            (state.sceneReference.id.empty() && scenes[i].name == state.sceneName))
+        {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
 void EvaluationRoi::Sanitize()
 {
     x = std::isfinite(x) ? x : 0.0f;

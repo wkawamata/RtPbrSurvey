@@ -350,6 +350,79 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkDrawOrder"))
+        {
+            if (i + 1 >= argc || (_wcsicmp(argv[i + 1], L"forward") != 0 && _wcsicmp(argv[i + 1], L"reverse") != 0))
+            {
+                throw std::invalid_argument("-BenchmarkDrawOrder expects forward or reverse.");
+            }
+            options.benchmarkReverseDrawOrder = _wcsicmp(argv[++i], L"reverse") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkDepthPrepass"))
+        {
+            if (i + 1 >= argc || (_wcsicmp(argv[i + 1], L"on") != 0 && _wcsicmp(argv[i + 1], L"off") != 0))
+            {
+                throw std::invalid_argument("-BenchmarkDepthPrepass expects on or off.");
+            }
+            options.benchmarkDepthPrepass = _wcsicmp(argv[++i], L"on") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkGBuffer"))
+        {
+            if (i + 1 >= argc || (_wcsicmp(argv[i + 1], L"full") != 0 && _wcsicmp(argv[i + 1], L"constant") != 0))
+            {
+                throw std::invalid_argument("-BenchmarkGBuffer expects full or constant.");
+            }
+            options.benchmarkConstantGBuffer = _wcsicmp(argv[++i], L"constant") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkInstancing"))
+        {
+            if (i + 1 >= argc || (_wcsicmp(argv[i + 1], L"on") != 0 && _wcsicmp(argv[i + 1], L"off") != 0))
+            {
+                throw std::invalid_argument("-BenchmarkInstancing expects on or off.");
+            }
+            options.benchmarkInstancing = _wcsicmp(argv[++i], L"on") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkMode"))
+        {
+            if (i + 1 >= argc || (_wcsicmp(argv[i + 1], L"raster") != 0 && _wcsicmp(argv[i + 1], L"hybrid") != 0))
+            {
+                throw std::invalid_argument("-BenchmarkMode expects raster or hybrid.");
+            }
+            options.benchmarkHybrid = _wcsicmp(argv[++i], L"hybrid") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkReport"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-BenchmarkReport expects a JSON output path.");
+            }
+            options.benchmarkReportPath = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-BenchmarkInstances") ||
+                 IsCommandLineArg(argv[i], L"-BenchmarkWarmupFrames") ||
+                 IsCommandLineArg(argv[i], L"-BenchmarkFrames"))
+        {
+            const bool instances = IsCommandLineArg(argv[i], L"-BenchmarkInstances");
+            const bool warmup = IsCommandLineArg(argv[i], L"-BenchmarkWarmupFrames");
+            UINT value = 0;
+            if (i + 1 >= argc || !TryParseUint(argv[++i], warmup || instances, value) ||
+                value > (instances ? 1000u : 1000000u))
+            {
+                throw std::invalid_argument("Invalid benchmark frame/instance count.");
+            }
+            if (instances)
+            {
+                options.benchmarkInstances = value;
+            }
+            else if (warmup)
+            {
+                options.benchmarkWarmupFrames = value;
+            }
+            else
+            {
+                options.benchmarkFrames = value;
+            }
+        }
         else if (IsCommandLineArg(argv[i], L"-AutoSelectGltfDamagedHelmet"))
         {
             options.autoSelectGltfDamagedHelmet = true;

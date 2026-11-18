@@ -71,6 +71,15 @@ struct CommandLineOptions
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
+    std::filesystem::path benchmarkReportPath;
+    UINT benchmarkInstances = 121;
+    UINT benchmarkWarmupFrames = 120;
+    UINT benchmarkFrames = 120;
+    bool benchmarkHybrid = false;
+    bool benchmarkInstancing = false;
+    bool benchmarkConstantGBuffer = false;
+    bool benchmarkDepthPrepass = true;
+    bool benchmarkReverseDrawOrder = false;
     std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
     std::wstring evaluationCaseName;

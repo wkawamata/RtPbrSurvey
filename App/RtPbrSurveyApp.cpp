@@ -154,6 +154,27 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    if (m_commandLineOptions.benchmarkReverseDrawOrder &&
+        (m_commandLineOptions.benchmarkReportPath.empty() || m_commandLineOptions.benchmarkInstancing))
+    {
+        throw std::invalid_argument("Reverse order requires benchmark automation with instancing OFF.");
+    }
+    m_sceneRenderer.EngineForDebugTools().SetBenchmarkPipelineStats(
+        !m_commandLineOptions.benchmarkReportPath.empty(), m_commandLineOptions.benchmarkReverseDrawOrder);
+    if (!m_commandLineOptions.benchmarkDepthPrepass && m_commandLineOptions.benchmarkReportPath.empty())
+    {
+        throw std::invalid_argument("Depth prepass OFF is restricted to benchmark automation.");
+    }
+    m_sceneRenderer.EngineForDebugTools().SetDepthPrepass(m_commandLineOptions.benchmarkDepthPrepass);
+    if (m_commandLineOptions.benchmarkConstantGBuffer &&
+        (m_commandLineOptions.benchmarkReportPath.empty() || m_commandLineOptions.benchmarkHybrid))
+    {
+        throw std::invalid_argument("Constant GBuffer is restricted to raster benchmark automation.");
+    }
+    m_sceneRenderer.EngineForDebugTools().SetConstantGBufferBenchmark(m_commandLineOptions.benchmarkConstantGBuffer);
+    m_sceneRenderer.EngineForDebugTools().SetGeometryInstancing(m_commandLineOptions.benchmarkInstancing);
+    m_sceneRenderer.EngineForDebugTools().SetRasterBenchmarkMode(
+        !m_commandLineOptions.benchmarkReportPath.empty() && !m_commandLineOptions.benchmarkHybrid);
     if (m_commandLineOptions.windowWidth != 0)
     {
         m_windowInfo.width = m_commandLineOptions.windowWidth;
@@ -174,6 +195,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
             "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
     }
     const UINT autoSelectModeCount =
+        static_cast<UINT>(!m_commandLineOptions.benchmarkReportPath.empty()) +
         static_cast<UINT>(m_commandLineOptions.autoSelectGltfDamagedHelmet) +
         static_cast<UINT>(!m_commandLineOptions.autoSelectGltfAssetName.empty()) +
         static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest) +
@@ -184,6 +206,17 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         throw std::invalid_argument(
             "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, "
             "-AutoSelectHybridReflectionEstimatorTest, -EvaluationCase, and -SceneFile are mutually exclusive.");
+    }
+    if (!m_commandLineOptions.benchmarkReportPath.empty() &&
+        (m_commandLineOptions.enablePathTracing || m_commandLineOptions.enableDlssSr ||
+         (!m_commandLineOptions.capturePath.empty() &&
+          (m_commandLineOptions.exitAfterCapture ||
+           m_commandLineOptions.captureAfterFrames + 10 >= m_commandLineOptions.benchmarkWarmupFrames)) ||
+         m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+         !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty()))
+    {
+        throw std::invalid_argument("Benchmark automation cannot be combined with capture, PT, or DLSS automation.");
     }
     if (!m_commandLineOptions.evaluationCaseName.empty() && m_commandLineOptions.useSceneDefaults)
     {
@@ -500,7 +533,7 @@ void RtPbrSurveyApp::OnInit()
         OpenFileScene();
         m_debugUiVisible = m_commandLineOptions.enableDebugTexturePreview;
     }
-    else if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
+    else if (!m_commandLineOptions.benchmarkReportPath.empty() || m_commandLineOptions.autoSelectGltfDamagedHelmet ||
         !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
         m_commandLineOptions.autoSelectHybridReflectionEstimatorTest ||
         !m_commandLineOptions.evaluationCaseName.empty())
@@ -533,6 +566,10 @@ void RtPbrSurveyApp::OnInit()
             m_selectedEvaluationStateIndex =
                 static_cast<int>(std::distance(m_evaluationStates.States().begin(), state));
             ApplyPathTracingCommandLineOptions();
+        }
+        else if (!m_commandLineOptions.benchmarkReportPath.empty())
+        {
+            m_selectedSceneIndex = m_gltfViewerCount;
         }
         else if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
         {
@@ -589,7 +626,7 @@ void RtPbrSurveyApp::OnInit()
         // HDR diagnostics must not inherit interactive user camera overrides. The
         // manifest ROIs and camera motion are defined against versioned scene defaults.
         if (m_commandLineOptions.evaluationCaseName.empty() &&
-            (m_commandLineOptions.useSceneDefaults ||
+            (m_commandLineOptions.useSceneDefaults || !m_commandLineOptions.benchmarkReportPath.empty() ||
              !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty()))
         {
             m_sceneConfig.LoadDefaultsForScene(
@@ -676,6 +713,32 @@ void RtPbrSurveyApp::OnInit()
                 0.1f,
                 m_debugCamera.ObjectViewerDistance() * m_commandLineOptions.reflectionCameraDistanceScale);
         }
+    }
+
+    if (!m_commandLineOptions.benchmarkReportPath.empty())
+    {
+        m_isPlaying = false;
+        m_displayInstanceCount = static_cast<int>(m_commandLineOptions.benchmarkInstances);
+        LoadedScene().SetDisplayInstanceCount(m_displayInstanceCount);
+        m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
+        m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
+        m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
+        m_sceneRenderer.SetRenderingPath(m_renderingPath);
+        m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
+        auto reflection = m_sceneRenderer.GetHybridReflectionSettings();
+        reflection.enabled = m_commandLineOptions.benchmarkHybrid;
+        reflection.contributionEnabled = m_commandLineOptions.benchmarkHybrid;
+        m_sceneRenderer.SetHybridReflectionSettings(reflection);
+        if (!m_commandLineOptions.benchmarkHybrid)
+        {
+            auto settings = m_sceneRenderer.CaptureSettings();
+            settings.shadow.enabled = false;
+            settings.diffuseEnvironmentVisibility.enabled = false;
+            settings.temporalUpscaler.enabled = false;
+            settings.rayReconstruction.enabled = false;
+            m_sceneRenderer.ApplySettings(settings);
+        }
+        m_debugUiVisible = false;
     }
 
     if (m_commandLineOptions.captureSessionEnabled)
@@ -780,6 +843,10 @@ void RtPbrSurveyApp::UpdateSceneSimulation(float deltaTime)
     sceneUpdate.meshScale = m_meshScale;
     sceneUpdate.dragRotation = m_dragRotation;
     LoadedScene().Update(deltaTime, sceneUpdate);
+    if (dynamic_cast<const Engine::GltfGridBenchmarkScene*>(&LoadedScene()) == nullptr)
+    {
+        m_sceneRenderer.EngineForDebugTools().SetGeometryInstancing(false);
+    }
 
     if (m_commandLineOptions.hasPathTracingObjectMotion)
     {
@@ -1325,6 +1392,7 @@ void RtPbrSurveyApp::OnIdle()
         }
         m_imguiSystem.Render(commandList);
     }, advanceFrame);
+    UpdateAutomatedBenchmark();
     if (!uiFrameFinalized)
     {
         // A custom graph may omit the ImGui pass; still finish its UI frame.
@@ -1784,6 +1852,117 @@ bool RtPbrSurveyApp::ResolvePendingHostAction()
         return false;
     }
     return ExecutePendingHostAction(action);
+}
+
+void RtPbrSurveyApp::UpdateAutomatedBenchmark()
+{
+    if (m_commandLineOptions.benchmarkReportPath.empty())
+    {
+        return;
+    }
+    ++m_benchmarkFrameCounter;
+    if (m_benchmarkFrameCounter <= m_commandLineOptions.benchmarkWarmupFrames)
+    {
+        return;
+    }
+    const auto add = [this](const std::string& name, double value)
+    {
+        if (!std::isfinite(value) || value < 0.0)
+        {
+            return;
+        }
+        auto& metric = m_benchmarkMetrics[name];
+        if (metric.is_null())
+        {
+            metric = nlohmann::json::object();
+        }
+        const UINT count = metric.value("samples", 0u);
+        metric["sum"] = metric.value("sum", 0.0) + value;
+        metric["samples"] = count + 1;
+        metric["min"] = count == 0 ? value : (std::min)(metric["min"].get<double>(), value);
+        metric["max"] = count == 0 ? value : (std::max)(metric["max"].get<double>(), value);
+    };
+    const auto& statisticsEngine = m_sceneRenderer.EngineForDebugTools();
+    if (statisticsEngine.GBufferStatisticsAvailable())
+    {
+        m_benchmarkPsSum += static_cast<double>(statisticsEngine.GBufferStatistics().PSInvocations);
+        ++m_benchmarkPsSamples;
+    }
+    const auto frame = m_sceneRenderer.GetUiFrameContext();
+    add("CPU Frame", frame.cpuFrameTime);
+    add("Wall Frame", ImGui::GetIO().DeltaTime * 1000.0);
+    const auto& cpu = m_sceneRenderer.CpuFrameTiming();
+    if (cpu.available)
+    {
+        for (size_t i = 0; i < RtPbrSurvey::kRendererCpuPhaseCount; ++i)
+        {
+            add(std::string("CPU ") + RtPbrSurvey::kRendererCpuPhaseNames[i], cpu.ms[i]);
+        }
+    }
+    const auto& points = frame.gpuCheckPoints;
+    if (points.size() >= 2)
+    {
+        add("GPU Total", points.back().timeStamp);
+        for (size_t i = 1; i + 1 < points.size(); ++i)
+        {
+            add("GPU[" + std::to_string(i) + "] " + points[i].name,
+                points[i].timeStamp - points[i - 1].timeStamp);
+        }
+    }
+    if (m_benchmarkFrameCounter - m_commandLineOptions.benchmarkWarmupFrames < m_commandLineOptions.benchmarkFrames)
+    {
+        return;
+    }
+    try
+    {
+        for (auto& metric : m_benchmarkMetrics)
+        {
+            metric["averageMs"] = metric["sum"].get<double>() / metric["samples"].get<UINT>();
+            metric.erase("sum");
+        }
+        nlohmann::json report = {
+            {"version", 1}, {"scene", "Grid/DamagedHelmet"},
+            {"mode", m_commandLineOptions.benchmarkHybrid ? "hybrid" : "raster"},
+            {"geometryHeap", "default"},
+            {"depthPrepass", m_commandLineOptions.benchmarkDepthPrepass},
+            {"drawOrder", m_commandLineOptions.benchmarkReverseDrawOrder ? "reverse" : "forward"},
+            {"gbufferPipelineStatistics", {{"samples", m_benchmarkPsSamples},
+                {"averagePsInvocations", m_benchmarkPsSamples ? m_benchmarkPsSum / m_benchmarkPsSamples : 0.0}}},
+            {"gbufferShader", m_commandLineOptions.benchmarkConstantGBuffer ? "constant" : "full"},
+            {"instancing", m_commandLineOptions.benchmarkInstancing},
+            {"instances", m_displayInstanceCount}, {"frames", m_commandLineOptions.benchmarkFrames},
+            {"warmupFrames", m_commandLineOptions.benchmarkWarmupFrames},
+            {"renderWidth", frame.renderWidth}, {"renderHeight", frame.renderHeight},
+            {"outputWidth", frame.outputWidth}, {"outputHeight", frame.outputHeight},
+            {"gpuSampling", "latest completed GPU frame after each rendered frame; delayed readback"},
+            {"uiVisible", false}, {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
+            {"presentInterval", m_sceneRenderer.EngineForDebugTools().LastPresentInterval()},
+            {"presentFlags", m_sceneRenderer.EngineForDebugTools().LastPresentFlags()},
+            {"tearingSupported", m_sceneRenderer.EngineForDebugTools().TearingSupported()},
+            {"sceneConfig", nlohmann::json::parse(m_sceneConfig.CaptureCurrentSceneJson(
+                *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene()))},
+            {"metrics", m_benchmarkMetrics}};
+        const auto& adapter = m_sceneRenderer.EngineForDebugTools().AdapterDescription();
+        report["adapter"] = {{"name", WideToUtf8(adapter.Description)},
+            {"vendorId", adapter.VendorId}, {"deviceId", adapter.DeviceId},
+            {"dedicatedVideoMemory", adapter.DedicatedVideoMemory}};
+        const auto path = std::filesystem::absolute(m_commandLineOptions.benchmarkReportPath);
+        std::filesystem::create_directories(path.parent_path());
+        const auto temporary = std::filesystem::path(path.wstring() + L".tmp");
+        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+        output << report.dump(2) << '\n';
+        output.close();
+        if (!output || !MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING))
+        {
+            throw std::runtime_error("Benchmark report write failed.");
+        }
+    }
+    catch (const std::exception& error)
+    {
+        OutputDebugStringA(error.what());
+        m_exitCode = 1;
+    }
+    RequestCloseApplication();
 }
 
 void RtPbrSurveyApp::RequestCloseApplication()
@@ -2806,8 +2985,13 @@ void RtPbrSurveyApp::CreateSampleScenes()
     m_gltfSceneCount = gltfAssetCount;
     for (int i = 0; i < m_gltfSceneCount; i++)
     {
-        m_sampleScenes.push_back(
-            std::make_unique<Engine::GltfGridBenchmarkScene>(gltfAssets[i], Engine::GltfGridBenchmarkScene::kMaxInstanceCount));
+        auto scene = std::make_unique<Engine::GltfGridBenchmarkScene>(
+            gltfAssets[i], Engine::GltfGridBenchmarkScene::kMaxInstanceCount);
+        if (strcmp(gltfAssets[i].name, "DamagedHelmet") == 0)
+        {
+            scene->SetDisplayInstanceCount(121);
+        }
+        m_sampleScenes.push_back(std::move(scene));
     }
 
     m_sampleScenes.push_back(std::make_unique<Engine::MetallicRoughnessSphereScene>(
@@ -3659,7 +3843,8 @@ bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state,
         {
             state.sceneIndex = m_loadedSceneIndex;
             state.sceneName = LoadedScene().Name();
-            state.sceneReference.id = "sample:" + state.sceneName;
+            state.sceneReference.id = dynamic_cast<const Engine::GltfGridBenchmarkScene*>(&LoadedScene()) != nullptr ?
+                                          "sample:Grid/" + state.sceneName : "sample:" + state.sceneName;
             state.sceneReference.path.clear();
         }
         else
@@ -3761,37 +3946,15 @@ bool RtPbrSurveyApp::RestoreEvaluationState(const RtPbrSurvey::EvaluationState& 
         return true;
     }
 
-    int sceneIndex = -1;
-    if (!state.sceneReference.id.empty())
+    std::vector<RtPbrSurvey::EvaluationSampleScene> sampleScenes;
+    sampleScenes.reserve(m_sampleScenes.size());
+    for (const auto& scene : m_sampleScenes)
     {
-        const auto scene = std::find_if(m_sampleScenes.begin(),
-                                        m_sampleScenes.end(),
-                                        [&state](const std::unique_ptr<Engine::SampleScene>& candidate)
-                                        {
-                                            return state.sceneReference.id ==
-                                                   std::string("sample:") + candidate->Name();
-                                        });
-        if (scene != m_sampleScenes.end())
-        {
-            sceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
-        }
+        const std::string prefix = dynamic_cast<const Engine::GltfGridBenchmarkScene*>(scene.get()) != nullptr ?
+                                       "sample:Grid/" : "sample:";
+        sampleScenes.push_back({prefix + scene->Name(), scene->Name()});
     }
-    if (sceneIndex < 0 && state.sceneIndex >= 0 && state.sceneIndex < static_cast<int>(m_sampleScenes.size()) &&
-        state.sceneName == m_sampleScenes[static_cast<size_t>(state.sceneIndex)]->Name())
-    {
-        sceneIndex = state.sceneIndex;
-    }
-    else
-    {
-        const auto scene = std::find_if(m_sampleScenes.begin(),
-                                        m_sampleScenes.end(),
-                                        [&state](const std::unique_ptr<Engine::SampleScene>& candidate)
-                                        { return state.sceneName == candidate->Name(); });
-        if (scene != m_sampleScenes.end())
-        {
-            sceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
-        }
-    }
+    const int sceneIndex = RtPbrSurvey::ResolveEvaluationSampleScene(state, sampleScenes);
 
     if (sceneIndex < 0)
     {

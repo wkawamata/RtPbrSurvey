@@ -4,6 +4,7 @@
 #include <memory>
 #include <span>
 #include <cstdint>
+#include <vector>
 #include "PathTracingReconstructionPolicy.h"
 
 namespace Engine
@@ -50,6 +51,7 @@ public:
     void Invalidate();
     void Reset();
     uint64_t Token() const;
+    uint64_t BoundsBuildCount() const { return m_boundsBuildCount; }
     NrdRelaxGpuSceneRange ExportGpuSceneRange(uint64_t expectedToken) const;
     NrdRelaxRayRangeContext
     MakeRangeContext(uint64_t token, std::array<float, 3> origin, std::array<float, 3> direction) const;
@@ -58,6 +60,11 @@ private:
     std::shared_ptr<const SceneMesh> m_uploadedMesh;
     NrdRelaxWorldBounds m_bounds;
     uint64_t m_token = 0;
+    NrdRelaxWorldBounds m_cachedBounds;
+    std::vector<std::array<float, 16>> m_cachedWorlds;
+    std::vector<uint32_t> m_cachedMeshIds;
+    bool m_hasCachedBounds = false;
+    uint64_t m_boundsBuildCount = 0;
 };
 
 enum class NrdRelaxSupportStatus

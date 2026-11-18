@@ -544,7 +544,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::TextDisabled("Current Scene");
         const char* sceneName = loadedScene.Name();
         const char* sceneNameBreak = strchr(sceneName, ':');
         bool closeSceneRequested = false;
@@ -572,8 +571,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             return;
         }
         ImGui::Separator();
-        ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
-        ImGui::Text("FrameIndex: %d", context.frameIndex);
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
+                    context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
+        ImGui::Text("GPU Total: %.6f ms",
+                    context.gpuCheckPoints.size() >= 2 ? context.gpuCheckPoints.back().timeStamp : 0.0f);
         ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
         ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
         ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
@@ -626,7 +627,101 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         int missingMode = 0; // gaps, held observations, or explicit zero cadence.
     };
     static WorkMeterHistory workMeterHistory;
+    struct WorkMeterAverage
+    {
+        struct Value
+        {
+            std::string name;
+            double sum = 0.0;
+            int samples = 0;
+        };
+
+        int frameCount = 120;
+        int targetFrames = 0;
+        int collectedFrames = 0;
+        int lastFrame = -1;
+        bool collecting = false;
+        std::string description;
+        std::vector<Value> values;
+
+        void Add(const std::string& name, double value)
+        {
+            if (!std::isfinite(value) || value < 0.0)
+            {
+                return;
+            }
+            auto entry = std::find_if(values.begin(), values.end(), [&name](const Value& candidate)
+                                      { return candidate.name == name; });
+            if (entry == values.end())
+            {
+                values.push_back({name});
+                entry = values.end() - 1;
+            }
+            entry->sum += value;
+            ++entry->samples;
+        }
+    };
+    static WorkMeterAverage workMeterAverage;
     const int workMeterFrame = ImGui::GetFrameCount();
+    auto& average = workMeterAverage;
+    if (average.collecting && average.lastFrame != workMeterFrame)
+    {
+        average.lastFrame = workMeterFrame;
+        average.Add("CPU Frame (ms)", context.cpuFrameTime);
+        const auto& cpuTiming = app.m_sceneRenderer.CpuFrameTiming();
+        if (cpuTiming.available)
+        {
+            for (size_t i = 0; i < RtPbrSurvey::kRendererCpuPhaseCount; ++i)
+            {
+                average.Add(std::string("CPU ") + RtPbrSurvey::kRendererCpuPhaseNames[i] + " (ms)", cpuTiming.ms[i]);
+            }
+        }
+        const double frameSeconds = ImGui::GetIO().DeltaTime;
+        average.Add("Wall Frame (ms)", frameSeconds * 1000.0);
+        if (context.cpuFrameTime > 0.0f)
+        {
+            average.Add("CPU FPS", 1000.0 / context.cpuFrameTime);
+        }
+        if (frameSeconds > 0.0)
+        {
+            average.Add("Wall FPS", 1.0 / frameSeconds);
+        }
+        const auto& checkPoints = context.gpuCheckPoints;
+        if (checkPoints.size() >= 2)
+        {
+            average.Add("GPU Total (ms)", checkPoints.back().timeStamp);
+            for (size_t i = 1; i + 1 < checkPoints.size(); ++i)
+            {
+                average.Add("GPU[" + std::to_string(i) + "] " + checkPoints[i].name + " (ms)",
+                            checkPoints[i].timeStamp - checkPoints[i - 1].timeStamp);
+            }
+        }
+        const auto& timing = context.pathTracingDiagnostics.reconstructionTimings;
+        if (timing.rrSdk.available)
+        {
+            average.Add("RR SDK (ms)", timing.rrSdk.milliseconds);
+        }
+        if (timing.rrConversion.available)
+        {
+            average.Add("RR Input Conversion (ms)", timing.rrConversion.milliseconds);
+        }
+        if (++average.collectedFrames >= average.targetFrames)
+        {
+            average.collecting = false;
+            std::ostringstream output;
+            output << "[WorkMeter Average] " << average.description << "\n"
+                   << "FrameCount: " << average.collectedFrames << "\n"
+                   << "GPU: latest completed frame per UI frame (delayed readback).\n"
+                   << "FPS: arithmetic mean of per-frame FPS.\n" << std::fixed << std::setprecision(6);
+            for (const auto& value : average.values)
+            {
+                output << value.name << ": " << value.sum / value.samples
+                       << " (samples=" << value.samples << ")\n";
+            }
+            output << "[WorkMeter Average End]\n";
+            OutputDebugStringA(output.str().c_str());
+        }
+    }
     if (!workMeterHistory.frozen && workMeterHistory.lastFrame != workMeterFrame)
     {
         auto& history = workMeterHistory;
@@ -652,7 +747,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         history.count = (std::min)(history.count + 1, static_cast<int>(WorkMeterHistory::Capacity));
         history.lastFrame = workMeterFrame;
     }
-    const auto drawWorkMeter = [&context]()
+    const auto drawWorkMeter = [&context, &app]()
     {
         auto& history = workMeterHistory;
         if (ImGui::TreeNode("Graphs##WorkMeter"))
@@ -743,6 +838,46 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                         history.count > 0 ? history.lastFrame : 0);
             ImGui::TreePop();
         }
+        const auto& presentation = app.m_sceneRenderer.EngineForDebugTools();
+        ImGui::Text("Present: interval=%u flags=0x%X, tearing=%s", presentation.LastPresentInterval(),
+                    presentation.LastPresentFlags(), presentation.TearingSupported() ? "supported" : "unavailable");
+        if (ImGui::TreeNode("Average##WorkMeter"))
+        {
+            auto& average = workMeterAverage;
+            ImGui::BeginDisabled(average.collecting);
+            ImGui::InputInt("FrameCount", &average.frameCount);
+            average.frameCount = (std::clamp)(average.frameCount, 1, 1000000);
+            if (ImGui::Button("OutputAverage"))
+            {
+                average.targetFrames = average.frameCount;
+                average.collectedFrames = 0;
+                average.lastFrame = ImGui::GetFrameCount();
+                average.values.clear();
+                std::ostringstream description;
+                description << "VSync=" << (app.m_sceneRenderer.EngineForDebugTools().VSyncEnabled() ? "On" : "Off") << ", Scene=" << app.LoadedScene().Name()
+                            << ", instances=" << app.m_displayInstanceCount
+                            << ", render=" << context.renderWidth << "x" << context.renderHeight
+                            << ", output=" << context.outputWidth << "x" << context.outputHeight;
+                description << ", presentInterval=" << presentation.LastPresentInterval()
+                            << ", instancing=" << (presentation.GeometryInstancingEnabled() ? "On" : "Off")
+                            << ", presentFlags=" << presentation.LastPresentFlags()
+                            << ", tearingSupported=" << presentation.TearingSupported();
+                average.description = description.str();
+                average.collecting = true;
+            }
+            ImGui::EndDisabled();
+            if (average.collecting)
+            {
+                ImGui::Text("Collecting: %d / %d", average.collectedFrames, average.targetFrames);
+            }
+            else if (average.collectedFrames > 0)
+            {
+                ImGui::Text("Output complete: %d frames", average.collectedFrames);
+            }
+            ImGui::TextWrapped("Collects the following UI frames, independent of Freeze graphs. "
+                               "Keep the scene and settings unchanged. Results go to the debugger Output window.");
+            ImGui::TreePop();
+        }
         ImGui::Separator();
         ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
                     context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
@@ -776,10 +911,75 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             row->milliseconds = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
             row->available = true;
         }
+        if (ImGui::TreeNode("Meter##WorkMeter"))
+        {
+            const bool gpuBarVSync = app.m_sceneRenderer.EngineForDebugTools().VSyncEnabled();
+            const float gpuBarFrameMs = gpuBarVSync ? 33.3f :
+                (std::isfinite(context.cpuFrameTime) ? (std::max)(context.cpuFrameTime, 0.0f) : 0.0f);
+            const float gpuBarMaxMs = (std::max)(gpuBarFrameMs, 0.000001f);
+            const ImVec2 gpuBarSize((std::max)(ImGui::GetContentRegionAvail().x, 1.0f), ImGui::GetFrameHeight());
+            const float cpuBarMs = std::isfinite(context.cpuFrameTime) ?
+                                       (std::max)(context.cpuFrameTime, 0.0f) : 0.0f;
+            ImGui::Text("CPU Frame: %.3f ms", cpuBarMs);
+            const ImVec2 cpuBarStart = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("CPU Frame Bar##WorkMeter", gpuBarSize);
+            ImDrawList* cpuDrawList = ImGui::GetWindowDrawList();
+            cpuDrawList->AddRectFilled(cpuBarStart,
+                                      ImVec2(cpuBarStart.x + gpuBarSize.x, cpuBarStart.y + gpuBarSize.y),
+                                      ImGui::GetColorU32(ImGuiCol_FrameBg));
+            const float cpuBarFraction = (std::min)(cpuBarMs / gpuBarMaxMs, 1.0f);
+            cpuDrawList->AddRectFilled(cpuBarStart,
+                                      ImVec2(cpuBarStart.x + cpuBarFraction * gpuBarSize.x,
+                                             cpuBarStart.y + gpuBarSize.y),
+                                      ImGui::GetColorU32(ImGuiCol_PlotHistogram));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("CPU Frame: %.3f / %.3f ms (%.1f%%)%s", cpuBarMs, gpuBarFrameMs,
+                                  cpuBarMs / gpuBarMaxMs * 100.0f,
+                                  cpuBarMs > gpuBarMaxMs ? " (overflow)" : "");
+            }
+            ImGui::TextUnformatted("GPU passes");
+            const ImVec2 gpuBarStart = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("GPU Pass Distribution##WorkMeter", gpuBarSize);
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            drawList->AddRectFilled(gpuBarStart,
+                                   ImVec2(gpuBarStart.x + gpuBarSize.x, gpuBarStart.y + gpuBarSize.y),
+                                   ImGui::GetColorU32(ImGuiCol_FrameBg));
+            float cumulativeMs = 0.0f;
+            for (size_t i = 0; i < gpuRows.size(); ++i)
+            {
+                const auto& row = gpuRows[i];
+                const float durationMs = row.available && std::isfinite(row.milliseconds) ?
+                                             (std::max)(row.milliseconds, 0.0f) : 0.0f;
+                const float startFraction = (std::min)(cumulativeMs / gpuBarMaxMs, 1.0f);
+                cumulativeMs += durationMs;
+                const float endFraction = (std::min)(cumulativeMs / gpuBarMaxMs, 1.0f);
+                if (endFraction <= startFraction)
+                {
+                    continue;
+                }
+                const ImVec2 segmentStart(gpuBarStart.x + startFraction * gpuBarSize.x, gpuBarStart.y);
+                const ImVec2 segmentEnd(gpuBarStart.x + endFraction * gpuBarSize.x,
+                                        gpuBarStart.y + gpuBarSize.y);
+                const ImVec4 color = ImColor::HSV(static_cast<float>(i) * 0.618034f, 0.65f, 0.9f).Value;
+                drawList->AddRectFilled(segmentStart, segmentEnd, ImGui::GetColorU32(color));
+                if (ImGui::IsItemHovered() && ImGui::IsMouseHoveringRect(segmentStart, segmentEnd))
+                {
+                    ImGui::SetTooltip("GPU[%d] %s: %.3f ms (%.1f%% of %.3f ms)",
+                                      static_cast<int>(i + 1), row.name.c_str(), durationMs,
+                                      durationMs / gpuBarMaxMs * 100.0f, gpuBarFrameMs);
+                }
+            }
+            ImGui::Text("GPU passes: %.3f / %.3f ms (%s)%s", cumulativeMs, gpuBarFrameMs,
+                        gpuBarVSync ? "30 Hz" : "CPU Frame",
+                        cumulativeMs > gpuBarMaxMs ? " (overflow)" : "");
+            ImGui::TreePop();
+        }
         for (size_t i = 0; i < gpuRows.size(); ++i)
         {
             const auto& row = gpuRows[i];
-            ImGui::Text("GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
+            const ImVec4 color = ImColor::HSV(static_cast<float>(i) * 0.618034f, 0.65f, 0.9f).Value;
+            ImGui::TextColored(color, "GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
         }
         if (gpuCheckPoints.size() >= 2)
             ImGui::Text("GPU Total: %.6f ms", gpuCheckPoints.back().timeStamp);
@@ -789,6 +989,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Basic Settings###Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        bool vsync = app.m_sceneRenderer.EngineForDebugTools().VSyncEnabled();
+        if (ImGui::Checkbox("VSync##BasicSettings", &vsync))
+        {
+            app.m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(vsync);
+        }
+
+        if (dynamic_cast<const Engine::GltfGridBenchmarkScene*>(&loadedScene) != nullptr)
+        {
+            bool instancing = app.m_sceneRenderer.EngineForDebugTools().GeometryInstancingEnabled();
+            if (ImGui::Checkbox("Instancing##BasicSettings", &instancing))
+            {
+                app.m_sceneRenderer.EngineForDebugTools().SetGeometryInstancing(instancing);
+            }
+        }
+
         ImGuiWidgets::SliderIntWithControls("Display Instance Count", &app.m_displayInstanceCount, 0,
                                              loadedScene.MaxDisplayInstanceCount(), 1, 0);
         loadedScene.SetDisplayInstanceCount(app.m_displayInstanceCount);
@@ -1543,6 +1758,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 app.m_selectedMaterialIndex = materialCount - 1;
             }
             ImGuiWidgets::SliderIntWithControls("Material", &app.m_selectedMaterialIndex, 0, materialCount - 1, 1, 0);
+
+            Engine::MaterialHighlightSettings& highlight = app.m_sceneRenderer.MaterialHighlight();
+            highlight.materialId = static_cast<UINT>(app.m_selectedMaterialIndex);
+            ImGui::Checkbox("Highlight Selected Material", &highlight.enabled);
+            if (highlight.enabled)
+            {
+                if (ImGui::Checkbox("Complementary Color", &highlight.complementary) && highlight.complementary)
+                {
+                    highlight.opacity = 1.0f;
+                }
+                if (!highlight.complementary)
+                {
+                    ImGui::ColorEdit3("Highlight RGB", highlight.color);
+                }
+                ImGui::SliderFloat("Highlight Opacity", &highlight.opacity, 0.0f, 1.0f);
+                ImGui::TextWrapped("Highlights the front visible surface; reflected and transmitted surfaces are excluded.");
+            }
 
             Engine::SceneMaterial& material = sceneMesh.materials[app.m_selectedMaterialIndex];
             bool materialChanged = false;

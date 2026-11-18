@@ -138,6 +138,7 @@ bool CheckSnapshotLifecycle()
     passed &= uploaded.vertices[0].position.z == 0;
     snapshot.RecordTlas({&instance, 1});
     const uint64_t first = snapshot.Token();
+    const uint64_t initialBuilds = snapshot.BoundsBuildCount();
     auto context = snapshot.MakeRangeContext(first, {.25f, .25f, .001f}, {0, 0, 1});
     using Disposition = Engine::NrdRelaxDistanceDisposition;
     const auto inspect = [&]()
@@ -157,12 +158,18 @@ bool CheckSnapshotLifecycle()
     }
     passed &= !snapshot.ExportGpuSceneRange(0).valid && !snapshot.ExportGpuSceneRange(first + 1).valid;
     snapshot.RecordTlas({&instance, 1});
+    passed &= snapshot.BoundsBuildCount() == initialBuilds;
     passed &= snapshot.Token() != first && inspect() == Disposition::EnvironmentMissPolicyRequired;
     passed &= !snapshot.ExportGpuSceneRange(first).valid;
     context = snapshot.MakeRangeContext(first, {.25f, .25f, .001f}, {0, 0, 1});
     passed &= !context.geometrySnapshotMatches;
+    instance.prevWorld._14 = 7;
+    instance.materialId = 4;
+    snapshot.RecordTlas({&instance, 1});
+    passed &= snapshot.BoundsBuildCount() == initialBuilds;
     instance.world._34 = 200;
     snapshot.RecordTlas({&instance, 1});
+    passed &= snapshot.BoundsBuildCount() == initialBuilds + 1;
     context = snapshot.MakeRangeContext(snapshot.Token(), {.25f, .25f, .001f}, {0, 0, 1});
     passed &= inspect() == Disposition::EnvironmentMissPolicyRequired;
     snapshot.Invalidate();
@@ -181,6 +188,24 @@ bool CheckSnapshotLifecycle()
     passed &= inspect() == Disposition::EnvironmentMissPolicyRequired;
     snapshot.RecordTlas({});
     passed &= snapshot.Token() == 0;
+    snapshot.RecordTlas({&instance, 1});
+    const uint64_t beforeCountChange = snapshot.BoundsBuildCount();
+    std::array<Engine::InstanceData, 2> pair = {instance, instance};
+    snapshot.RecordTlas(pair);
+    passed &= snapshot.BoundsBuildCount() == beforeCountChange + 1;
+    snapshot.RecordTlas(pair);
+    passed &= snapshot.BoundsBuildCount() == beforeCountChange + 1;
+    pair[1].meshId = 999;
+    snapshot.RecordTlas(pair);
+    passed &= snapshot.BoundsBuildCount() == beforeCountChange + 2 && snapshot.Token() == 0;
+    snapshot.Invalidate();
+    passed &= snapshot.Token() == 0;
+    snapshot.RecordTlas({&instance, 1});
+    const uint64_t beforeUpload = snapshot.BoundsBuildCount();
+    snapshot.CaptureUpload(mesh);
+    snapshot.RecordTlas({&instance, 1});
+    passed &= snapshot.BoundsBuildCount() == beforeUpload + 1 && snapshot.Token() != 0;
+
     return passed;
 }
 

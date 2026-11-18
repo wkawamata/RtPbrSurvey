@@ -103,6 +103,20 @@ PSInput VSMain(float4 position : POSITION,
     return result;
 }
 
+// Diagnostic only: same seven MRTs, no material/texture/normal-map work.
+GBufferOutput PSConstant(PSInput input)
+{
+    GBufferOutput output;
+    output.albedo = float4(0.5, 0.5, 0.5, 1.0);
+    output.normal = float4(0.0, 0.0, 1.0, 1.0);
+    output.material = 0;
+    output.motionVector = float2(0.0, 0.0);
+    output.pbrParams = float4(0.0, 0.5, 1.0, 1.0);
+    output.emissive = float4(0.0, 0.0, 0.0, 1.0);
+    output.objectId = 1;
+    return output;
+}
+
 GBufferOutput PSMain(PSInput input)
 {
     Material mat = g_materialData[input.materialId];
