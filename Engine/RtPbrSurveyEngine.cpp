@@ -596,6 +596,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     pathTracingDiagnostics.nrdPreviewBuilt = true;
     pathTracingDiagnostics.nrdFailureReason = m_nrdFailureReason;
+    pathTracingDiagnostics.nrdEvaluationRecorded = m_nrdLastEvaluationRecorded;
+    pathTracingDiagnostics.nrdRecordedDispatches = m_nrdLastDispatchCount;
     pathTracingDiagnostics.nrdPreparedDispatches = m_nrdPreparedDispatches;
     pathTracingDiagnostics.nrdPlannedDispatches = m_nrdPlannedDispatches;
     pathTracingDiagnostics.nrdFailureCount = m_nrdFailureCount;

@@ -401,6 +401,8 @@ public:
         bool thinTransmissionActive = false;
         Engine::NrdRelaxPresentationStatus nrdPresentationStatus = Engine::NrdRelaxPresentationStatus::Native;
         std::string nrdFailureReason;
+        bool nrdEvaluationRecorded = false;
+        UINT nrdRecordedDispatches = 0;
         UINT nrdPreparedDispatches = 0;
         UINT nrdPlannedDispatches = 0;
         UINT nrdFailureCount = 0;

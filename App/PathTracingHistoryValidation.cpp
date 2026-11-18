@@ -1268,3 +1268,312 @@ void RtPbrSurveyApp::RunPathTracingRrRecoveryValidation()
     if (m_rrLifecycleFrames > 256)
         fail("Recovery checkpoint timed out: " + rr.rrLivePhase + " " + rr.rrLiveFailure);
 }
+
+void RtPbrSurveyApp::RunPathTracingRrRegressionValidation()
+{
+    using Backend = Engine::PathTracingReconstructionBackend;
+    using Fault = Engine::RrRecoveryFault;
+    enum class Action
+    {
+        Steady,
+        CameraTranslation,
+        CameraRotation,
+        ObjectTranslation,
+        ObjectRotation,
+        Projection,
+        SamplesFour,
+        SamplesOne,
+        Jitter,
+        Center,
+        Reload,
+        Infinity,
+        Huge,
+        Native,
+        Nrd,
+        RrReturn
+    };
+    struct Step
+    {
+        const char* name;
+        Action action;
+        bool reset = false;
+    };
+    static constexpr Step steps[] = {{"baseline", Action::Steady},
+                                     {"camera-translation", Action::CameraTranslation},
+                                     {"camera-stop", Action::Steady},
+                                     {"camera-rotation", Action::CameraRotation},
+                                     {"camera-rotation-stop", Action::Steady},
+                                     {"object-translation", Action::ObjectTranslation},
+                                     {"object-stop", Action::Steady},
+                                     {"object-rotation", Action::ObjectRotation},
+                                     {"object-rotation-stop", Action::Steady},
+                                     {"projection", Action::Projection, true},
+                                     {"sample-four", Action::SamplesFour, true},
+                                     {"sample-one", Action::SamplesOne, true},
+                                     {"jitter-primary", Action::Jitter, true},
+                                     {"center-primary", Action::Center, true},
+                                     {"scene-reload", Action::Reload, true},
+                                     {"input-infinity", Action::Infinity},
+                                     {"recover-infinity", Action::Steady, true},
+                                     {"input-huge", Action::Huge},
+                                     {"recover-huge", Action::Steady, true},
+                                     {"native", Action::Native},
+                                     {"nrd", Action::Nrd},
+                                     {"rr-return", Action::RrReturn, true}};
+    const auto fail = [this](const std::string& reason)
+    {
+        if (m_logFile)
+        {
+            fprintf(m_logFile,
+                    "[RrRegressionFailure] step=%u phase=%u %s\n",
+                    m_rrRegressionStep,
+                    m_rrRegressionPhase,
+                    reason.c_str());
+            fflush(m_logFile);
+        }
+        m_exitCode = 1;
+        DestroyWindow(Win32Application::GetHwnd());
+    };
+    if (!m_logFile || m_appMode != AppMode::Running || LoadedScene().GetScene().instances.size() != 1)
+    {
+        fail("Requires a running single-instance scene and log");
+        return;
+    }
+    const auto context = m_sceneRenderer.GetUiFrameContext();
+    const auto rr = context.pathTracingDiagnostics;
+    const auto base = m_rrRecoveryBaseline;
+    const uint64_t calls = context.rayReconstructionDiagnostics.nativeEvaluateCallCount;
+    auto& engine = m_sceneRenderer.EngineForDebugTools();
+    const auto pause = [&](bool enabled) { m_sceneRenderer.SetPathTracingAccumulationPaused(enabled); };
+    const Step& step = steps[m_rrRegressionStep];
+    const bool fault = step.action == Action::Infinity || step.action == Action::Huge;
+    const bool otherBackend = step.action == Action::Native || step.action == Action::Nrd;
+    const bool pinned =
+        rr.rrRetainedOutputVerified && rr.rrFinalFence == 0 && rr.rrLivePhase == "retained-output-ready";
+    if (m_rrRegressionPhase == 0)
+    {
+        if (m_rrRegressionStep == 0 && !pinned)
+        {
+            if (rr.rrCompletedCount >= 3)
+                pause(true);
+        }
+        else
+        {
+            if (!rr.nrdPreviewBuilt)
+            {
+                fail("Regression requires an NRD+RR SDK build");
+                return;
+            }
+            m_rrRecoveryBaseline = rr;
+            m_rrLifecycleCalls = calls;
+            m_rrLifecycleFrames = 0;
+            m_rrLifecycleCapture = 0;
+            m_rrLifecycleEntered = false;
+            auto settings = m_sceneRenderer.GetPathTracingSettings();
+            engine.SetRrRecoveryFault(Fault::None);
+            if (step.action == Action::Projection)
+            {
+                auto camera = m_sceneRenderer.GetCamera();
+                camera.fov += 2;
+                LoadedScene().GetScene().camera = camera;
+                m_sceneRenderer.SetCamera(camera);
+            }
+            else if (step.action == Action::SamplesFour || step.action == Action::SamplesOne)
+                settings.samplesPerFrame = step.action == Action::SamplesFour ? 4 : 1;
+            else if (step.action == Action::Jitter || step.action == Action::Center)
+                settings.pixelCenterPrimary = step.action == Action::Center;
+            else if (step.action == Action::Reload)
+            {
+                auto* scene = dynamic_cast<Engine::SceneDocumentRuntimeScene*>(&LoadedScene());
+                std::string error;
+                if (!scene || !scene->LoadFromFile(&error))
+                {
+                    fail("Scene reload failed: " + error);
+                    return;
+                }
+                m_sceneRenderer.ReloadSceneResources(scene->GetScene());
+                m_sceneRenderer.SetCamera(scene->GetScene().camera);
+            }
+            else if (step.action == Action::Infinity || step.action == Action::Huge)
+                engine.SetRrRecoveryFault(step.action == Action::Infinity ? Fault::InputInfinity : Fault::InputHuge);
+            else if (otherBackend || step.action == Action::RrReturn)
+            {
+                settings.reconstructionBackend = step.action == Action::Nrd      ? Backend::Nrd
+                                                 : step.action == Action::Native ? Backend::Native
+                                                                                 : Backend::Rr;
+                settings.nrdPreview = step.action == Action::Nrd;
+                settings.samplesPerFrame = 1;
+                settings.pixelCenterPrimary = true;
+            }
+            m_sceneRenderer.SetPathTracingSettings(settings);
+            pause(false);
+            m_rrRegressionPhase = 1;
+        }
+    }
+    else if (m_rrRegressionPhase == 1)
+    {
+        bool finish = false;
+        if (otherBackend)
+        {
+            if (calls != m_rrLifecycleCalls || rr.reconstructionPresentation.output == Backend::Rr)
+            {
+                fail("Non-RR backend executed or selected RR");
+                return;
+            }
+            finish =
+                m_rrLifecycleFrames >= 8 && (step.action == Action::Native ||
+                                             (rr.nrdEvaluationRecorded && rr.nrdRecordedDispatches > 0 &&
+                                              rr.nrdPresentationStatus == Engine::NrdRelaxPresentationStatus::Relax));
+        }
+        else if (fault || step.reset)
+            finish = rr.rrFinalFence != 0 && calls > m_rrLifecycleCalls;
+        else
+            finish = rr.rrCompletedCount >= base.rrCompletedCount + 4;
+        if (finish)
+        {
+            pause(true);
+            m_rrRegressionPhase = 2;
+        }
+    }
+    else if (m_rrRegressionPhase == 2)
+    {
+        const bool settled =
+            otherBackend || (fault ? rr.rrFinalFence == 0 && rr.rrLivePhase == "retained-output-rejected" : pinned);
+        if (settled)
+        {
+            if (!otherBackend)
+            {
+                if (rr.rrCancelledCount != base.rrCancelledCount || rr.rrOutputRejected != base.rrOutputRejected ||
+                    rr.rrSdkFailures != base.rrSdkFailures ||
+                    rr.rrInputRejectionCount != base.rrInputRejectionCount + (fault ? 1 : 0))
+                {
+                    fail("Unexpected rejection/cancellation in valid regression production");
+                    return;
+                }
+                if (fault)
+                {
+                    if (rr.rrCompletedCount != base.rrCompletedCount ||
+                        rr.rrRetainedFrameId != base.rrRetainedFrameId || !rr.rrHistoryDirty)
+                    {
+                        fail("Nonfinite/huge input was published");
+                        return;
+                    }
+                }
+                else if (rr.rrHistoryDirty || (step.reset ? !rr.rrLastReset || rr.rrResetCount != base.rrResetCount + 1
+                                                          : rr.rrResetCount != base.rrResetCount))
+                {
+                    fail("Motion reset history or discontinuity failed to reset");
+                    return;
+                }
+            }
+            m_rrRegressionPhase = 3;
+            m_rrLifecycleCapture = 0;
+            m_rrLifecycleEntered = false;
+        }
+    }
+    else if (m_rrRegressionPhase == 3)
+    {
+        static constexpr const char* resources[] = {"PathTracing.RrMotion",
+                                                    "PathTracing.DenoiserPrimaryPosition",
+                                                    "PathTracing.RrColor",
+                                                    "PathTracing.CurrentFrameRadiance"};
+        if (!m_rrLifecycleEntered)
+        {
+            RtPbrSurvey::ScreenshotRequest request;
+            request.path = std::filesystem::absolute(
+                m_commandLineOptions.pathTracingRrRegressionValidationDirectory /
+                (std::string(step.name) + "-" + std::to_string(m_rrLifecycleCapture) + ".ptbuf"));
+            if (m_rrLifecycleCapture < 4)
+                request.debugResourceName = resources[m_rrLifecycleCapture];
+            else
+                request.debugResourceName = step.action == Action::Nrd      ? "PathTracing.NrdSceneColor"
+                                            : step.action == Action::Native ? "PathTracing.SceneColor"
+                                            : rr.rrPublishedSlot == 0       ? "PathTracing.RrOutput"
+                                                                            : "PathTracing.RrOutputAlternate";
+            m_sceneRenderer.RequestScreenshot(request);
+            m_rrLifecycleEntered = true;
+        }
+        else if (const auto result = m_sceneRenderer.ConsumeScreenshotResult())
+        {
+            if (!result->succeeded)
+            {
+                fail("Regression capture failed: " + result->error);
+                return;
+            }
+            m_rrLifecycleEntered = false;
+            if (++m_rrLifecycleCapture == 5)
+            {
+                const nlohmann::json row = {
+                    {"case", step.name},
+                    {"calls", calls},
+                    {"completed", rr.rrCompletedCount},
+                    {"resets", rr.rrResetCount},
+                    {"lastReset", rr.rrLastReset},
+                    {"cancelled", rr.rrCancelledCount},
+                    {"inputRejected", rr.rrInputRejectionCount},
+                    {"outputRejected", rr.rrOutputRejected},
+                    {"sdkFailures", rr.rrSdkFailures},
+                    {"dirty", rr.rrHistoryDirty},
+                    {"published", rr.rrRetainedFrameId},
+                    {"nrdRecorded", rr.nrdEvaluationRecorded},
+                    {"nrdDispatches", rr.nrdRecordedDispatches},
+                    {"output", Engine::PathTracingReconstructionBackendName(rr.reconstructionPresentation.output)},
+                    {"samples", m_sceneRenderer.GetPathTracingSettings().samplesPerFrame},
+                    {"pixelCenter", m_sceneRenderer.GetPathTracingSettings().pixelCenterPrimary}};
+                fprintf(m_logFile, "[RrRegression] %s\n", row.dump().c_str());
+                fflush(m_logFile);
+                if (++m_rrRegressionStep == std::size(steps))
+                {
+                    fprintf(m_logFile, "[RrRegressionComplete] passed=true\n");
+                    fflush(m_logFile);
+                    DestroyWindow(Win32Application::GetHwnd());
+                    return;
+                }
+                m_rrRegressionPhase = 0;
+                m_rrLifecycleFrames = 0;
+            }
+        }
+    }
+    if (m_rrRegressionPhase == 1)
+    {
+        if (step.action == Action::CameraTranslation || step.action == Action::CameraRotation)
+        {
+            auto camera = m_sceneRenderer.GetCamera();
+            if (step.action == Action::CameraTranslation)
+            {
+                camera.pos.x += .004f;
+                camera.gazePoint.x += .004f;
+            }
+            else
+                camera.gazePoint.x += .006f;
+            LoadedScene().GetScene().camera = camera;
+            m_sceneRenderer.SetCamera(camera);
+        }
+        else if (step.action == Action::ObjectTranslation || step.action == Action::ObjectRotation)
+        {
+            auto& instance = LoadedScene().GetScene().instances.front();
+            instance.prevWorld = instance.world;
+            const auto world = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&instance.world));
+            DirectX::XMMATRIX moved;
+            if (step.action == Action::ObjectTranslation)
+                moved = world * DirectX::XMMatrixTranslation(.004f, 0, 0);
+            else
+            {
+                DirectX::XMFLOAT4X4 rowWorld;
+                DirectX::XMStoreFloat4x4(&rowWorld, world);
+                moved = world * DirectX::XMMatrixTranslation(-rowWorld._41, -rowWorld._42, -rowWorld._43) *
+                        DirectX::XMMatrixRotationY(.008f) *
+                        DirectX::XMMatrixTranslation(rowWorld._41, rowWorld._42, rowWorld._43);
+            }
+            DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(moved));
+        }
+    }
+    UpdateUiFrame();
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commands) { m_imguiSystem.Render(commands); });
+    ++m_rrLifecycleFrames;
+    if (m_d3d12InfoQueue)
+        FlushD3D12DebugMessages();
+    if (m_rrLifecycleFrames > 512)
+        fail(std::string("Regression timed out: ") + step.name + " phase=" + rr.rrLivePhase +
+             " issue=" + rr.rrLiveFailure);
+}

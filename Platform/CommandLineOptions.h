@@ -99,6 +99,7 @@ struct CommandLineOptions
     bool pathTracingRrTransmissionMotionExperiment = false;
     std::filesystem::path pathTracingRrLifecycleValidationDirectory;
     std::filesystem::path pathTracingRrRecoveryValidationDirectory;
+    std::filesystem::path pathTracingRrRegressionValidationDirectory;
     UINT pathTracingRrRecoveryMaxCheckpoints = 0;
     std::filesystem::path pathTracingRrInputCaptureDirectory;
     std::string nrdDiagnosticFailure;

@@ -122,6 +122,8 @@ cbuffer ConversionFrame : register(b0)
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     if (safeInputProfile != 0 && (recoveryFault == 2 || (recoveryFault == 1 && all(pixel == 0))))
         converted.color.x = asfloat(0x7fc00000); // Sanitize before the SDK, preserve rejection status.
+    if (safeInputProfile != 0 && all(pixel == 0) && (recoveryFault == 8 || recoveryFault == 9))
+        converted.color.x = asfloat(recoveryFault == 8 ? 0x7f800000 : 0x7f7fffff);
     if (safeInputProfile != 0)
         converted = SanitizeRrInputs(converted,
             actualContinuation != 0 && all(g_primaryPosition[pixel] == 0) && converted.diagnostics.x == 0);

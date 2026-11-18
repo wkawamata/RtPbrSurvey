@@ -19,7 +19,9 @@ enum class RrRecoveryFault : uint32_t
     OutputIncomplete,
     StaleInput,
     StaleOutput,
-    SdkPostRecordFailure
+    SdkPostRecordFailure,
+    InputInfinity,
+    InputHuge
 };
 
 // One immutable production at a time; a verified output stays published while
