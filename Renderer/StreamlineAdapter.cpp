@@ -30,6 +30,7 @@ struct StreamlineAdapterState
         RayReconstructionSupportStatus::NotIntegrated;
 #endif
     bool sdkInitialized = false;
+    bool rayReconstructionResourcesAllocated = false;
     bool initialized = false;
     bool lastRayReconstructionInputReadinessAvailable = false;
     bool lastRayReconstructionInputReady = false;
@@ -643,6 +644,10 @@ void ShutdownStreamlineAdapterWithSdk()
 {
     if (g_streamlineAdapterState.sdkInitialized)
     {
+        // Callers drain submitted GPU work before shutdown. Release viewport feature
+        // allocations while the device and tagged resources are still alive.
+        if (!ReleaseStreamlineRayReconstructionResources())
+            OutputDebugStringA("RR resource release failed during shutdown.\n");
         slShutdown();
     }
 }
@@ -854,6 +859,7 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
+    g_streamlineAdapterState.rayReconstructionResourcesAllocated = true;
     ++g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     const sl::Result evaluateResult =
         slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
@@ -1085,6 +1091,21 @@ TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device)
 #endif
     g_streamlineAdapterState.initialized = g_streamlineAdapterState.status == TemporalUpscalerSupportStatus::Available;
     return MakeSupportInfo(g_streamlineAdapterState.status);
+}
+
+bool ReleaseStreamlineRayReconstructionResources()
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    if (g_streamlineAdapterState.sdkInitialized && g_streamlineAdapterState.rayReconstructionResourcesAllocated)
+    {
+        const sl::Result result = slFreeResources(sl::kFeatureDLSS_RR, sl::ViewportHandle(0));
+        if (result != sl::Result::eOk)
+            return false;
+        g_streamlineAdapterState.rayReconstructionResourcesAllocated = false;
+        g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable = false;
+    }
+#endif
+    return true;
 }
 
 void ShutdownStreamlineAdapter()

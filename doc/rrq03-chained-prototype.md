@@ -113,3 +113,6 @@ rejection counters, no invalid publication, forced reset and resource ownership.
 These broader live failure/lifecycle paths have not been accepted by this smoke.
 Keep chained opt-in until these and RRQ-05 regressions pass; perform Release ABBA
 and image comparisons with the same safe input profile before considering adoption.
+
+RRQ-04 follow-up: [recovery and resize validation](rrq04-recovery-validation.md)
+completed on 2026-11-18. Broader RRQ-05 regressions and adoption remain pending.

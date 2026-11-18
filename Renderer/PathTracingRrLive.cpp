@@ -16,7 +16,7 @@ void PathTracingRrLive::Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE s
     CD3DX12_ROOT_PARAMETER1 parameters[3];
     parameters[0].InitAsDescriptorTable(1, &range);
     parameters[1].InitAsUnorderedAccessView(0);
-    parameters[2].InitAsConstants(5, 0);
+    parameters[2].InitAsConstants(6, 0);
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
     desc.Init_1_1(3, parameters);
     Microsoft::WRL::ComPtr<ID3DBlob> signature, error;
@@ -42,6 +42,17 @@ void PathTracingRrLive::Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE s
     ThrowIfFailed(m_zero->Map(0, &noRead, &mapped));
     memset(mapped, 0, 32);
     m_zero->Unmap(0, nullptr);
+    const auto faultBuffer = CD3DX12_RESOURCE_DESC::Buffer(256);
+    ThrowIfFailed(device->CreateCommittedResource(&uploadHeap,
+                                                  D3D12_HEAP_FLAG_NONE,
+                                                  &faultBuffer,
+                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                  nullptr,
+                                                  IID_PPV_ARGS(&m_faultUpload)));
+    ThrowIfFailed(m_faultUpload->Map(0, &noRead, &mapped));
+    const uint32_t poison[4] = {0x7fc00000, 0x7fc00000, 0x7fc00000, 0x3f800000};
+    memcpy(mapped, poison, sizeof(poison));
+    m_faultUpload->Unmap(0, nullptr);
     const auto readbackHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
     ThrowIfFailed(device->CreateCommittedResource(&readbackHeap,
                                                   D3D12_HEAP_FLAG_NONE,
@@ -84,7 +95,7 @@ const char* PathTracingRrLive::Status() const
         case Phase::DrainingRejected:
             return "rejected-gpu-pending";
         case Phase::Rejected:
-            return "native-fallback";
+            return m_chainedPacket && OutputReady() ? "retained-output-rejected" : "native-fallback";
     }
     return "unknown";
 }
@@ -174,6 +185,8 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         m_retryInput = m_chainedPacket || m_phase == Phase::InputPending;
         if (!inputPassed)
             ++m_inputRejectionCount;
+        if (!outputPassed)
+            ++m_outputRejectionCount;
         m_failure = !inputPassed ? "unsupported/stale RR input pixels" : "incomplete/nonfinite/stale RR output";
         m_history.Invalidate();
         m_historyDirty = true;
@@ -202,6 +215,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             m_publishedReady = true;
             m_presented = false;
             const auto now = Clock::now();
+            m_publishedAt = now;
             m_packetLatency.outputWaitMs = std::chrono::duration<double, std::milli>(now - m_outputRecorded).count();
             m_packetLatency.totalMs = std::chrono::duration<double, std::milli>(now - m_packetStarted).count();
             m_lastPacketLatency = m_packetLatency;
@@ -234,9 +248,16 @@ void PathTracingRrLive::RecordValidation(ID3D12GraphicsCommandList* commands,
     commands->SetPipelineState(m_pipeline.Get());
     commands->SetComputeRootDescriptorTable(0, srv);
     commands->SetComputeRootUnorderedAccessView(1, summary->GetGPUVirtualAddress());
-    const UINT constants[] = {m_key.renderWidth, m_key.renderHeight, output ? 1u : 0u,
-        static_cast<UINT>(m_productionSerial), static_cast<UINT>(m_productionSerial >> 32)};
-    commands->SetComputeRoot32BitConstants(2, 5, constants, 0);
+    const bool stale = (!output && m_packetFault == RrRecoveryFault::StaleInput) ||
+                       (output && m_packetFault == RrRecoveryFault::StaleOutput);
+    const uint64_t serial = stale ? m_productionSerial - 1 : m_productionSerial;
+    const UINT constants[] = {m_key.renderWidth,
+                              m_key.renderHeight,
+                              output ? 1u : 0u,
+                              static_cast<UINT>(serial),
+                              static_cast<UINT>(serial >> 32),
+                              static_cast<UINT>(m_packetFault)};
+    commands->SetComputeRoot32BitConstants(2, 6, constants, 0);
     commands->Dispatch((m_key.renderWidth + 7) / 8, (m_key.renderHeight + 7) / 8, 1);
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         summary, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -254,7 +275,9 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
                                     const RayReconstructionFrameConstants& constants,
                                     const std::array<ID3D12Resource*, 8>& inputs,
                                     ID3D12Resource* output,
-                                    unsigned int outputSlot, bool chained)
+                                    unsigned int outputSlot,
+                                    bool chained,
+                                    RrRecoveryFault fault)
 {
     if (!CanCapture())
         throw std::logic_error("RR production already retained");
@@ -262,6 +285,7 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
         throw std::overflow_error("RR production serial exhausted");
     ++m_productionSerial;
     m_chainedPacket = chained;
+    m_packetFault = chained ? fault : RrRecoveryFault::None;
     m_packetStarted = Clock::now();
     m_packetLatency = {};
     m_packetLatency.frameId = key.frameId;
@@ -318,12 +342,15 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
     m_packetLatency.evaluateCpuMs = std::chrono::duration<double, std::milli>(
         Clock::now() - evaluateStarted).count();
-    m_history.Finish(m_ticket, result.outputAvailable, false);
+    const bool sdkOutputAvailable = result.outputAvailable && m_packetFault != RrRecoveryFault::SdkPostRecordFailure;
+    m_history.Finish(m_ticket, sdkOutputAvailable, false);
     commands->SetDescriptorHeaps(1, &heap);
-    if (!result.outputAvailable)
+    if (!sdkOutputAvailable)
     {
-        m_failure = result.inputReady ? QueryStreamlineRayReconstructionDiagnostics().lastEvaluateResultName
-                                      : ToString(result.inputReadinessReason);
+        ++m_sdkFailureCount;
+        m_failure = m_packetFault == RrRecoveryFault::SdkPostRecordFailure ? "injected SDK post-recording failure"
+                    : result.inputReady ? QueryStreamlineRayReconstructionDiagnostics().lastEvaluateResultName
+                                        : ToString(result.inputReadinessReason);
         m_historyDirty = true;
         if (!m_chainedPacket)
             m_publishedReady = false;
@@ -332,6 +359,22 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
         m_submissionPending = true;
         m_phase = Phase::DrainingRejected;
         return;
+    }
+    if (m_packetFault == RrRecoveryFault::OutputNonfinite)
+    {
+        const auto copyBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_output.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+        commands->ResourceBarrier(1, &copyBarrier);
+        D3D12_TEXTURE_COPY_LOCATION source = {};
+        source.pResource = m_faultUpload.Get();
+        source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        source.PlacedFootprint.Footprint = {DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 1, 1, 256};
+        D3D12_TEXTURE_COPY_LOCATION destination = {};
+        destination.pResource = m_output.Get();
+        commands->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+        const auto restore = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_output.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        commands->ResourceBarrier(1, &restore);
     }
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_output.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);

@@ -98,6 +98,8 @@ struct CommandLineOptions
     bool pathTracingRrRoughVolumeExperiment = false;
     bool pathTracingRrTransmissionMotionExperiment = false;
     std::filesystem::path pathTracingRrLifecycleValidationDirectory;
+    std::filesystem::path pathTracingRrRecoveryValidationDirectory;
+    UINT pathTracingRrRecoveryMaxCheckpoints = 0;
     std::filesystem::path pathTracingRrInputCaptureDirectory;
     std::string nrdDiagnosticFailure;
     std::string nrdPrepassProfile;

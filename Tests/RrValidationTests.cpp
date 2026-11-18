@@ -18,7 +18,7 @@
 using Microsoft::WRL::ComPtr;
 #ifdef RTPBRSURVEY_RR_PACKET_SUMMARY_TEST
 constexpr UINT kSummaryBytes = 16;
-constexpr UINT kRootConstants = 5;
+constexpr UINT kRootConstants = 6;
 #else
 constexpr UINT kSummaryBytes = 8;
 constexpr UINT kRootConstants = 3;
@@ -133,7 +133,7 @@ int main(int argc, char** argv)
         UINT cases = 0;
         for (const auto& size : sizes)
             for (UINT mode = 0; mode < 2; ++mode)
-                for (UINT pattern = 0; pattern < 4; ++pattern)
+                for (UINT pattern = 0; pattern < (kRootConstants == 6 ? 5u : 4u); ++pattern)
                 {
                     const UINT width = size[0], height = size[1];
                     // Large dispatches cover valid and mixed-invalid inputs; small ones also
@@ -245,7 +245,7 @@ int main(int argc, char** argv)
                         commands->SetComputeRootSignature(root.Get());
                         commands->SetComputeRootDescriptorTable(0, descriptors->GetGPUDescriptorHandleForHeapStart());
                         commands->SetComputeRootUnorderedAccessView(1, summary->GetGPUVirtualAddress());
-                        const UINT constants[] = {width, height, mode, 1234, 0x80001234};
+                        const UINT constants[] = {width, height, mode, 1234, 0x80001234, pattern == 4 ? 4u : 0u};
                         commands->SetComputeRoot32BitConstants(2, kRootConstants, constants, 0);
                         commands->EndQuery(queries.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0);
                         commands->Dispatch((width + 7) / 8, (height + 7) / 8, 1);
@@ -281,7 +281,9 @@ int main(int argc, char** argv)
                         std::memcpy(times.data(), static_cast<char*>(mapped) + kSummaryBytes, 16);
                         const D3D12_RANGE noWrite = {};
                         readback->Unmap(0, &noWrite);
-                        if (actual[0] != expectedMask || actual[1] != width * height)
+                        const UINT expectedPixels =
+                            width * height - (kRootConstants == 6 && mode != 0 && pattern == 4 ? 1 : 0);
+                        if (actual[0] != expectedMask || actual[1] != expectedPixels)
                             throw std::runtime_error("Summary mismatch: " + std::to_string(width) + "x" +
                                                      std::to_string(height) + " mode=" + std::to_string(mode) +
                                                      " pattern=" + std::to_string(pattern) +

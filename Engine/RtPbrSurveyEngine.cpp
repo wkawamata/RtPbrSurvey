@@ -617,6 +617,12 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
         pathTracingDiagnostics.rrChainedPacket = m_rrChainedSchedule;
         pathTracingDiagnostics.rrHistoryDirty = m_ptRrLive->HistoryDirty();
         pathTracingDiagnostics.rrFinalFence = m_ptRrLive->FinalFence();
+        pathTracingDiagnostics.rrOutputRejected = m_ptRrLive->OutputRejectionCount();
+        pathTracingDiagnostics.rrSdkFailures = m_ptRrLive->SdkFailureCount();
+        pathTracingDiagnostics.rrProductionSerial = m_ptRrLive->ProductionSerial();
+        pathTracingDiagnostics.rrWritingSlot = m_ptRrLive->WritingSlot();
+        pathTracingDiagnostics.rrPublishedSlot = m_ptRrLive->PublishedSlot();
+        pathTracingDiagnostics.rrRetainedAgeMs = m_ptRrLive->RetainedAgeMs();
         const auto& latency = m_ptRrLive->LastPacketLatency();
         pathTracingDiagnostics.rrLatencyFrameId = latency.frameId;
         pathTracingDiagnostics.rrInputPolls = latency.inputPolls;
@@ -3567,7 +3573,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         CD3DX12_ROOT_PARAMETER1 parameters[3];
         parameters[0].InitAsDescriptorTable(_countof(reads), reads);
         parameters[1].InitAsDescriptorTable(_countof(writes), writes);
-        parameters[2].InitAsConstants(40, 0);
+        parameters[2].InitAsConstants(41, 0);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
         desc.Init_1_1(_countof(parameters), parameters);
         ComPtr<ID3DBlob> signature, error;
@@ -6275,6 +6281,10 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     }
 
     FlushGpu();
+    // RR owns SDK allocations keyed by the old extent. Release them after GPU
+    // completion, before replacing tagged textures or requesting a new extent.
+    if (!Engine::ReleaseStreamlineRayReconstructionResources())
+        throw std::runtime_error("Could not release RR resolution resources after GPU drain");
 
     // Clear RTV
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
@@ -7511,7 +7521,9 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
                             constants,
                             inputs,
                             m_pathTracingGuideTextures[PathTracingGuideRrOutput + slot].Get(),
-                            slot, m_rrChainedSchedule);
+                            slot,
+                            m_rrChainedSchedule,
+                            m_rrRecoveryFault);
 #endif
 }
 
@@ -7567,8 +7579,9 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
         XMFLOAT2 jitterNdc;
         UINT stationaryCamera;
         UINT safeInputProfile;
+        UINT recoveryFault;
     } constants;
-    static_assert(sizeof(Constants) == 40 * sizeof(UINT));
+    static_assert(sizeof(Constants) == 41 * sizeof(UINT));
     XMStoreFloat4x4(&constants.inverseViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection)));
     constants.width = m_renderWidth;
@@ -7576,6 +7589,7 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
     constants.hostGate = m_rrConversionHostGate;
     constants.actualContinuation = IsPtRrNativeRequested() ? 1u : 0u;
     constants.safeInputProfile = m_rrSafeInputs ? 1u : 0u;
+    constants.recoveryFault = m_rrChainedSchedule ? static_cast<UINT>(m_rrRecoveryFault) : 0;
     XMStoreFloat4x4(&constants.previousViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection)));
     const auto& jitter = m_rrConversionInputs.frame.jitterPixels;
@@ -7587,7 +7601,7 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
     m_commandList->SetPipelineState(m_rrConversionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideRrColor].gpu);
-    m_commandList->SetComputeRoot32BitConstants(2, 40, &constants, 0);
+    m_commandList->SetComputeRoot32BitConstants(2, 41, &constants, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
     m_rrConversionRecorded = true;
 #endif

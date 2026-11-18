@@ -8,6 +8,7 @@ cbuffer ValidationFrame : register(b0)
 #ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
     uint serialLow;
     uint serialHigh;
+    uint recoveryFault;
 #endif
 };
 // Reduce within each 8x8 group before updating the shared 8-byte summary.
@@ -18,6 +19,10 @@ groupshared uint g_counts[64];
 void CSMain(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
 {
     bool inside = id.x < width && id.y < height;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+    if (outputMode != 0 && recoveryFault == 4 && id.x == 0 && id.y == 0)
+        inside = false; // Diagnostic: one output pixel was not validated.
+#endif
     uint mask = 0;
     if (inside)
     {

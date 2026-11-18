@@ -193,6 +193,16 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
+    if (!m_commandLineOptions.pathTracingRrRecoveryValidationDirectory.empty() &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+         !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
+         !m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty() ||
+         !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        throw std::invalid_argument("RR recovery validation requires an exclusive running PT/RR scene and log.");
     if (!m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() &&
         (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
          !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
@@ -976,6 +986,11 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (!m_commandLineOptions.pathTracingRrRecoveryValidationDirectory.empty())
+    {
+        RunPathTracingRrRecoveryValidation();
+        return;
+    }
     if (!m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty())
     {
         RunPathTracingRrInputCapture();
@@ -2649,6 +2664,9 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
           {"chained", context.pathTracingDiagnostics.rrChainedPacket},
           {"historyDirty", context.pathTracingDiagnostics.rrHistoryDirty},
           {"finalFence", context.pathTracingDiagnostics.rrFinalFence},
+          {"outputRejected", context.pathTracingDiagnostics.rrOutputRejected},
+          {"sdkFailures", context.pathTracingDiagnostics.rrSdkFailures},
+          {"retainedAgeMs", context.pathTracingDiagnostics.rrRetainedAgeMs},
           {"nativeEvaluateCallCount", context.rayReconstructionDiagnostics.nativeEvaluateCallCount}}},
         {"adapter",
          {{"name", WideToUtf8(adapter.Description)},

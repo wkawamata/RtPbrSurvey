@@ -1008,7 +1008,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     ImGui::Text("RR cancelled: %llu, input rejected: %llu",
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCancelledCount),
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrInputRejectionCount));
-                    if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
+                    if (context.pathTracingDiagnostics.rrChainedPacket)
+                    {
+                        const auto& rr = context.pathTracingDiagnostics;
+                        ImGui::Text("RR output rejected: %llu; SDK failures: %llu",
+                                    static_cast<unsigned long long>(rr.rrOutputRejected),
+                                    static_cast<unsigned long long>(rr.rrSdkFailures));
+                        ImGui::Text("RR retained: %s, %.0f ms; history: %s",
+                                    !rr.rrRetainedOutputVerified ? "none"
+                                    : rr.rrLiveFailure.empty()   ? "verified"
+                                                                 : "rejected packet",
+                                    rr.rrRetainedAgeMs,
+                                    rr.rrHistoryDirty ? "reset required" : "valid");
+                        ImGui::Text("RR packet issue: %s",
+                                    rr.rrLiveFailure.empty() ? "none" : rr.rrLiveFailure.c_str());
+                    }
+                    else if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
                         ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
                 }
                 const auto& reconstructionTiming = context.pathTracingDiagnostics.reconstructionTimings;

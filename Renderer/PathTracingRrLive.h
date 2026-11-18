@@ -9,6 +9,19 @@
 
 namespace Engine
 {
+// Diagnostic injection is selected only by the explicit recovery validator.
+enum class RrRecoveryFault : uint32_t
+{
+    None,
+    InputOne,
+    InputAll,
+    OutputNonfinite,
+    OutputIncomplete,
+    StaleInput,
+    StaleOutput,
+    SdkPostRecordFailure
+};
+
 // One immutable production at a time; a verified output stays published while
 // the next production is admitted/evaluated into the other slot.
 // All GPU work stays on the caller's queue. No CPU fence waits or image copies.
@@ -86,6 +99,26 @@ public:
     {
         return m_inputRejectionCount;
     }
+    uint64_t OutputRejectionCount() const
+    {
+        return m_outputRejectionCount;
+    }
+    uint64_t SdkFailureCount() const
+    {
+        return m_sdkFailureCount;
+    }
+    uint64_t ProductionSerial() const
+    {
+        return m_productionSerial;
+    }
+    unsigned int RecoveryFault() const
+    {
+        return static_cast<unsigned int>(m_packetFault);
+    }
+    double RetainedAgeMs() const
+    {
+        return m_publishedReady ? std::chrono::duration<double, std::milli>(Clock::now() - m_publishedAt).count() : 0;
+    }
     bool ChainedPacket() const { return m_chainedPacket; }
     bool HistoryDirty() const { return m_historyDirty; }
     uint64_t FinalFence() const { return m_fence; }
@@ -115,7 +148,9 @@ public:
                      const RayReconstructionFrameConstants& constants,
                      const std::array<ID3D12Resource*, 8>& inputs,
                      ID3D12Resource* output,
-                     unsigned int outputSlot = 0, bool chained = false);
+                     unsigned int outputSlot = 0,
+                     bool chained = false,
+                     RrRecoveryFault fault = RrRecoveryFault::None);
     void RecordEvaluate(ID3D12GraphicsCommandList* commands,
                         ID3D12DescriptorHeap* heap,
                         D3D12_GPU_DESCRIPTOR_HANDLE outputSrv);
@@ -134,6 +169,7 @@ private:
     void RecordValidation(ID3D12GraphicsCommandList* commands, D3D12_GPU_DESCRIPTOR_HANDLE srv, bool output);
     using Clock = std::chrono::steady_clock;
     Clock::time_point m_packetStarted;
+    Clock::time_point m_publishedAt;
     Clock::time_point m_inputAdmitted;
     Clock::time_point m_outputRecorded;
     PacketLatency m_packetLatency;
@@ -157,6 +193,9 @@ private:
     uint64_t m_resetCount = 0;
     uint64_t m_cancelledCount = 0;
     uint64_t m_inputRejectionCount = 0;
+    uint64_t m_outputRejectionCount = 0;
+    uint64_t m_sdkFailureCount = 0;
+    RrRecoveryFault m_packetFault = RrRecoveryFault::None;
     std::string m_failure;
     PathTracingRrHistory m_history;
     PathTracingRrHistoryKey m_key;
@@ -167,6 +206,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> m_publishedOutput;
     std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 2> m_summaries;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_zero;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_faultUpload;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_readback;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_signature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipeline;

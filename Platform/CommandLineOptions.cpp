@@ -461,6 +461,22 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.pathTracingReconstruction = "rr";
             options.pathTracingRrContinuous = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrRecoveryMaxCheckpoints"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.pathTracingRrRecoveryMaxCheckpoints) ||
+                options.pathTracingRrRecoveryMaxCheckpoints > 31)
+                throw std::invalid_argument("-PathTracingRrRecoveryMaxCheckpoints expects 1..31.");
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrRecoveryValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrRecoveryValidation expects an output directory.");
+            options.pathTracingRrRecoveryValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrSafeSerial = options.pathTracingRrChained = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrLifecycleValidation"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'-')
