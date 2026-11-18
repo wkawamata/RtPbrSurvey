@@ -73,6 +73,7 @@ def parse(text, warmup, frames):
     return dict(intervals=frames, seconds=seconds, completed=count,
                 freshRrFps=count/seconds, displayFps=frames/seconds,
                 updatesPerDisplay=count/frames, cpuMs=stats([r['cpu'] for r in selected]),
+                retainedAgeMs=stats([r['rrRetainedAgeMs'] for r in selected if r.get('rrPublished', 0) > 0 and 'rrRetainedAgeMs' in r]),
                 completedGpuPacketMs=stats([r['gpu'] for r in packets.values()]),
                 gpuPassMs={n: stats(v) for n, v in passes.items()},
                 packetLatencyMs={n: stats([r[n] for r in latency.values() if r.get(n) is not None]) for n in

@@ -2765,6 +2765,7 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
         {"gpuPacket", checkPoints.empty() ? 0 : checkPoints.front().frameId},
         {"rrPhase", rr.rrLivePhase}, {"rrInput", rr.rrInputFrameId},
         {"rrPublished", rr.rrRetainedFrameId}, {"rrCompleted", rr.rrCompletedCount},
+        {"rrRetainedAgeMs", rr.rrRetainedAgeMs},
         {"nativeEvaluateCalls", context.rayReconstructionDiagnostics.nativeEvaluateCallCount},
         {"scheduled", scheduled}, {"measured", measured}};
     fprintf(m_logFile, "[RenderGraphFrame] %s\n", observation.dump().c_str());

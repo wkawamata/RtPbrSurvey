@@ -4724,6 +4724,16 @@ void RtPbrSurveyEngine::CreateGBuffer()
     }
     assert(m_depthStencilSrv.Index == m_gbuffer.srvHandles[Engine::GBuffer::Albedo].Index + Engine::GBuffer::kCount);
 
+    // Tone mapping binds the complete GBuffer/depth table for material highlights.
+    // PT can use it before the lazy depth resource exists, including after resize.
+    // Keep that unused slot valid until CreateDepthStencilDescriptors replaces it.
+    D3D12_SHADER_RESOURCE_VIEW_DESC nullDepthSrv = {};
+    nullDepthSrv.Format = DXGI_FORMAT_R32_FLOAT;
+    nullDepthSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    nullDepthSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    nullDepthSrv.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(nullptr, &nullDepthSrv, m_depthStencilSrv.cpu);
+
     if (m_lightPassColorSrv.Index == UINT_MAX)
     {
         m_lightPassColorSrv = m_descriptorHeapAllocator.AllocWithHandle();

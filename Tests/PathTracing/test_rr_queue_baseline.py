@@ -15,7 +15,7 @@ def fixture(skip=None, regress=False):
             f'[FPS] Frame {frame}: 100 FPS (10.00 ms)',
             f'[PT Progress] frame={frame} wall={frame*.01:.5f}',
             f'[RR Packet] frameId={frame//4} inputWaitMs=2 admittedWaitMs=1 evaluateCpuMs=0.1 outputWaitMs=3 totalMs=6',
-            '[RenderGraphFrame] '+json.dumps(dict(gpuPacket=(frame+1)//2, rrCompleted=completed, rrPhase='pending')),
+            '[RenderGraphFrame] '+json.dumps(dict(gpuPacket=(frame+1)//2, rrCompleted=completed, rrPhase='pending', rrPublished=completed, rrRetainedAgeMs=frame%4)),
             f'[GPU] Frame {frame}: latest completed total 5.000 ms',
             '[GPU Pass] PT DLSS RR Native: 2.500 ms'])
     return '\n'.join(lines)
@@ -31,6 +31,8 @@ class QueueBaselineParserTests(unittest.TestCase):
         self.assertEqual(result['gpuPassMs']['PT DLSS RR Native']['count'],6)
         self.assertEqual(result['packetLatencyMs']['totalMs']['count'],3)
         self.assertEqual(result['cpuMs']['mean'],10)
+        self.assertEqual(result['retainedAgeMs']['count'],10)
+        self.assertAlmostEqual(result['retainedAgeMs']['mean'],1.3)
 
     def test_chained_has_no_admission_wait_metric(self):
         result = parse(fixture().replace('inputWaitMs=2 admittedWaitMs=1',
