@@ -6254,6 +6254,16 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     CollectGarbageTransientResources();
     CollectDeferredGpuReleases();
 
+    if (!m_frameAcquisitionPending)
+    {
+        ReadCompletedFrameData();
+    }
+
+    PIXEndEvent();
+}
+
+void RtPbrSurveyEngine::ReadCompletedFrameData()
+{
     FrameResource& statisticsFrame = m_frameResources[m_currentFrameIndex];
     if (statisticsFrame.gbufferStatisticsPending)
     {
@@ -6272,7 +6282,6 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         m_completedReconstructionPlan = m_frameResources[m_currentFrameIndex].reconstructionPlan;
     }
 
-    PIXEndEvent();
 }
 
 void RtPbrSurveyEngine::SetSceneViewport(UINT x, UINT y, UINT width, UINT height)
@@ -6297,6 +6306,9 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 
 void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
 {
+    // Direct diagnostic callers retain a safe blocking fallback. The normal
+    // application loop tests readiness before entering this function.
+    AcquireFrameResources(true);
     m_cpuFrameTimer.Begin();
     if (m_pendingResize)
     {
@@ -9418,6 +9430,7 @@ void RtPbrSurveyEngine::EndFrame()
 // Wait for pending GPU work to complete.
 void RtPbrSurveyEngine::WaitForGpu()
 {
+    AcquireFrameResources(true);
     PIXBeginEvent(3, L"WaitForGpu");
 
     // Schedule a Signal command in the queue.
@@ -9437,6 +9450,7 @@ void RtPbrSurveyEngine::WaitForGpu()
 
 void RtPbrSurveyEngine::FlushGpu()
 {
+    AcquireFrameResources(true);
     UINT64 fenceValue = m_graphicsDevice.CompletedFenceValue() + 1;
     for (const FrameResource& frameResource : m_frameResources)
     {
@@ -9455,6 +9469,34 @@ void RtPbrSurveyEngine::FlushGpu()
     }
 }
 
+bool RtPbrSurveyEngine::AcquireFrameResources(bool wait)
+{
+    if (!m_frameAcquisitionPending)
+    {
+        return true;
+    }
+    const UINT64 required = m_frameResources[m_currentFrameIndex].fenceValue;
+    const UINT64 completed = m_graphicsDevice.CompletedFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        throw std::runtime_error("Device removed during frame acquisition");
+    }
+    if (completed < required)
+    {
+        if (!wait)
+        {
+            ++m_frameAcquisitionPolls;
+            return false;
+        }
+        ++m_frameAcquisitionFallbackWaits;
+        m_graphicsDevice.WaitForFenceValue(required);
+    }
+    m_frameResources[m_currentFrameIndex].fenceValue = m_nextFrameSignalValue;
+    m_frameAcquisitionPending = false;
+    ReadCompletedFrameData();
+    return true;
+}
+
 // Prepare to render the next frame.
 UINT64 RtPbrSurveyEngine::MoveToNextFrame()
 {
@@ -9467,6 +9509,18 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
     // Update the frame index.
     m_previousFrameIndex = m_currentFrameIndex;
     m_currentFrameIndex = m_graphicsDevice.CurrentBackBufferIndex();
+
+    // Keep the retire fence intact while acquisition is deferred. It must not
+    // become the next signal value until the allocator/CB/staging are reusable.
+    if (m_nonblockingFrameAcquisition &&
+        m_graphicsDevice.CompletedFenceValue() < m_frameResources[m_currentFrameIndex].fenceValue)
+    {
+        m_nextFrameSignalValue = currentFenceValue + 1;
+        m_frameAcquisitionPending = true;
+        ++m_frameAcquisitionDeferrals;
+        PIXEndEvent();
+        return currentFenceValue;
+    }
 
     // If the next frame is not ready to be rendered yet, wait until it is ready.
     if (m_graphicsDevice.CompletedFenceValue() < m_frameResources[m_currentFrameIndex].fenceValue)

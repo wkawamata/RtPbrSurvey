@@ -82,6 +82,7 @@ def parse(text, warmup, frames):
         if not math.isclose(sum(phases.values()), row['rendererCpuMs'], rel_tol=1e-4, abs_tol=1e-4):
             raise ValueError('CPU phase sum differs from renderer total')
     return dict(intervals=frames, seconds=seconds, completed=count,
+                frameAcquisition=selected[-1].get('frameAcquisition'),
                 freshRrFps=count/seconds, displayFps=frames/seconds,
                 updatesPerDisplay=count/frames, cpuMs=stats([r['cpu'] for r in selected]),
                 rendererCpuMs=stats([r['rendererCpuMs'] for r in cpu_rows]),
@@ -103,11 +104,14 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--warmup', type=int, default=60)
     parser.add_argument('--frames', type=int, default=240)
-    parser.add_argument('--comparison', choices=['baseline', 'safe'], default='baseline')
+    parser.add_argument('--comparison', choices=['baseline', 'safe', 'acquisition'], default='baseline')
     parser.add_argument('--repeats', type=int, default=1)
+    parser.add_argument('--nonblocking-frame-acquisition', action='store_true')
     args = parser.parse_args()
     if args.warmup < 1 or args.frames < 10 or args.repeats < 1:
         parser.error('Need warmup and at least ten intervals')
+    if args.comparison == 'acquisition' and args.nonblocking_frame_acquisition:
+        parser.error('Acquisition comparison selects ON/OFF itself')
     exe, out = args.exe.resolve(strict=True), args.output.resolve()
     if out.exists() and any(out.iterdir()):
         parser.error('Output must be empty')
@@ -128,6 +132,8 @@ def main():
     try:
         for width, height in [(640, 360), (1280, 720)]:
             modes = [('strict', True), ('eager', False)] if args.comparison == 'baseline' else [('safe-serial', False), ('chained', False)]
+            if args.comparison == 'acquisition':
+                modes = [('chained-blocking', False), ('chained-nonblocking', False)]
             sequence = []
             for repeat in range(args.repeats):
                 a, b = modes if repeat % 2 == 0 else modes[::-1]
@@ -142,10 +148,13 @@ def main():
                          '-PathTracingRrSmoothVolumeExperiment', '-PathTracingRrTransmissionMotionExperiment',
                          '-PathTracingRrContinuous', '-CapturePath', str(png), '-ExitAfterCapture',
                          '-CaptureAfterFrames', str(args.warmup+args.frames), '-LogToFile', str(log), '-LogFPS', '1']
+                nonblocking = args.nonblocking_frame_acquisition or schedule == 'chained-nonblocking'
+                if nonblocking:
+                    command.append('-NonblockingFrameAcquisition')
                 if strict:
                     command.append('-PathTracingRrStrictSchedule')
-                elif schedule in ('safe-serial', 'chained'):
-                    command += ['-PathTracingRrSchedule', schedule]
+                elif schedule in ('safe-serial', 'chained') or args.comparison == 'acquisition':
+                    command += ['-PathTracingRrSchedule', 'chained' if args.comparison == 'acquisition' else schedule]
                 startup=subprocess.STARTUPINFO()
                 startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startup.wShowWindow=subprocess.SW_HIDE
@@ -167,14 +176,20 @@ def main():
                 rr=diag['ptRr']
                 if diag['reconstructionOutput'] != 'rr' or not rr['outputVerified'] or rr['cancelledCount'] or rr['inputRejectedCount'] or rr.get('outputRejected', 0) or rr.get('sdkFailures', 0):
                     raise RuntimeError(f'{name}: RR output contract failure')
-                if args.comparison == 'safe' and rr['chained'] != (schedule == 'chained'):
+                if args.comparison in ('safe', 'acquisition') and rr['chained'] != (schedule == 'chained' or args.comparison == 'acquisition'):
                     raise RuntimeError('Unexpected scheduler')
                 if rr['resetCount'] != 1:
                     raise RuntimeError('Unexpected static history reset')
                 if (diag['samplesPerFrame'],diag['maxBounces'],diag['randomSeed']) != (1,16,7):
                     raise RuntimeError('Fixture settings changed')
-                row=dict(name=name, strict=strict, schedule=schedule, width=width, height=height, command=command,
+                row=dict(name=name, strict=strict, schedule=schedule, nonblockingFrameAcquisition=nonblocking, width=width, height=height, command=command,
                          diagnostics=diag, metrics=parse(text, args.warmup, args.frames), pngSha256=sha(png))
+                acquisition = row['metrics']['frameAcquisition']
+                if nonblocking and (not acquisition or not acquisition['deferrals'] or
+                                    not acquisition['pendingPolls'] or acquisition['fallbackWaits']):
+                    raise RuntimeError('Nonblocking acquisition did not defer safely through the host loop')
+                if args.comparison == 'acquisition' and not nonblocking and acquisition['deferrals']:
+                    raise RuntimeError('Blocking control unexpectedly deferred frame acquisition')
                 report['runs'].append(row)
                 save()
                 print(name, 'freshRR', round(row['metrics']['freshRrFps'],3), flush=True)

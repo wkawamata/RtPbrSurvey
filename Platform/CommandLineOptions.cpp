@@ -482,6 +482,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-NonblockingFrameAcquisition"))
+        {
+            options.nonblockingFrameAcquisition = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrSchedule"))
         {
             if (i + 1 >= argc || (!IsCommandLineArg(argv[i + 1], L"safe-serial") &&

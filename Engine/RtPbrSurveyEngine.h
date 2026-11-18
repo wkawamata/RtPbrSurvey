@@ -510,6 +510,12 @@ public:
     std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
     bool HasRenderGraphBarrierEvents() const;
     void SetUpdateHandler(UpdateHandler handler);
+    void SetNonblockingFrameAcquisition(bool enabled) { m_nonblockingFrameAcquisition = enabled; }
+    bool AcquireFrameResources(bool wait = false);
+    uint64_t FrameAcquisitionDeferrals() const { return m_frameAcquisitionDeferrals; }
+    uint64_t FrameAcquisitionPolls() const { return m_frameAcquisitionPolls; }
+    uint64_t FrameAcquisitionFallbackWaits() const { return m_frameAcquisitionFallbackWaits; }
+    void ReadCompletedFrameData();
     void SetRrEagerProduction(bool enabled) { m_rrEagerProduction = enabled; }
     void SetRrSafeInputs(bool enabled) { m_rrSafeInputs = enabled; }
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
@@ -1610,6 +1616,12 @@ private:
     bool m_hasCompletedRenderGraphBarrierEvents = false;
     const UiRenderHandler* m_activeUiRenderHandler = nullptr;
     UpdateHandler m_updateHandler;
+    bool m_nonblockingFrameAcquisition = false;
+    bool m_frameAcquisitionPending = false;
+    UINT64 m_nextFrameSignalValue = 0;
+    uint64_t m_frameAcquisitionDeferrals = 0;
+    uint64_t m_frameAcquisitionPolls = 0;
+    uint64_t m_frameAcquisitionFallbackWaits = 0;
     bool m_rrEagerProduction = true;
     bool m_rrSafeInputs = false;
     bool m_rrChainedSchedule = false;

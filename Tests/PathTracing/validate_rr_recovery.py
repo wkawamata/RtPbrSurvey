@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--exe', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--max-checkpoints', type=int, choices=range(1,32))
+    parser.add_argument('--nonblocking-frame-acquisition', action='store_true')
     args = parser.parse_args()
     exe, out = args.exe.resolve(strict=True), args.output.resolve()
     if out.exists() and any(out.iterdir()):
@@ -31,6 +32,8 @@ def main():
                '-PathTracingRrThinExperiment', '-PathTracingRrSmoothVolumeExperiment',
                '-PathTracingRrTransmissionMotionExperiment', '-LogToFile', str(log),
                '-PathTracingRrRecoveryValidation', str(out)]
+    if args.nonblocking_frame_acquisition:
+        command.append('-NonblockingFrameAcquisition')
     if args.max_checkpoints:
         command += ['-PathTracingRrRecoveryMaxCheckpoints', str(args.max_checkpoints)]
     report = dict(status='running', command=command,

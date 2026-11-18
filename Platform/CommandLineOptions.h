@@ -100,6 +100,7 @@ struct CommandLineOptions
     bool nrdPreview = false;
     bool pathTracingRrContinuous = false;
     bool pathTracingRrStrictSchedule = false;
+    bool nonblockingFrameAcquisition = false;
     bool pathTracingRrSafeSerial = false;
     bool pathTracingRrChained = false;
     bool pathTracingRrThinExperiment = false;

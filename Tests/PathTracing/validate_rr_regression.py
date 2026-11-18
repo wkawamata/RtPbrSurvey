@@ -89,6 +89,7 @@ def main():
     parser.add_argument('--exe', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--prepare-only', action='store_true')
+    parser.add_argument('--nonblocking-frame-acquisition', action='store_true')
     args = parser.parse_args()
     if not args.prepare_only and args.exe is None:
         parser.error('--exe is required for GPU validation')
@@ -107,6 +108,8 @@ def main():
             command = [str(exe), '-SceneFile', str(fixture), '-WindowSize', '320', '180',
                        '-EnableExperimentalNativeRayReconstruction', '-LogToFile', str(out/'d3d12.log'),
                        '-PathTracingRrRegressionValidation', str(out)]
+            if args.nonblocking_frame_acquisition:
+                command.append('-NonblockingFrameAcquisition')
             report['command'] = command
             startup = subprocess.STARTUPINFO()
             startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW

@@ -413,6 +413,8 @@ void RtPbrSurveyApp::OnInit()
     }
 
     InitializeImGui();
+    m_sceneRenderer.EngineForDebugTools().SetNonblockingFrameAcquisition(
+        m_commandLineOptions.nonblockingFrameAcquisition);
     m_sceneRenderer.EngineForDebugTools().SetRrSafeInputs(m_commandLineOptions.pathTracingRrSafeSerial);
     if (m_commandLineOptions.pathTracingRrChained &&
         (m_commandLineOptions.pathTracingRrStrictSchedule ||
@@ -1076,6 +1078,14 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (m_commandLineOptions.nonblockingFrameAcquisition &&
+        !m_sceneRenderer.EngineForDebugTools().AcquireFrameResources())
+    {
+        // Return to the outer message loop before any UI, scene or capture clock
+        // advances. Wake on input, or retry readiness after a bounded idle wait.
+        MsgWaitForMultipleObjectsEx(0, nullptr, 1, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        return;
+    }
     if (!m_commandLineOptions.pathTracingRrComparisonCaptureDirectory.empty())
     {
         RunPathTracingRrComparisonCapture();
@@ -2768,6 +2778,11 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
         {"rrRetainedAgeMs", rr.rrRetainedAgeMs},
         {"nativeEvaluateCalls", context.rayReconstructionDiagnostics.nativeEvaluateCallCount},
         {"scheduled", scheduled}, {"measured", measured}};
+    const auto& acquisition = m_sceneRenderer.EngineForDebugTools();
+    observation["frameAcquisition"] = {
+        {"deferrals", acquisition.FrameAcquisitionDeferrals()},
+        {"pendingPolls", acquisition.FrameAcquisitionPolls()},
+        {"fallbackWaits", acquisition.FrameAcquisitionFallbackWaits()}};
     const auto& cpu = m_sceneRenderer.CpuFrameTiming();
     if (cpu.available)
     {
