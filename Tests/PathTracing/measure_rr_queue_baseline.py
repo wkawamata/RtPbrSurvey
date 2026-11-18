@@ -70,9 +70,24 @@ def parse(text, warmup, frames):
     for r in packets.values():
         for name, ms in r['passes'].items():
             passes.setdefault(name, []).append(ms)
+    cpu_rows = [r for r in selected if 'rendererCpuPhaseMs' in r]
+    if cpu_rows and len(cpu_rows) != len(selected):
+        raise ValueError('Incomplete CPU phase observations')
+    phase_names = sorted(cpu_rows[0]['rendererCpuPhaseMs']) if cpu_rows else []
+    for row in cpu_rows:
+        phases = row['rendererCpuPhaseMs']
+        if sorted(phases) != phase_names:
+            raise ValueError('CPU phase schema changed')
+        stats(list(phases.values()) + [row['rendererCpuMs']])
+        if not math.isclose(sum(phases.values()), row['rendererCpuMs'], rel_tol=1e-4, abs_tol=1e-4):
+            raise ValueError('CPU phase sum differs from renderer total')
     return dict(intervals=frames, seconds=seconds, completed=count,
                 freshRrFps=count/seconds, displayFps=frames/seconds,
                 updatesPerDisplay=count/frames, cpuMs=stats([r['cpu'] for r in selected]),
+                rendererCpuMs=stats([r['rendererCpuMs'] for r in cpu_rows]),
+                cpuPhaseMs={n: stats([r['rendererCpuPhaseMs'][n] for r in cpu_rows]) for n in phase_names},
+                cpuPhaseMsPerFreshOutput={n: sum(r['rendererCpuPhaseMs'][n] for r in cpu_rows[1:])/count
+                                          if count else None for n in phase_names},
                 retainedAgeMs=stats([r['rrRetainedAgeMs'] for r in selected if r.get('rrPublished', 0) > 0 and 'rrRetainedAgeMs' in r]),
                 completedGpuPacketMs=stats([r['gpu'] for r in packets.values()]),
                 gpuPassMs={n: stats(v) for n, v in passes.items()},

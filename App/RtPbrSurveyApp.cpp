@@ -2760,7 +2760,7 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
     for (const auto& point : checkPoints)
         if (point.passIndex >= 0)
             measured.push_back(point.name);
-    const nlohmann::json observation = {
+    nlohmann::json observation = {
         {"uiFrame", m_fpsLogFrameCounter},
         {"gpuPacket", checkPoints.empty() ? 0 : checkPoints.front().frameId},
         {"rrPhase", rr.rrLivePhase}, {"rrInput", rr.rrInputFrameId},
@@ -2768,6 +2768,17 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
         {"rrRetainedAgeMs", rr.rrRetainedAgeMs},
         {"nativeEvaluateCalls", context.rayReconstructionDiagnostics.nativeEvaluateCallCount},
         {"scheduled", scheduled}, {"measured", measured}};
+    const auto& cpu = m_sceneRenderer.CpuFrameTiming();
+    if (cpu.available)
+    {
+        observation["rendererCpuMs"] = cpu.totalMs;
+        nlohmann::json phases = nlohmann::json::object();
+        for (size_t i = 0; i < RtPbrSurvey::kRendererCpuPhaseCount; ++i)
+        {
+            phases[RtPbrSurvey::kRendererCpuPhaseNames[i]] = cpu.ms[i];
+        }
+        observation["rendererCpuPhaseMs"] = std::move(phases);
+    }
     fprintf(m_logFile, "[RenderGraphFrame] %s\n", observation.dump().c_str());
     if (checkPoints.size() >= 2)
     {
