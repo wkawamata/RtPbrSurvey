@@ -17,6 +17,34 @@ bool Check(bool condition, const char* message)
     return condition;
 }
 
+bool TestSampleSceneResolution()
+{
+    const std::vector<RtPbrSurvey::EvaluationSampleScene> scenes = {
+        {"sample:DamagedHelmet", "DamagedHelmet"},
+        {"sample:Grid/DamagedHelmet", "DamagedHelmet"},
+    };
+    RtPbrSurvey::EvaluationState state;
+    state.sceneName = "DamagedHelmet";
+    state.sceneIndex = 1;
+    state.sceneReference.id = "sample:DamagedHelmet";
+    bool passed = Check(RtPbrSurvey::ResolveEvaluationSampleScene(state, scenes) == 1,
+                        "legacy benchmark uses saved index instead of viewer ID");
+    state.sceneReference.id.clear();
+    passed &= Check(RtPbrSurvey::ResolveEvaluationSampleScene(state, scenes) == 1,
+                    "legacy case without an ID restores benchmark");
+    state.sceneReference.id = "sample:Grid/DamagedHelmet";
+    state.sceneIndex = 0;
+    passed &= Check(RtPbrSurvey::ResolveEvaluationSampleScene(state, scenes) == 1,
+                    "stable benchmark ID wins over stale index and duplicate name");
+    state.sceneReference.id = "sample:DamagedHelmet";
+    passed &= Check(RtPbrSurvey::ResolveEvaluationSampleScene(state, scenes) == 0,
+                    "viewer case still restores viewer");
+    state.sceneReference.id = "sample:Grid/Missing";
+    passed &= Check(RtPbrSurvey::ResolveEvaluationSampleScene(state, scenes) == -1,
+                    "unknown stable ID does not silently fall back to viewer");
+    return passed;
+}
+
 bool TestRoundTripPreservesJapaneseAndTypedJudgments()
 {
     RtPbrSurvey::EvaluationState state;
@@ -125,7 +153,7 @@ bool TestStoreSavesAndLoadsEvaluationStates()
 
 int main()
 {
-    const bool passed = TestRoundTripPreservesJapaneseAndTypedJudgments() && TestRoiIsClampedToNormalizedViewport() &&
+    const bool passed = TestSampleSceneResolution() && TestRoundTripPreservesJapaneseAndTypedJudgments() && TestRoiIsClampedToNormalizedViewport() &&
                         TestInvalidDocumentIsNonDestructive() && TestLegacyStateMigratesToFirstRun() &&
                         TestStoreSavesAndLoadsEvaluationStates();
     if (passed)

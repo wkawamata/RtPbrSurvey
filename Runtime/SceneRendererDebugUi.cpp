@@ -23,9 +23,9 @@
 
 namespace
 {
-    RenderGraphNodeEditorView& GetRenderGraphNodeEditorView()
+    RtPbrSurvey::RenderGraphNodeEditorView& GetRenderGraphNodeEditorView()
     {
-        static RenderGraphNodeEditorView nodeEditorView;
+        static RtPbrSurvey::RenderGraphNodeEditorView nodeEditorView;
         return nodeEditorView;
     }
 

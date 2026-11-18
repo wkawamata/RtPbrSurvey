@@ -40,9 +40,10 @@ namespace Engine
 
 namespace
 {
-static constexpr float kTranslationSpeed = 0.005f;
+// Preserve the original animation speed at 60 FPS; units are now per second.
+static constexpr float kTranslationSpeed = 0.005f * 60.0f;
 static constexpr float kPI = 3.141592f;
-static constexpr float kRotationSpeed = kPI / 180.f / 3.f;
+static constexpr float kRotationSpeed = kPI / 180.f / 3.f * 60.0f;
 static constexpr float kOffsetBounds = 5.f;
 static constexpr int kSphereRows = 7;
 static constexpr int kSphereColumns = 7;
@@ -383,9 +384,10 @@ void GltfGridBenchmarkScene::Reset()
 
 void GltfGridBenchmarkScene::Update(float deltaTime, const SampleSceneUpdateContext& context)
 {
+    const float elapsed = std::isfinite(deltaTime) ? (std::max)(deltaTime, 0.0f) : 0.0f;
     if (context.isPlaying)
     {
-        m_accumTime += deltaTime;
+        m_accumTime += elapsed;
         if (m_accumTime > 1.0f)
         {
             m_accumTime = 0.0f;
@@ -399,19 +401,20 @@ void GltfGridBenchmarkScene::Update(float deltaTime, const SampleSceneUpdateCont
 
         if (context.isPlaying)
         {
-            m_instanceDataForCPU[i].pos.x += kTranslationSpeed;
+            m_instanceDataForCPU[i].pos.x += kTranslationSpeed * elapsed;
         }
         if (m_instanceDataForCPU[i].pos.x > kOffsetBounds)
         {
-            m_instanceDataForCPU[i].pos.x = -kOffsetBounds;
+            m_instanceDataForCPU[i].pos.x = std::fmod(
+                m_instanceDataForCPU[i].pos.x + kOffsetBounds, 2.0f * kOffsetBounds) - kOffsetBounds;
             resetMotionVector = true;
         }
         if (context.isPlaying)
         {
             auto& rot = m_instanceDataForCPU[i].rot;
-            rot.x = std::fmod(rot.x + kRotationSpeed, 2.0f * kPI);
-            rot.y = std::fmod(rot.y + kRotationSpeed, 2.0f * kPI);
-            rot.z = std::fmod(rot.z + kRotationSpeed, 2.0f * kPI);
+            rot.x = std::fmod(rot.x + kRotationSpeed * elapsed, 2.0f * kPI);
+            rot.y = std::fmod(rot.y + kRotationSpeed * elapsed, 2.0f * kPI);
+            rot.z = std::fmod(rot.z + kRotationSpeed * elapsed, 2.0f * kPI);
         }
 
         const XMMATRIX scaleMat = XMMatrixScaling(context.meshScale, context.meshScale, context.meshScale);

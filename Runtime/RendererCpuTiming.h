@@ -6,10 +6,10 @@
 
 namespace RtPbrSurvey
 {
-    enum class RendererCpuPhase { Update, RecordSubmit, GpuWait, Present, Count };
+    enum class RendererCpuPhase { Update, RecordSubmit, GpuWait, Present, NrdBounds, Count };
     inline constexpr std::size_t kRendererCpuPhaseCount = static_cast<std::size_t>(RendererCpuPhase::Count);
     inline constexpr std::array<const char*, kRendererCpuPhaseCount> kRendererCpuPhaseNames = {
-        "Update / housekeeping", "Record / submit", "GPU fence wait", "Present"
+        "Update / housekeeping", "Record / submit", "GPU fence wait", "Present", "NRD geometry bounds"
     };
 
     struct RendererCpuTiming
@@ -50,9 +50,10 @@ namespace RtPbrSurvey
             m_timing.totalMs = 0;
             for (const auto ms : m_timing.ms) m_timing.totalMs += ms;
             m_timing.available = true;
+            m_completed = m_timing;
             m_active = false;
         }
-        const RendererCpuTiming& Completed() const { return m_timing; }
+        const RendererCpuTiming& Completed() const { return m_completed; }
     private:
         void Accumulate(TimePoint now)
         {
@@ -62,6 +63,7 @@ namespace RtPbrSurvey
             m_previous = now;
         }
         RendererCpuTiming m_timing;
+        RendererCpuTiming m_completed;
         RendererCpuPhase m_phase = RendererCpuPhase::Update;
         TimePoint m_previous = {};
         bool m_active = false;

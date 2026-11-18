@@ -26,11 +26,11 @@ void RecordSceneGeometryDraw(ID3D12GraphicsCommandList* commandList, const Scene
         if (draw.usesIndexedDraw)
         {
             commandList->IASetIndexBuffer(&drawDesc.indexBufferView);
-            commandList->DrawIndexedInstanced(draw.indexCount, 1, draw.firstIndex, 0, 0);
+            commandList->DrawIndexedInstanced(draw.indexCount, draw.instanceCount, draw.firstIndex, 0, 0);
         }
         else
         {
-            commandList->DrawInstanced(draw.vertexCount, 1, draw.firstVertex, 0);
+            commandList->DrawInstanced(draw.vertexCount, draw.instanceCount, draw.firstVertex, 0);
         }
     }
 }

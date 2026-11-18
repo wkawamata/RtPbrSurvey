@@ -453,8 +453,24 @@ public:
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     const RtPbrSurvey::RendererCpuTiming& CpuFrameTiming() const { return m_cpuFrameTimer.Completed(); }
+    const DXGI_ADAPTER_DESC1& AdapterDescription() const { return m_graphicsDevice.AdapterDescription(); }
+    void SetRasterBenchmarkMode(bool enabled) { m_rasterBenchmarkMode = enabled; }
+    void SetBenchmarkPipelineStats(bool enabled, bool reverse)
+    {
+        m_benchmarkPipelineStats = enabled;
+        m_reverseGeometryDrawOrder = reverse;
+    }
+    bool GBufferStatisticsAvailable() const { return m_gbufferStatisticsAvailable; }
+    const D3D12_QUERY_DATA_PIPELINE_STATISTICS& GBufferStatistics() const { return m_gbufferStatistics; }
+    void SetDepthPrepass(bool enabled) { m_depthPrepassEnabled = enabled; }
+    void SetGeometryInstancing(bool enabled) { m_geometryInstancing = enabled; }
+    bool GeometryInstancingEnabled() const { return m_geometryInstancing; }
+    void SetConstantGBufferBenchmark(bool enabled) { m_constantGBufferBenchmark = enabled; }
     void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
     bool VSyncEnabled() const { return m_vSyncEnabled; }
+    bool TearingSupported() const { return m_graphicsDevice.TearingSupported(); }
+    UINT LastPresentInterval() const { return m_graphicsDevice.LastPresentInterval(); }
+    UINT LastPresentFlags() const { return m_graphicsDevice.LastPresentFlags(); }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
@@ -977,6 +993,9 @@ private:
 #endif
         UINT64 fenceValue = 0;
         std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> gpuWorkMeterCheckPoints;
+        ComPtr<ID3D12QueryHeap> gbufferStatisticsHeap;
+        ComPtr<ID3D12Resource> gbufferStatisticsReadback;
+        bool gbufferStatisticsPending = false;
         Engine::PathTracingReconstructionPlan reconstructionPlan;
     };
 
@@ -1552,6 +1571,14 @@ private:
     MyDx12Util::WorkMeter m_workMeter;
     float m_cpuFrameTime = 0.f;
     RtPbrSurvey::RendererCpuTimer m_cpuFrameTimer;
+    bool m_rasterBenchmarkMode = false;
+    bool m_geometryInstancing = false;
+    bool m_constantGBufferBenchmark = false;
+    bool m_depthPrepassEnabled = true;
+    bool m_benchmarkPipelineStats = false;
+    bool m_reverseGeometryDrawOrder = false;
+    bool m_gbufferStatisticsAvailable = false;
+    D3D12_QUERY_DATA_PIPELINE_STATISTICS m_gbufferStatistics = {};
 
     // GPU work meter
     MyDx12Util::GpuWorkMeter m_gpuWorkMeter;
@@ -1840,7 +1867,7 @@ private:
     PipelineShaderBytecode LoadPipelineShaderBytecode();
     void RegisterPipelineStates(const PipelineShaderBytecode& shaders);
     void CreateInitialCommandList();
-    void CreateSceneGeometryBuffers();
+    void CreateSceneGeometryBuffers(std::vector<ComPtr<ID3D12Resource>>& uploads);
     void CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap);
     void CreateEnvironmentMapResources(ComPtr<ID3D12Resource>& environmentMapUploadHeap,
                                        ComPtr<ID3D12Resource>& diffuseIrradianceUploadHeap,

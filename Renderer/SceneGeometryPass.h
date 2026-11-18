@@ -16,6 +16,7 @@ struct SceneGeometryInstanceDraw
     UINT firstVertex = 0;
     UINT firstIndex = 0;
     UINT instanceIndex = 0;
+    UINT instanceCount = 1;
 };
 
 struct SceneGeometryDrawDesc

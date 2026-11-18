@@ -198,6 +198,16 @@ void GraphicsDevice::Initialize(const GraphicsDeviceDesc& desc)
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.SampleDesc.Count = 1;
 
+    m_tearingSupported = false;
+    ComPtr<IDXGIFactory5> factory5;
+    BOOL allowTearing = FALSE;
+    if (SUCCEEDED(m_dxgiFactory.As(&factory5)) &&
+        SUCCEEDED(factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing))))
+    {
+        m_tearingSupported = allowTearing != FALSE;
+    }
+    m_swapChainFlags = m_tearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+    swapChainDesc.Flags = m_swapChainFlags;
     ComPtr<IDXGISwapChain1> swapChain1;
     ThrowIfFailed(m_dxgiFactory->CreateSwapChainForHwnd(
         m_commandQueue.Get(), // Swap chain needs the queue so that it can force a flush on it.
@@ -269,11 +279,21 @@ void GraphicsDevice::CloseFenceEvent()
 
 void GraphicsDevice::Present(UINT syncInterval, UINT flags)
 {
+    if (syncInterval == 0 && m_tearingSupported)
+    {
+        BOOL fullscreen = FALSE;
+        if (SUCCEEDED(m_swapChain->GetFullscreenState(&fullscreen, nullptr)) && !fullscreen)
+        {
+            flags |= DXGI_PRESENT_ALLOW_TEARING;
+        }
+    }
+    m_lastPresentInterval = syncInterval;
+    m_lastPresentFlags = flags;
     ThrowIfFailed(m_swapChain->Present(syncInterval, flags));
 }
 
 void GraphicsDevice::ResizeSwapChain(UINT bufferCount, UINT newWidth, UINT newHeight, DXGI_FORMAT format, UINT flags)
 {
-    ThrowIfFailed(m_swapChain->ResizeBuffers(bufferCount, newWidth, newHeight, format, flags));
+    ThrowIfFailed(m_swapChain->ResizeBuffers(bufferCount, newWidth, newHeight, format, flags | m_swapChainFlags));
     SetSize(newWidth, newHeight);
 }
