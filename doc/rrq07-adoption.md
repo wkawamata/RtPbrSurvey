@@ -59,3 +59,7 @@ are separate decisions. No automatic scene-data migration is needed.
 - Compare a future presentation policy against the measured display-FPS tradeoff.
 - Consider multiple productions or GPU-side validated presentation only as a separate
   ownership/history design with its own negative-path tests.
+
+Follow-up: [RRQ-08 CPU wait decomposition](rrq08-cpu-wait-analysis.md) separates
+nonblocking publication polling from blocking frame-resource reuse and normalizes
+CPU phase costs per verified output. No presentation policy changes are enabled.
