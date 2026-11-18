@@ -845,7 +845,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             auto& average = workMeterAverage;
             ImGui::BeginDisabled(average.collecting);
-            ImGui::InputInt("FrameCount", &average.frameCount);
+            ImGuiWidgets::SliderIntWithControls("FrameCount", &average.frameCount, 1, 1000000, 1, 120);
             average.frameCount = (std::clamp)(average.frameCount, 1, 1000000);
             if (ImGui::Button("OutputAverage"))
             {
