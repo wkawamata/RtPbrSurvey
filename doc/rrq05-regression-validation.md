@@ -59,6 +59,15 @@ The successful run's executable SHA256 is pinned in its report. Formatting-only
 cleanup followed; ordinary Debug was rebuilt. NRD SDK sources were read from the
 existing pinned dependency checkout, with all generated build output in Work4.
 
-Next: RRQ-06 measures Release scheduling performance and controlled image parity;
-RRQ-07 records adoption criteria and prepares the PR. Broader arbitrary scenes and
-subjective moving-glass quality remain outside this automated regression claim.
+## Main integration follow-up
+
+After integrating origin/main through 14c3d47, both SDK-enabled Debug and Release
+builds passed the same 22-checkpoint regression, including four independent motion
+checks and ten recorded NRD dispatches. Both processes exited 0. The Debug run had
+no D3D12 ERROR/CORRUPTION. Evidence: build/rrq05-main-integrated-debug-20261119 and
+build/rrq05-main-integrated-20261119, respectively. The integrated Release hash is
+pinned in the RRQ-06 report.
+
+[RRQ-06 performance/parity](rrq06-performance-and-parity.md) and
+[RRQ-07 adoption decision](rrq07-adoption.md) are complete. Broader arbitrary scenes
+and subjective moving-glass quality remain outside this automated regression claim.

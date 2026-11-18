@@ -115,4 +115,6 @@ Keep chained opt-in until these and RRQ-05 regressions pass; perform Release ABB
 and image comparisons with the same safe input profile before considering adoption.
 
 RRQ-04 follow-up: [recovery and resize validation](rrq04-recovery-validation.md)
-completed on 2026-11-18. Broader RRQ-05 regressions and adoption remain pending.
+completed on 2026-11-18. Follow-up on 2026-11-19: [RRQ-05 regressions](rrq05-regression-validation.md),
+[RRQ-06 measurements](rrq06-performance-and-parity.md) and
+[RRQ-07 adoption decision](rrq07-adoption.md) are complete; chained remains opt-in.
