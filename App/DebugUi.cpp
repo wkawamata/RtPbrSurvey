@@ -543,7 +543,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::TextDisabled("Current Scene");
         const char* sceneName = loadedScene.Name();
         const char* sceneNameBreak = strchr(sceneName, ':');
         bool closeSceneRequested = false;
@@ -571,8 +570,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             return;
         }
         ImGui::Separator();
-        ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
-        ImGui::Text("FrameIndex: %d", context.frameIndex);
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
+                    context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
+        ImGui::Text("GPU Total: %.6f ms",
+                    context.gpuCheckPoints.size() >= 2 ? context.gpuCheckPoints.back().timeStamp : 0.0f);
         ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
         ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
         ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
@@ -855,10 +856,75 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             row->milliseconds = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
             row->available = true;
         }
+        if (ImGui::TreeNode("Meter##WorkMeter"))
+        {
+            const bool gpuBarVSync = app.m_sceneRenderer.EngineForDebugTools().VSyncEnabled();
+            const float gpuBarFrameMs = gpuBarVSync ? 33.3f :
+                (std::isfinite(context.cpuFrameTime) ? (std::max)(context.cpuFrameTime, 0.0f) : 0.0f);
+            const float gpuBarMaxMs = (std::max)(gpuBarFrameMs, 0.000001f);
+            const ImVec2 gpuBarSize((std::max)(ImGui::GetContentRegionAvail().x, 1.0f), ImGui::GetFrameHeight());
+            const float cpuBarMs = std::isfinite(context.cpuFrameTime) ?
+                                       (std::max)(context.cpuFrameTime, 0.0f) : 0.0f;
+            ImGui::Text("CPU Frame: %.3f ms", cpuBarMs);
+            const ImVec2 cpuBarStart = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("CPU Frame Bar##WorkMeter", gpuBarSize);
+            ImDrawList* cpuDrawList = ImGui::GetWindowDrawList();
+            cpuDrawList->AddRectFilled(cpuBarStart,
+                                      ImVec2(cpuBarStart.x + gpuBarSize.x, cpuBarStart.y + gpuBarSize.y),
+                                      ImGui::GetColorU32(ImGuiCol_FrameBg));
+            const float cpuBarFraction = (std::min)(cpuBarMs / gpuBarMaxMs, 1.0f);
+            cpuDrawList->AddRectFilled(cpuBarStart,
+                                      ImVec2(cpuBarStart.x + cpuBarFraction * gpuBarSize.x,
+                                             cpuBarStart.y + gpuBarSize.y),
+                                      ImGui::GetColorU32(ImGuiCol_PlotHistogram));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("CPU Frame: %.3f / %.3f ms (%.1f%%)%s", cpuBarMs, gpuBarFrameMs,
+                                  cpuBarMs / gpuBarMaxMs * 100.0f,
+                                  cpuBarMs > gpuBarMaxMs ? " (overflow)" : "");
+            }
+            ImGui::TextUnformatted("GPU passes");
+            const ImVec2 gpuBarStart = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton("GPU Pass Distribution##WorkMeter", gpuBarSize);
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            drawList->AddRectFilled(gpuBarStart,
+                                   ImVec2(gpuBarStart.x + gpuBarSize.x, gpuBarStart.y + gpuBarSize.y),
+                                   ImGui::GetColorU32(ImGuiCol_FrameBg));
+            float cumulativeMs = 0.0f;
+            for (size_t i = 0; i < gpuRows.size(); ++i)
+            {
+                const auto& row = gpuRows[i];
+                const float durationMs = row.available && std::isfinite(row.milliseconds) ?
+                                             (std::max)(row.milliseconds, 0.0f) : 0.0f;
+                const float startFraction = (std::min)(cumulativeMs / gpuBarMaxMs, 1.0f);
+                cumulativeMs += durationMs;
+                const float endFraction = (std::min)(cumulativeMs / gpuBarMaxMs, 1.0f);
+                if (endFraction <= startFraction)
+                {
+                    continue;
+                }
+                const ImVec2 segmentStart(gpuBarStart.x + startFraction * gpuBarSize.x, gpuBarStart.y);
+                const ImVec2 segmentEnd(gpuBarStart.x + endFraction * gpuBarSize.x,
+                                        gpuBarStart.y + gpuBarSize.y);
+                const ImVec4 color = ImColor::HSV(static_cast<float>(i) * 0.618034f, 0.65f, 0.9f).Value;
+                drawList->AddRectFilled(segmentStart, segmentEnd, ImGui::GetColorU32(color));
+                if (ImGui::IsItemHovered() && ImGui::IsMouseHoveringRect(segmentStart, segmentEnd))
+                {
+                    ImGui::SetTooltip("GPU[%d] %s: %.3f ms (%.1f%% of %.3f ms)",
+                                      static_cast<int>(i + 1), row.name.c_str(), durationMs,
+                                      durationMs / gpuBarMaxMs * 100.0f, gpuBarFrameMs);
+                }
+            }
+            ImGui::Text("GPU passes: %.3f / %.3f ms (%s)%s", cumulativeMs, gpuBarFrameMs,
+                        gpuBarVSync ? "30 Hz" : "CPU Frame",
+                        cumulativeMs > gpuBarMaxMs ? " (overflow)" : "");
+            ImGui::TreePop();
+        }
         for (size_t i = 0; i < gpuRows.size(); ++i)
         {
             const auto& row = gpuRows[i];
-            ImGui::Text("GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
+            const ImVec4 color = ImColor::HSV(static_cast<float>(i) * 0.618034f, 0.65f, 0.9f).Value;
+            ImGui::TextColored(color, "GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
         }
         if (gpuCheckPoints.size() >= 2)
             ImGui::Text("GPU Total: %.6f ms", gpuCheckPoints.back().timeStamp);
