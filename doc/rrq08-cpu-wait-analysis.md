@@ -122,3 +122,6 @@ Use a new/empty folder and an otherwise idle GPU. Local evidence:
 - build/agent-builds/rrq08-cpu-phases-debug-20261119 and rrq08-cpu-phases-release-20261119.
 
 Generated reports/captures remain local and excluded from Git.
+
+Follow-up: [RRQ-09 acquisition experiment](rrq09-nonblocking-frame-acquisition.md)
+implements and validates opt-in host-loop deferral. It remains OFF by default.

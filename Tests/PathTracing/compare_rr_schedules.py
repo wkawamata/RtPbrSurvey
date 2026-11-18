@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--acquisition-comparison', action='store_true')
     args = parser.parse_args()
     exe, out = args.exe.resolve(strict=True), args.output.resolve()
     if out.exists() and any(out.iterdir()):
@@ -27,7 +28,8 @@ def main():
         for scene in ['WarmGlassEdges', 'PathTracingValidation/rr-quality']:
             for moving in [False, True]:
                 pair = []
-                for schedule in ['safe-serial', 'chained']:
+                schedules = ['blocking', 'nonblocking'] if args.acquisition_comparison else ['safe-serial', 'chained']
+                for schedule in schedules:
                     require_isolation()
                     name = scene.replace('/', '-') + ('-camera-' if moving else '-static-') + schedule
                     folder = out / name
@@ -35,8 +37,11 @@ def main():
                     command = [str(exe), '-SceneFile', str(ROOT/'Assets/Scenes'/scene/'scene.json'),
                                '-WindowSize', '640', '360', '-EnableExperimentalNativeRayReconstruction',
                                '-PathTracingRrThinExperiment', '-PathTracingRrSmoothVolumeExperiment',
-                               '-PathTracingRrTransmissionMotionExperiment', '-PathTracingRrSchedule', schedule,
+                               '-PathTracingRrTransmissionMotionExperiment', '-PathTracingRrSchedule',
+                               'chained' if args.acquisition_comparison else schedule,
                                '-PathTracingRrComparisonCapture', str(folder), '-LogToFile', str(folder/'d3d12.log')]
+                    if args.acquisition_comparison and schedule == 'nonblocking':
+                        command.append('-NonblockingFrameAcquisition')
                     if moving:
                         command.append('-PathTracingRrComparisonCamera')
                     startup = subprocess.STARTUPINFO()
