@@ -467,6 +467,19 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 options.pathTracingRrRecoveryMaxCheckpoints > 31)
                 throw std::invalid_argument("-PathTracingRrRecoveryMaxCheckpoints expects 1..31.");
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrComparisonCamera"))
+        {
+            options.pathTracingRrComparisonCamera = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrComparisonCapture"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrComparisonCapture expects a directory.");
+            options.pathTracingRrComparisonCaptureDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrRegressionValidation"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'-')

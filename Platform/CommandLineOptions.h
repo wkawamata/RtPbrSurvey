@@ -100,6 +100,8 @@ struct CommandLineOptions
     std::filesystem::path pathTracingRrLifecycleValidationDirectory;
     std::filesystem::path pathTracingRrRecoveryValidationDirectory;
     std::filesystem::path pathTracingRrRegressionValidationDirectory;
+    std::filesystem::path pathTracingRrComparisonCaptureDirectory;
+    bool pathTracingRrComparisonCamera = false;
     UINT pathTracingRrRecoveryMaxCheckpoints = 0;
     std::filesystem::path pathTracingRrInputCaptureDirectory;
     std::string nrdDiagnosticFailure;

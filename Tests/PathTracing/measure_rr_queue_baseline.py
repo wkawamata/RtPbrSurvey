@@ -87,8 +87,10 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--warmup', type=int, default=60)
     parser.add_argument('--frames', type=int, default=240)
+    parser.add_argument('--comparison', choices=['baseline', 'safe'], default='baseline')
+    parser.add_argument('--repeats', type=int, default=1)
     args = parser.parse_args()
-    if args.warmup < 1 or args.frames < 10:
+    if args.warmup < 1 or args.frames < 10 or args.repeats < 1:
         parser.error('Need warmup and at least ten intervals')
     exe, out = args.exe.resolve(strict=True), args.output.resolve()
     if out.exists() and any(out.iterdir()):
@@ -102,16 +104,21 @@ def main():
         assetSha256={p.relative_to(ROOT).as_posix(): sha(p) for p in assets if p.is_file()},
         runtimeSha256={p.name: sha(p) for p in sorted(exe.parent.glob('*'))
                       if p.is_file() and (p.suffix == '.cso' or p.name.startswith(('sl.', 'nvngx_')))},
-        settings=dict(warmup=args.warmup, intervals=args.frames, vsync=False,
+        settings=dict(warmup=args.warmup, intervals=args.frames, vsync=False, comparison=args.comparison, repeats=args.repeats,
                       samplesPerFrame=1, maxBounces=16, seed=7), runs=[])
     def save():
         (out/'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     save()
     try:
         for width, height in [(640, 360), (1280, 720)]:
-            for index, strict in enumerate([True, False, False, True]):
+            modes = [('strict', True), ('eager', False)] if args.comparison == 'baseline' else [('safe-serial', False), ('chained', False)]
+            sequence = []
+            for repeat in range(args.repeats):
+                a, b = modes if repeat % 2 == 0 else modes[::-1]
+                sequence.extend([a, b, b, a])
+            for index, (schedule, strict) in enumerate(sequence):
                 require_isolation()
-                name=f'{width}x{height}-{index}-'+('strict' if strict else 'eager')
+                name=f'{width}x{height}-{index}-'+schedule
                 log, png = out/(name+'.log'), out/(name+'.png')
                 command=[str(exe), '-SceneFile', str(source/'scene.json'), '-WindowSize', str(width), str(height),
                          '-DisableVSync', '-PathTracingReconstruction', 'rr',
@@ -121,6 +128,8 @@ def main():
                          '-CaptureAfterFrames', str(args.warmup+args.frames), '-LogToFile', str(log), '-LogFPS', '1']
                 if strict:
                     command.append('-PathTracingRrStrictSchedule')
+                elif schedule in ('safe-serial', 'chained'):
+                    command += ['-PathTracingRrSchedule', schedule]
                 startup=subprocess.STARTUPINFO()
                 startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startup.wShowWindow=subprocess.SW_HIDE
@@ -140,11 +149,15 @@ def main():
                 if (diag['renderWidth'], diag['renderHeight']) != (width, height) or diag['d3d12DebugLayerEnabledByApp']:
                     raise RuntimeError('Unexpected resolution or enabled debug layer')
                 rr=diag['ptRr']
-                if diag['reconstructionOutput'] != 'rr' or not rr['outputVerified'] or rr['cancelledCount'] or rr['inputRejectedCount']:
+                if diag['reconstructionOutput'] != 'rr' or not rr['outputVerified'] or rr['cancelledCount'] or rr['inputRejectedCount'] or rr.get('outputRejected', 0) or rr.get('sdkFailures', 0):
                     raise RuntimeError(f'{name}: RR output contract failure')
+                if args.comparison == 'safe' and rr['chained'] != (schedule == 'chained'):
+                    raise RuntimeError('Unexpected scheduler')
+                if rr['resetCount'] != 1:
+                    raise RuntimeError('Unexpected static history reset')
                 if (diag['samplesPerFrame'],diag['maxBounces'],diag['randomSeed']) != (1,16,7):
                     raise RuntimeError('Fixture settings changed')
-                row=dict(name=name, strict=strict, width=width, height=height, command=command,
+                row=dict(name=name, strict=strict, schedule=schedule, width=width, height=height, command=command,
                          diagnostics=diag, metrics=parse(text, args.warmup, args.frames), pngSha256=sha(png))
                 report['runs'].append(row)
                 save()

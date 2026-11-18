@@ -1577,3 +1577,106 @@ void RtPbrSurveyApp::RunPathTracingRrRegressionValidation()
         fail(std::string("Regression timed out: ") + step.name + " phase=" + rr.rrLivePhase +
              " issue=" + rr.rrLiveFailure);
 }
+
+void RtPbrSurveyApp::RunPathTracingRrComparisonCapture()
+{
+    const auto context = m_sceneRenderer.GetUiFrameContext();
+    const auto& rr = context.pathTracingDiagnostics;
+    const auto fail = [this](const char* reason)
+    {
+        if (m_logFile)
+        {
+            fprintf(m_logFile, "[RrComparisonFailure] %s\n", reason);
+            fflush(m_logFile);
+        }
+        m_exitCode = 1;
+        DestroyWindow(Win32Application::GetHwnd());
+    };
+    if (!m_logFile || rr.rrInputRejectionCount || rr.rrOutputRejected || rr.rrSdkFailures || rr.rrCancelledCount)
+    {
+        fail("Comparison requires successful verified packets");
+        return;
+    }
+    if (m_rrLifecycleStage == 0)
+    {
+        m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+        m_rrLifecycleStage = 1;
+    }
+    else if (m_rrLifecycleStage == 1 && rr.rrFinalFence != 0)
+    {
+        // Serial mode may still be admitting input; its retained evaluate drains while paused.
+        m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+        m_rrLifecycleStage = 2;
+    }
+    else if (m_rrLifecycleStage == 2 && rr.rrRetainedOutputVerified && rr.rrLivePhase == "retained-output-ready" &&
+             rr.rrFinalFence == 0)
+    {
+        if (++m_rrComparisonProduction != rr.rrCompletedCount || rr.rrResetCount != 1)
+        {
+            fail("Comparison mixed production counts or reset history");
+            return;
+        }
+        if (m_rrComparisonProduction == 16)
+            m_rrLifecycleStage = 3;
+        else
+        {
+            if (m_commandLineOptions.pathTracingRrComparisonCamera)
+            {
+                auto camera = m_sceneRenderer.GetCamera();
+                camera.pos.x += .02f;
+                LoadedScene().GetScene().camera = camera;
+                m_sceneRenderer.SetCamera(camera);
+            }
+            m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+            m_rrLifecycleStage = 1;
+        }
+    }
+    else if (m_rrLifecycleStage == 3)
+    {
+        static constexpr const char* inputs[] = {"PathTracing.RrColor",
+                                                 "PathTracing.RrDiffuseAlbedo",
+                                                 "PathTracing.RrSpecularAlbedo",
+                                                 "PathTracing.RrNormal",
+                                                 "PathTracing.RrRoughness",
+                                                 "PathTracing.RrLinearDepth",
+                                                 "PathTracing.RrMotion",
+                                                 "PathTracing.RrHitDistance"};
+        if (!m_rrLifecycleEntered)
+        {
+            RtPbrSurvey::ScreenshotRequest request;
+            request.path = std::filesystem::absolute(m_commandLineOptions.pathTracingRrComparisonCaptureDirectory /
+                                                     ("signal-" + std::to_string(m_rrLifecycleCapture) + ".ptbuf"));
+            request.debugResourceName = m_rrLifecycleCapture < 8  ? inputs[m_rrLifecycleCapture]
+                                        : rr.rrPublishedSlot == 0 ? "PathTracing.RrOutput"
+                                                                  : "PathTracing.RrOutputAlternate";
+            m_sceneRenderer.RequestScreenshot(request);
+            m_rrLifecycleEntered = true;
+        }
+        else if (const auto result = m_sceneRenderer.ConsumeScreenshotResult())
+        {
+            if (!result->succeeded)
+            {
+                fail(result->error.c_str());
+                return;
+            }
+            m_rrLifecycleEntered = false;
+            if (++m_rrLifecycleCapture == 9)
+            {
+                fprintf(m_logFile,
+                        "[RrComparisonComplete] outputs=%llu calls=%llu reset=%llu\n",
+                        static_cast<unsigned long long>(rr.rrCompletedCount),
+                        static_cast<unsigned long long>(context.rayReconstructionDiagnostics.nativeEvaluateCallCount),
+                        static_cast<unsigned long long>(rr.rrResetCount));
+                fflush(m_logFile);
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+        }
+    }
+    UpdateUiFrame();
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commands) { m_imguiSystem.Render(commands); });
+    if (m_d3d12InfoQueue)
+        FlushD3D12DebugMessages();
+    if (++m_rrLifecycleFrames > 1024)
+        fail("Comparison capture timed out");
+}
