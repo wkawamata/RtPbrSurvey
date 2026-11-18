@@ -136,9 +136,27 @@ RtPbrSurvey::EvaluationTestResult& FindOrAddResult(RtPbrSurvey::EvaluationRun& r
 
 bool IsVisibleCase(const RtPbrSurvey::EvaluationState& state,
                    EvaluationCaseScope scope,
-                   const std::string& currentSceneName)
+                   const std::string& currentSceneName,
+                   int currentSceneIndex,
+                   bool currentSceneIsGrid)
 {
-    return scope == EvaluationCaseScope::AllScenes || state.sceneName == currentSceneName;
+    if (scope == EvaluationCaseScope::AllScenes)
+    {
+        return true;
+    }
+    if (state.sceneName != currentSceneName)
+    {
+        return false;
+    }
+    if (currentSceneIndex < 0)
+    {
+        return true;
+    }
+    if (state.sceneReference.id.empty() || state.sceneReference.id == "sample:" + state.sceneName)
+    {
+        return state.sceneIndex == currentSceneIndex;
+    }
+    return state.sceneReference.id == (currentSceneIsGrid ? "sample:Grid/" : "sample:") + currentSceneName;
 }
 } // namespace
 
@@ -151,7 +169,9 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
     std::vector<size_t> visibleIndices;
     for (size_t i = 0; i < states.size(); ++i)
     {
-        if (IsVisibleCase(states[i], scope, currentSceneName))
+        if (IsVisibleCase(states[i], scope, currentSceneName, app.m_loadedSceneIndex,
+                          scope == EvaluationCaseScope::CurrentScene &&
+                              dynamic_cast<const Engine::GltfGridBenchmarkScene*>(&app.LoadedScene()) != nullptr))
         {
             visibleIndices.push_back(i);
         }

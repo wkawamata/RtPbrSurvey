@@ -307,6 +307,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSConstant
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ShadowMaskDebug.hlsl vs_6_0 VSMain)
@@ -877,6 +879,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
                 COMMAND RtPbrSurvey.NrdReconstructionTests "${nrd_test_dir}/RELAX_Reconstruction_mode1.cso" 5x5)
         endif()
     endif()
+
+    add_executable(RtPbrSurvey.RendererCpuTimingTests Tests/RendererCpuTimingTests.cpp)
+    add_executable(RtPbrSurvey.GridAnimationTests Tests/GridAnimationTests.cpp)
+    target_link_libraries(RtPbrSurvey.GridAnimationTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.GridAnimation COMMAND RtPbrSurvey.GridAnimationTests)
+    target_include_directories(RtPbrSurvey.RendererCpuTimingTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(RtPbrSurvey.RendererCpuTimingTests PRIVATE cxx_std_20)
+    add_test(NAME RtPbrSurvey.RendererCpuTiming COMMAND RtPbrSurvey.RendererCpuTimingTests)
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)

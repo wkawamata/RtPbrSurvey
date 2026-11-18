@@ -1315,7 +1315,7 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
         m_lightingParams.emissiveEnabled ? 1.0f : 0.0f,
         m_lightingParams.iblDebugMip,
         m_lightingParams.iblDebugExposure,
-        m_rayTracingSupport.IsSupported() ? 1.0f : 0.0f,
+        m_rayTracingSupport.IsSupported() && !m_rasterBenchmarkMode ? 1.0f : 0.0f,
         m_shadowSettings.softShadowEnabled ? 1.0f : 0.0f,
         (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
         m_hybridReflectionSettings.hitOverlayEnabled) ?
@@ -1591,7 +1591,9 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     ThrowIfFailed(m_commandList->Reset(m_frameResources[m_currentFrameIndex].commandAllocator.Get(),
                                        GetPipelineState(PipelineId(Pipe::Forward))));
 
-    CreateSceneGeometryBuffers();
+    // Keep staging resources alive through command submission and WaitForGpu below.
+    std::vector<ComPtr<ID3D12Resource>> geometryUploads;
+    CreateSceneGeometryBuffers(geometryUploads);
 
     std::vector<ComPtr<ID3D12Resource>> textureUploadHeap;
     CreateSceneTextureResources(textureUploadHeap);
@@ -3489,7 +3491,8 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
     shaders.forward = {LoadShaderBytecode(L"shaders_VSMain.cso"), LoadShaderBytecode(L"shaders_PSMain.cso")};
     shaders.depthPrePass = {LoadShaderBytecode(L"shaders_DepthOnlyVS_VSMain.cso"), {}};
     shaders.gbuffer = {LoadShaderBytecode(L"shaders_GBuffer_VSMain.cso"),
-                       LoadShaderBytecode(L"shaders_GBuffer_PSMain.cso")};
+                       LoadShaderBytecode(m_constantGBufferBenchmark ? L"shaders_GBuffer_PSConstant.cso" :
+                                                                      L"shaders_GBuffer_PSMain.cso")};
     shaders.gbufferDebug = {LoadShaderBytecode(L"shaders_GBufferDebug_VSMain.cso"),
                             LoadShaderBytecode(L"shaders_GBufferDebug_PSMain.cso")};
     shaders.shadowMaskDebug = {LoadShaderBytecode(L"shaders_ShadowMaskDebug_VSMain.cso"),
@@ -3898,7 +3901,7 @@ void RtPbrSurveyEngine::CreateInitialCommandList()
                                                      IID_PPV_ARGS(&m_commandList)));
 }
 
-void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
+void RtPbrSurveyEngine::CreateSceneGeometryBuffers(std::vector<ComPtr<ID3D12Resource>>& uploads)
 {
     m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
@@ -3929,18 +3932,28 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
     }
     const UINT vertexBufferSize = static_cast<UINT>(sizeof(Engine::SceneVertex) * mesh.vertices.size());
 
-    // Note: using upload heaps to transfer static data like vert buffers is not
-    // recommended. Every time the GPU needs it, the upload heap will be marshalled
-    // over. Please read up on Default Heap usage. An upload heap is used here for
-    // code simplicity and because there are very few verts to actually transfer.
-    MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), vertexBufferSize, m_vertexBuffer);
-
-    // Copy the triangle data to the vertex buffer.
-    UINT8* pVertexDataBegin = nullptr;
-    CD3DX12_RANGE readRange(0, 0); // We do not intend to read from this resource on the CPU.
-    ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-    memcpy(pVertexDataBegin, mesh.vertices.data(), vertexBufferSize);
-    m_vertexBuffer->Unmap(0, nullptr);
+    const auto createStaticBuffer = [this, &uploads](const void* data, UINT bytes, ComPtr<ID3D12Resource>& destination)
+    {
+        ComPtr<ID3D12Resource> staging;
+        MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), bytes, staging);
+        void* mapped = nullptr;
+        const CD3DX12_RANGE noRead(0, 0);
+        ThrowIfFailed(staging->Map(0, &noRead, &mapped));
+        memcpy(mapped, data, bytes);
+        staging->Unmap(0, nullptr);
+        const CD3DX12_HEAP_PROPERTIES heap(D3D12_HEAP_TYPE_DEFAULT);
+        const auto desc = CD3DX12_RESOURCE_DESC::Buffer(bytes);
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
+            &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&destination)));
+        m_commandList->CopyBufferRegion(destination.Get(), 0, staging.Get(), 0, bytes);
+        // GENERIC_READ covers IA vertex/index input and DXR/shader geometry reads.
+        const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(destination.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
+        m_commandList->ResourceBarrier(1, &barrier);
+        uploads.push_back(std::move(staging));
+    };
+    createStaticBuffer(mesh.vertices.data(), vertexBufferSize, m_vertexBuffer);
+    const CD3DX12_RANGE readRange(0, 0);
 
     // Initialize the vertex buffer view.
     m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
@@ -3951,12 +3964,7 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
     {
         const UINT indexBufferSize = static_cast<UINT>(mesh.indices.size() * sizeof(uint32_t));
 
-        MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), indexBufferSize, m_indexBuffer);
-
-        UINT8* pIndexDataBegin = nullptr;
-        ThrowIfFailed(m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));
-        memcpy(pIndexDataBegin, mesh.indices.data(), indexBufferSize);
-        m_indexBuffer->Unmap(0, nullptr);
+        createStaticBuffer(mesh.indices.data(), indexBufferSize, m_indexBuffer);
 
         m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();
         m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;
@@ -4387,6 +4395,10 @@ void RtPbrSurveyEngine::CreateInstanceBuffers()
 
 void RtPbrSurveyEngine::BuildAccelerationStructures()
 {
+    if (m_rasterBenchmarkMode)
+    {
+        return;
+    }
     m_nrdGeometrySnapshot.Invalidate();
     const UINT instanceCount = (std::min)(
         static_cast<UINT>(m_scene.instances.size()),
@@ -4403,14 +4415,20 @@ void RtPbrSurveyEngine::BuildAccelerationStructures()
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get(),
         m_descriptorHeapAllocator);
-    if (recorded)
+    if (recorded && m_renderingPath == RenderingPath::PathTracing &&
+        MakePathTracingReconstructionPlan().runNrd)
     {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::NrdBounds);
         m_nrdGeometrySnapshot.RecordTlas({m_scene.instances.data(), instanceCount});
     }
 }
 
 void RtPbrSurveyEngine::RebuildAccelerationStructures()
 {
+    if (m_rasterBenchmarkMode)
+    {
+        return;
+    }
     m_nrdGeometrySnapshot.Invalidate();
     if (!m_sceneResourcesAvailable || !m_rayTracingSupport.IsSupported())
     {
@@ -4428,8 +4446,10 @@ void RtPbrSurveyEngine::RebuildAccelerationStructures()
         m_scene.instances.data(),
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get());
-    if (recorded)
+    if (recorded && m_renderingPath == RenderingPath::PathTracing &&
+        MakePathTracingReconstructionPlan().runNrd)
     {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::NrdBounds);
         m_nrdGeometrySnapshot.RecordTlas({m_scene.instances.data(), instanceCount});
     }
 }
@@ -6187,6 +6207,18 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     CollectGarbageTransientResources();
     CollectDeferredGpuReleases();
 
+    FrameResource& statisticsFrame = m_frameResources[m_currentFrameIndex];
+    if (statisticsFrame.gbufferStatisticsPending)
+    {
+        void* mapped = nullptr;
+        const D3D12_RANGE readRange = {0, sizeof(m_gbufferStatistics)};
+        ThrowIfFailed(statisticsFrame.gbufferStatisticsReadback->Map(0, &readRange, &mapped));
+        memcpy(&m_gbufferStatistics, mapped, sizeof(m_gbufferStatistics));
+        const D3D12_RANGE noWrite = {0, 0};
+        statisticsFrame.gbufferStatisticsReadback->Unmap(0, &noWrite);
+        statisticsFrame.gbufferStatisticsPending = false;
+        m_gbufferStatisticsAvailable = true;
+    }
     if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), m_currentFrameIndex))
     {
         m_completedGpuWorkMeterCheckPoints = m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints;
@@ -6490,8 +6522,12 @@ void RtPbrSurveyEngine::RegisterForwardPipeline(D3D12_GRAPHICS_PIPELINE_STATE_DE
 void RtPbrSurveyEngine::RegisterGBufferPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                                  const GBufferPipelineDefinition& definition)
 {
-    const D3D12_GRAPHICS_PIPELINE_STATE_DESC desc =
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc =
         Engine::CreateGBufferPipelineDesc(baseDesc, definition, m_gbuffer.formats, Engine::GBuffer::kCount);
+    if (!m_depthPrepassEnabled)
+    {
+        desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    }
     const PipelineKey key = PipelineId(definition.name);
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
@@ -7786,7 +7822,31 @@ void RtPbrSurveyEngine::ExecuteGBufferPass(const RenderPass& pass)
     passDesc.clearValues = m_gbuffer.clearValues;
     passDesc.geometryDraw = MakeSceneGeometryDrawDesc();
 
+    FrameResource& frame = m_frameResources[m_currentFrameIndex];
+    if (m_benchmarkPipelineStats)
+    {
+        if (!frame.gbufferStatisticsHeap)
+        {
+            D3D12_QUERY_HEAP_DESC desc = {};
+            desc.Type = D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
+            desc.Count = 1;
+            ThrowIfFailed(m_graphicsDevice.Device()->CreateQueryHeap(&desc, IID_PPV_ARGS(&frame.gbufferStatisticsHeap)));
+            const CD3DX12_HEAP_PROPERTIES heap(D3D12_HEAP_TYPE_READBACK);
+            const auto buffer = CD3DX12_RESOURCE_DESC::Buffer(sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS));
+            ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE,
+                &buffer, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&frame.gbufferStatisticsReadback)));
+        }
+        m_commandList->BeginQuery(frame.gbufferStatisticsHeap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0);
+    }
     Engine::RecordGBufferPass(m_commandList.Get(), passDesc);
+    if (m_benchmarkPipelineStats)
+    {
+        m_commandList->EndQuery(frame.gbufferStatisticsHeap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0);
+        m_commandList->ResolveQueryData(frame.gbufferStatisticsHeap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS,
+            0, 1, frame.gbufferStatisticsReadback.Get(), 0);
+        frame.gbufferStatisticsPending = true;
+    }
+
 }
 
 void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
@@ -8899,6 +8959,17 @@ auto RtPbrSurveyEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeomet
             continue;
         }
         const Engine::SceneMesh::Range& range = m_sceneMeshRanges[meshId];
+        if (m_geometryInstancing && !m_sceneGeometryDraws.empty())
+        {
+            auto& previous = m_sceneGeometryDraws.back();
+            if (previous.instanceIndex + previous.instanceCount == instanceIndex &&
+                previous.vertexCount == range.vertexCount && previous.indexCount == range.indexCount &&
+                previous.firstVertex == range.firstVertex && previous.firstIndex == range.firstIndex)
+            {
+                ++previous.instanceCount;
+                continue;
+            }
+        }
         m_sceneGeometryDraws.push_back(
             {range.indexCount > 0,
              range.vertexCount,
@@ -8906,6 +8977,10 @@ auto RtPbrSurveyEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeomet
              range.firstVertex,
              range.firstIndex,
              instanceIndex});
+    }
+    if (m_reverseGeometryDrawOrder)
+    {
+        std::reverse(m_sceneGeometryDraws.begin(), m_sceneGeometryDraws.end());
     }
     return {m_vertexBufferView, m_indexBufferView, m_sceneGeometryDraws};
 }

@@ -108,13 +108,19 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         }
         else
         {
-            AddPass(MakeDepthPrePass());
+            if (m_depthPrepassEnabled)
+            {
+                AddPass(MakeDepthPrePass());
+            }
             AddSceneRenderPasses();
             if (m_reflectionHdrDiagnosticRequested)
             {
                 AddPass(MakeReflectionHdrDiagnosticPass());
             }
-            AddPass(MakeDebugLinePass());
+            if (!m_rasterBenchmarkMode)
+            {
+                AddPass(MakeDebugLinePass());
+            }
             if (ShouldRunTemporalUpscaler())
             {
                 AddPass(MakeTemporalUpscalerPass());
@@ -135,7 +141,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         }
     }
 
-    AddPass(MakeImGuiPass());
+    if (!m_rasterBenchmarkMode)
+    {
+        AddPass(MakeImGuiPass());
+    }
     if (m_screenshotRequestQueue.CanBeginNextCapture())
     {
         AddPass(MakeScreenshotPass());
@@ -151,7 +160,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
     else
     {
         AddPass(MakeGBufferPass());
-        if (m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported())
+        if (m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported() && !m_rasterBenchmarkMode)
         {
             AddPass(MakeRayQueryShadowPass());
             if (m_debugViewSettings.renderViewMode == RenderViewMode::DiffuseEnvironmentVisibility ||
@@ -773,18 +782,27 @@ auto RtPbrSurveyEngine::MakeDepthPrePass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
 {
-    return m_renderGraphRuntime.Authoring()
-        .CreatePass(L"GBufferPass")
-        .Pipeline(Pipe::GBuffer)
-        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE},
-                {kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ}})
-        .Writes({{kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_RENDER_TARGET},
+    ResourceUsages reads = {{kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ}};
+    ResourceUsages writes = {{kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::Material], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::Emissive], D3D12_RESOURCE_STATE_RENDER_TARGET},
-                 {kGBufferResourceNames[Engine::GBuffer::ObjectId], D3D12_RESOURCE_STATE_RENDER_TARGET}})
+                 {kGBufferResourceNames[Engine::GBuffer::ObjectId], D3D12_RESOURCE_STATE_RENDER_TARGET}};
+    if (m_depthPrepassEnabled)
+    {
+        reads.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
+    }
+    else
+    {
+        writes.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
+    }
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"GBufferPass")
+        .Pipeline(Pipe::GBuffer)
+        .Reads(std::move(reads))
+        .Writes(std::move(writes))
         .Descriptor(RootSignatureLayout::TextureTable, Desc::TextureTable)
         .Descriptor(RootSignatureLayout::InstanceSrv, Desc::InstanceBufferSrv)
         .Descriptor(RootSignatureLayout::MaterialSrv, Desc::MaterialBufferSrv)
@@ -917,7 +935,7 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         reads.push_back({kDiffuseEnvironmentVisibilityResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
     reads.push_back({kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
-    if (m_rayTracingSupport.IsSupported())
+    if (m_rayTracingSupport.IsSupported() && !m_rasterBenchmarkMode)
     {
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.contributionEnabled)
@@ -961,7 +979,8 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::EnvironmentMap, Desc::EnvironmentMapSrv)
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
-        .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
+        .Descriptor(RootSignatureLayout::ToneMapSceneColor,
+                    m_rasterBenchmarkMode ? Desc::GBufferAlbedoSrv : Desc::ShadowMaskSrv)
         .Constants(RootSignatureLayout::ToneMapConstants, "DiffuseEnvironmentVisibilityStrength")
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);

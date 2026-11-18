@@ -7,6 +7,7 @@
 #include <limits>
 #include <algorithm>
 #include <stdexcept>
+#include <cstring>
 
 namespace Engine
 {
@@ -134,6 +135,9 @@ void NrdRelaxGeometrySnapshot::Reset()
 {
     Invalidate();
     m_uploadedMesh.reset();
+    m_hasCachedBounds = false;
+    m_cachedWorlds.clear();
+    m_cachedMeshIds.clear();
 }
 
 void NrdRelaxGeometrySnapshot::RecordTlas(std::span<const InstanceData> instances)
@@ -143,10 +147,31 @@ void NrdRelaxGeometrySnapshot::RecordTlas(std::span<const InstanceData> instance
     {
         return;
     }
+    bool unchanged = m_hasCachedBounds && m_cachedWorlds.size() == instances.size();
+    for (size_t i = 0; unchanged && i < instances.size(); ++i)
+    {
+        unchanged = m_cachedMeshIds[i] == instances[i].meshId &&
+            std::memcmp(m_cachedWorlds[i].data(), &instances[i].world, sizeof(instances[i].world)) == 0;
+    }
+    if (unchanged)
+    {
+        m_bounds = m_cachedBounds;
+        return;
+    }
     Scene snapshot;
     snapshot.mesh = m_uploadedMesh.get();
     snapshot.instances.assign(instances.begin(), instances.end());
     m_bounds = BuildNrdRelaxWorldBounds(snapshot);
+    ++m_boundsBuildCount;
+    m_cachedBounds = m_bounds;
+    m_cachedWorlds.resize(instances.size());
+    m_cachedMeshIds.resize(instances.size());
+    for (size_t i = 0; i < instances.size(); ++i)
+    {
+        std::memcpy(m_cachedWorlds[i].data(), &instances[i].world, sizeof(instances[i].world));
+        m_cachedMeshIds[i] = instances[i].meshId;
+    }
+    m_hasCachedBounds = true;
 }
 
 uint64_t NrdRelaxGeometrySnapshot::Token() const

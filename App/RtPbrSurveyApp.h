@@ -273,6 +273,11 @@ private:
     FILE* m_logFile = nullptr;
     UINT64 m_fpsLogFrameCounter = 0;
     UINT64 m_automationFrameCounter = 0;
+    void UpdateAutomatedBenchmark();
+    UINT64 m_benchmarkFrameCounter = 0;
+    double m_benchmarkPsSum = 0.0;
+    UINT m_benchmarkPsSamples = 0;
+    nlohmann::json m_benchmarkMetrics = nlohmann::json::object();
     bool m_automationScreenshotRequested = false;
     bool m_captureSessionActive = false;
     RtPbrSurvey::CaptureRequestGate m_captureRequestGate;

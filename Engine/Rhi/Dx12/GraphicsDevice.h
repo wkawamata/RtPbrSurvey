@@ -54,6 +54,9 @@ struct GraphicsDevice
     void WaitForFenceValue(UINT64 value);
     void CloseFenceEvent();
     void Present(UINT syncInterval, UINT flags);
+    bool TearingSupported() const { return m_tearingSupported; }
+    UINT LastPresentInterval() const { return m_lastPresentInterval; }
+    UINT LastPresentFlags() const { return m_lastPresentFlags; }
     void ResizeSwapChain(UINT bufferCount, UINT newWidth, UINT newHeight, DXGI_FORMAT format, UINT flags);
 
 private:
@@ -63,6 +66,10 @@ private:
     HWND m_hwnd = nullptr;
     UINT m_width = 0;
     UINT m_height = 0;
+    bool m_tearingSupported = false;
+    UINT m_swapChainFlags = 0;
+    UINT m_lastPresentInterval = 0;
+    UINT m_lastPresentFlags = 0;
     bool m_debugLayerRequested = true;
     bool m_debugLayerEnabledByApp = false;
     ComPtr<IDXGISwapChain3> m_swapChain;

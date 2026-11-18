@@ -70,6 +70,14 @@ struct EvaluationState
     std::vector<EvaluationRun> runs;
 };
 
+struct EvaluationSampleScene
+{
+    std::string id;
+    std::string name;
+};
+
+int ResolveEvaluationSampleScene(const EvaluationState& state, const std::vector<EvaluationSampleScene>& scenes);
+
 std::string SerializeEvaluationStates(const std::vector<EvaluationState>& states, int indent = 2);
 bool DeserializeEvaluationStates(std::string_view jsonText,
                                  std::vector<EvaluationState>& states,

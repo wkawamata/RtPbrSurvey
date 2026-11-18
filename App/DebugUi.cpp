@@ -622,7 +622,101 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         float fpsRange = 120.0f;
     };
     static WorkMeterHistory workMeterHistory;
+    struct WorkMeterAverage
+    {
+        struct Value
+        {
+            std::string name;
+            double sum = 0.0;
+            int samples = 0;
+        };
+
+        int frameCount = 120;
+        int targetFrames = 0;
+        int collectedFrames = 0;
+        int lastFrame = -1;
+        bool collecting = false;
+        std::string description;
+        std::vector<Value> values;
+
+        void Add(const std::string& name, double value)
+        {
+            if (!std::isfinite(value) || value < 0.0)
+            {
+                return;
+            }
+            auto entry = std::find_if(values.begin(), values.end(), [&name](const Value& candidate)
+                                      { return candidate.name == name; });
+            if (entry == values.end())
+            {
+                values.push_back({name});
+                entry = values.end() - 1;
+            }
+            entry->sum += value;
+            ++entry->samples;
+        }
+    };
+    static WorkMeterAverage workMeterAverage;
     const int workMeterFrame = ImGui::GetFrameCount();
+    auto& average = workMeterAverage;
+    if (average.collecting && average.lastFrame != workMeterFrame)
+    {
+        average.lastFrame = workMeterFrame;
+        average.Add("CPU Frame (ms)", context.cpuFrameTime);
+        const auto& cpuTiming = app.m_sceneRenderer.CpuFrameTiming();
+        if (cpuTiming.available)
+        {
+            for (size_t i = 0; i < RtPbrSurvey::kRendererCpuPhaseCount; ++i)
+            {
+                average.Add(std::string("CPU ") + RtPbrSurvey::kRendererCpuPhaseNames[i] + " (ms)", cpuTiming.ms[i]);
+            }
+        }
+        const double frameSeconds = ImGui::GetIO().DeltaTime;
+        average.Add("Wall Frame (ms)", frameSeconds * 1000.0);
+        if (context.cpuFrameTime > 0.0f)
+        {
+            average.Add("CPU FPS", 1000.0 / context.cpuFrameTime);
+        }
+        if (frameSeconds > 0.0)
+        {
+            average.Add("Wall FPS", 1.0 / frameSeconds);
+        }
+        const auto& checkPoints = context.gpuCheckPoints;
+        if (checkPoints.size() >= 2)
+        {
+            average.Add("GPU Total (ms)", checkPoints.back().timeStamp);
+            for (size_t i = 1; i + 1 < checkPoints.size(); ++i)
+            {
+                average.Add("GPU[" + std::to_string(i) + "] " + checkPoints[i].name + " (ms)",
+                            checkPoints[i].timeStamp - checkPoints[i - 1].timeStamp);
+            }
+        }
+        const auto& timing = context.pathTracingDiagnostics.reconstructionTimings;
+        if (timing.rrSdk.available)
+        {
+            average.Add("RR SDK (ms)", timing.rrSdk.milliseconds);
+        }
+        if (timing.rrConversion.available)
+        {
+            average.Add("RR Input Conversion (ms)", timing.rrConversion.milliseconds);
+        }
+        if (++average.collectedFrames >= average.targetFrames)
+        {
+            average.collecting = false;
+            std::ostringstream output;
+            output << "[WorkMeter Average] " << average.description << "\n"
+                   << "FrameCount: " << average.collectedFrames << "\n"
+                   << "GPU: latest completed frame per UI frame (delayed readback).\n"
+                   << "FPS: arithmetic mean of per-frame FPS.\n" << std::fixed << std::setprecision(6);
+            for (const auto& value : average.values)
+            {
+                output << value.name << ": " << value.sum / value.samples
+                       << " (samples=" << value.samples << ")\n";
+            }
+            output << "[WorkMeter Average End]\n";
+            OutputDebugStringA(output.str().c_str());
+        }
+    }
     if (!workMeterHistory.frozen && workMeterHistory.lastFrame != workMeterFrame)
     {
         auto& history = workMeterHistory;
@@ -643,7 +737,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         history.count = (std::min)(history.count + 1, static_cast<int>(WorkMeterHistory::Capacity));
         history.lastFrame = workMeterFrame;
     }
-    const auto drawWorkMeter = [&context]()
+    const auto drawWorkMeter = [&context, &app]()
     {
         auto& history = workMeterHistory;
         if (ImGui::TreeNode("Graphs##WorkMeter"))
@@ -686,6 +780,46 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             ImGui::Text("Frame: %d -> %d (left -> right)", history.count > 0 ? history.lastFrame - history.count + 1 : 0,
                         history.count > 0 ? history.lastFrame : 0);
+            ImGui::TreePop();
+        }
+        const auto& presentation = app.m_sceneRenderer.EngineForDebugTools();
+        ImGui::Text("Present: interval=%u flags=0x%X, tearing=%s", presentation.LastPresentInterval(),
+                    presentation.LastPresentFlags(), presentation.TearingSupported() ? "supported" : "unavailable");
+        if (ImGui::TreeNode("Average##WorkMeter"))
+        {
+            auto& average = workMeterAverage;
+            ImGui::BeginDisabled(average.collecting);
+            ImGui::InputInt("FrameCount", &average.frameCount);
+            average.frameCount = (std::clamp)(average.frameCount, 1, 1000000);
+            if (ImGui::Button("OutputAverage"))
+            {
+                average.targetFrames = average.frameCount;
+                average.collectedFrames = 0;
+                average.lastFrame = ImGui::GetFrameCount();
+                average.values.clear();
+                std::ostringstream description;
+                description << "VSync=" << (app.m_sceneRenderer.EngineForDebugTools().VSyncEnabled() ? "On" : "Off") << ", Scene=" << app.LoadedScene().Name()
+                            << ", instances=" << app.m_displayInstanceCount
+                            << ", render=" << context.renderWidth << "x" << context.renderHeight
+                            << ", output=" << context.outputWidth << "x" << context.outputHeight;
+                description << ", presentInterval=" << presentation.LastPresentInterval()
+                            << ", instancing=" << (presentation.GeometryInstancingEnabled() ? "On" : "Off")
+                            << ", presentFlags=" << presentation.LastPresentFlags()
+                            << ", tearingSupported=" << presentation.TearingSupported();
+                average.description = description.str();
+                average.collecting = true;
+            }
+            ImGui::EndDisabled();
+            if (average.collecting)
+            {
+                ImGui::Text("Collecting: %d / %d", average.collectedFrames, average.targetFrames);
+            }
+            else if (average.collectedFrames > 0)
+            {
+                ImGui::Text("Output complete: %d frames", average.collectedFrames);
+            }
+            ImGui::TextWrapped("Collects the following UI frames, independent of Freeze graphs. "
+                               "Keep the scene and settings unchanged. Results go to the debugger Output window.");
             ImGui::TreePop();
         }
         ImGui::Separator();
@@ -734,6 +868,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Basic Settings###Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        bool vsync = app.m_sceneRenderer.EngineForDebugTools().VSyncEnabled();
+        if (ImGui::Checkbox("VSync##BasicSettings", &vsync))
+        {
+            app.m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(vsync);
+        }
+
+        if (dynamic_cast<const Engine::GltfGridBenchmarkScene*>(&loadedScene) != nullptr)
+        {
+            bool instancing = app.m_sceneRenderer.EngineForDebugTools().GeometryInstancingEnabled();
+            if (ImGui::Checkbox("Instancing##BasicSettings", &instancing))
+            {
+                app.m_sceneRenderer.EngineForDebugTools().SetGeometryInstancing(instancing);
+            }
+        }
+
         ImGuiWidgets::SliderIntWithControls("Display Instance Count", &app.m_displayInstanceCount, 0,
                                              loadedScene.MaxDisplayInstanceCount(), 1, 0);
         loadedScene.SetDisplayInstanceCount(app.m_displayInstanceCount);
