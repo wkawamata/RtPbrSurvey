@@ -48,6 +48,12 @@ void RtPbrSurveyEngine::BuildRenderPasses()
 
     if (m_sceneResourcesAvailable)
     {
+        // PT and Forward do not normally produce a material-ID buffer.
+        // Generate a current-camera surface mask only while the overlay is active.
+        if (m_toneMapPass.settings.highlight.enabled && m_renderingPath == RenderingPath::PathTracing)
+        {
+            AddPass(MakeGBufferPass());
+        }
         if (m_renderingPath == RenderingPath::PathTracing)
         {
             bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
@@ -111,6 +117,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             if (m_depthPrepassEnabled)
             {
                 AddPass(MakeDepthPrePass());
+            }
+            if (m_toneMapPass.settings.highlight.enabled && m_renderingPath == RenderingPath::Forward)
+            {
+                AddPass(MakeGBufferPass());
             }
             AddSceneRenderPasses();
             if (m_reflectionHdrDiagnosticRequested)
@@ -329,7 +339,7 @@ DescriptorKey RtPbrSurveyEngine::DescriptorId(const std::string& name)
 
 auto RtPbrSurveyEngine::MakeClearPass() -> RenderPass
 {
-    if (m_renderingPath == RenderingPath::PathTracing)
+    if (m_renderingPath == RenderingPath::PathTracing && !m_toneMapPass.settings.highlight.enabled)
     {
         return m_renderGraphRuntime.Authoring()
             .CreatePass(L"Clear")
@@ -800,7 +810,7 @@ auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
     }
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"GBufferPass")
-        .Pipeline(Pipe::GBuffer)
+        .Pipeline(m_renderingPath == RenderingPath::PathTracing ? "MaterialHighlightMask" : Pipe::GBuffer)
         .Reads(std::move(reads))
         .Writes(std::move(writes))
         .Descriptor(RootSignatureLayout::TextureTable, Desc::TextureTable)
@@ -1216,6 +1226,11 @@ auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
 auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
 {
     Engine::ResourceUsages reads;
+    if (m_toneMapPass.settings.highlight.enabled)
+    {
+        reads.push_back({kGBufferResourceNames[Engine::GBuffer::Material], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        reads.push_back({kGBufferResourceNames[Engine::GBuffer::ObjectId], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
     if (m_renderingPath == RenderingPath::PathTracing)
     {
         reads.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
@@ -1249,6 +1264,7 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
         .Reads(std::move(reads))
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ToneMapSceneColorSrv)
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
         .Rtv(RtvName::BackBuffer)
         .Operation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)
         .Constants(RootSignatureLayout::ToneMapConstants, ConstName::ToneMap)

@@ -13,6 +13,15 @@ static constexpr float kDefaultExposure = 1.0f;
 static constexpr float kDefaultPaperWhiteNits = 300.0f;
 static constexpr float kDefaultMaxDisplayNits = 1000.0f;
 
+struct MaterialHighlightSettings
+{
+    bool enabled = false;
+    UINT materialId = 0;
+    bool complementary = false;
+    float opacity = 0.5f;
+    float color[3] = {1.0f, 0.25f, 0.0f};
+};
+
 struct ToneMapSettings
 {
     struct ShaderConstants
@@ -23,12 +32,18 @@ struct ToneMapSettings
         float paperWhiteNits;
         float maxDisplayNits;
         UINT nearestSampling;
+        UINT highlightEnabled;
+        UINT highlightMaterialId;
+        UINT highlightComplementary;
+        float highlightOpacity;
+        float highlightColor[3];
     };
 
     int operatorIndex = kDefaultToneMapOperator;
     float exposure = kDefaultExposure;
     float paperWhiteNits = kDefaultPaperWhiteNits;
     float maxDisplayNits = kDefaultMaxDisplayNits;
+    MaterialHighlightSettings highlight;
 
     void Normalize()
     {
@@ -45,7 +60,12 @@ struct ToneMapSettings
                 exposure,
                 paperWhiteNits,
                 maxDisplayNits,
-                nearestSampling ? 1u : 0u};
+                nearestSampling ? 1u : 0u,
+                highlight.enabled ? 1u : 0u,
+                highlight.materialId,
+                highlight.complementary ? 1u : 0u,
+                highlight.opacity,
+                {highlight.color[0], highlight.color[1], highlight.color[2]}};
     }
 };
 

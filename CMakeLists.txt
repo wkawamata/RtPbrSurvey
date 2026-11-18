@@ -309,6 +309,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSConstant
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_MaterialHighlightMask.hlsl vs_6_0 VSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/shaders_GBuffer.hlsl" "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_MaterialHighlightMask.hlsl ps_6_0 PSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/shaders_GBuffer.hlsl" "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ShadowMaskDebug.hlsl vs_6_0 VSMain)
