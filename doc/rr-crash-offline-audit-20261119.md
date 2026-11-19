@@ -195,6 +195,19 @@ Streamline終了、アプリの通常終了まで記録された。今回の試�
 ログは build/pf-crash-incident-20261119/glass-rr-maximize-20261120/rr-crash.log
 に保存した。
 
+## PF再開前の短時間確認（2026-11-20）
+
+ユーザ承認のうえ、同じDebugビルドでWarm Glass Table＋RRを960×540の固定
+ウィンドウで1回計測した。VSync ON、nonblocking OFF、5秒ウォームアップ、
+8秒計測。TimingOnlyを指定し、GPU時刻の問い合わせや外部GPU監視は省いた。
+計測時間8.026秒でPresentは215回、新しいRR画像の採用は54回（それぞれ
+26.79回/秒、6.73回/秒）。RRの入出力拒否・SDK失敗・キャンセルは0で、
+終了コード0と診断ログの正常終了を確認した。
+単発のDebug確認なので、PF-04の性能比較やPF-05の変更採否には使用しない。
+自動計測の保留は継続する。
+ログと集計は build/pf-crash-incident-20261119/pf-resume-smoke-20261120/
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
