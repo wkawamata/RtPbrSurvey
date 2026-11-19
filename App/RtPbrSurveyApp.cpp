@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
 
 #include <algorithm>
 #include <cmath>
@@ -757,6 +758,33 @@ void RtPbrSurveyApp::OnInit()
                                                   ? std::optional<double>(m_commandLineOptions.captureSessionOrbitDegreesPerSecond)
                                                   : std::nullopt);
     }
+    if (!m_commandLineOptions.rrFenceTracePath.empty())
+    {
+        auto& trace = RtPbrSurvey::g_rrFenceTrace;
+        trace.Configure(m_commandLineOptions.rrFenceTracePath,
+                        m_commandLineOptions.rrFenceTraceWarmup,
+                        m_commandLineOptions.rrFenceTraceSeconds,
+                        m_commandLineOptions.rrFenceTraceTimingOnly);
+        RtPbrSurvey::EvaluationState state;
+        std::string error;
+        if (!CaptureEvaluationState(state, &error))
+            throw std::runtime_error(error);
+        const auto context = m_sceneRenderer.GetUiFrameContext();
+        trace.metadata = {{"evaluation", nlohmann::json::parse(RtPbrSurvey::SerializeEvaluationStates({state}))},
+                          {"schedule",
+                           m_commandLineOptions.pathTracingRrChained          ? "chained"
+                           : m_commandLineOptions.pathTracingRrSafeSerial     ? "safe-serial"
+                           : m_commandLineOptions.pathTracingRrStrictSchedule ? "strict"
+                                                                              : "eager"},
+                          {"nonblocking", m_commandLineOptions.nonblockingFrameAcquisition},
+                          {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
+                          {"renderWidth", context.renderWidth},
+                          {"renderHeight", context.renderHeight},
+                          {"outputWidth", context.outputWidth},
+                          {"outputHeight", context.outputHeight},
+                          {"cameraMotion", m_commandLineOptions.rrFenceTraceCameraMotion},
+                          {"cameraStartX", m_sceneRenderer.GetCamera().pos.x}};
+    }
 }
 
 void RtPbrSurveyApp::UpdateSampleState()
@@ -774,6 +802,14 @@ void RtPbrSurveyApp::UpdateSampleState()
 
 void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
 {
+    if (RtPbrSurvey::g_rrFenceTrace.Running() && m_commandLineOptions.rrFenceTraceCameraMotion)
+    {
+        auto camera = m_sceneRenderer.GetCamera();
+        camera.pos.x = RtPbrSurvey::g_rrFenceTrace.metadata.at("cameraStartX").get<float>() +
+                       0.4f * std::sin(static_cast<float>(RtPbrSurvey::g_rrFenceTrace.ElapsedSeconds()));
+        m_sceneRenderer.SetCamera(camera);
+        return;
+    }
     if (IsCaptureOrbitActive())
         return;
     m_debugCamera.SetPrimaryDragButton(m_appMode == AppMode::SceneEditorEdit ? VK_RBUTTON : VK_LBUTTON);
@@ -1078,6 +1114,25 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (RtPbrSurvey::g_rrFenceTrace.Running())
+    {
+        auto& trace = RtPbrSurvey::g_rrFenceTrace;
+        if (!trace.metadata.contains("windowVisibleAtFirstTick"))
+        {
+            trace.metadata["windowVisibleAtFirstTick"] = IsWindowVisible(Win32Application::GetHwnd()) != FALSE;
+            trace.metadata["iconicAtFirstTick"] = IsIconic(Win32Application::GetHwnd()) != FALSE;
+        }
+        trace.Tick();
+        if (trace.Finished())
+        {
+            const auto& rr = m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics;
+            trace.metadata["finalRr"] = {{"completed", rr.rrCompletedCount}, {"cancelled", rr.rrCancelledCount},
+                                        {"inputRejected", rr.rrInputRejectionCount}, {"outputRejected", rr.rrOutputRejected},
+                                        {"sdkFailures", rr.rrSdkFailures}, {"resets", rr.rrResetCount}};
+            RequestCloseApplication();
+            return;
+        }
+    }
     if (m_commandLineOptions.nonblockingFrameAcquisition &&
         !m_sceneRenderer.EngineForDebugTools().AcquireFrameResources())
     {
@@ -2680,6 +2735,7 @@ void RtPbrSurveyApp::OnDestroy()
         FlushD3D12DebugMessages();
     }
     m_sceneRenderer.Shutdown();
+    RtPbrSurvey::g_rrFenceTrace.Write();
     m_imguiSystem.Shutdown();
     m_imguiHeap.Reset();
     if (m_logFile)

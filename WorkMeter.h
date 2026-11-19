@@ -63,6 +63,8 @@ public:
             : name(name), timeStamp(0.f), passIndex(passIndex), frameId(frameId), passNodeId(passNodeId) {}
         std::string name;
         float timeStamp;
+        UINT64 rawTimestamp = 0;
+        UINT64 timestampFrequency = 0;
         int passIndex;
         UINT64 frameId;
         UINT64 passNodeId;
@@ -152,6 +154,8 @@ public:
 
         for (int i = 0; i < frame.queryIndex; i++)
         {
+            frame.checkPoints->at(i).rawTimestamp = queryData[i];
+            frame.checkPoints->at(i).timestampFrequency = freq;
             frame.checkPoints->at(i).timeStamp = ((queryData[i] - queryData[0]) / static_cast<float>(freq)) * 1000.0f;
             // DBG_PRINT("Gpu CheckPoint: %s, Time: %f ms\n", m_pCheckPoints->at(i).name.c_str(),
             // m_pCheckPoints->at(i).timeStamp);

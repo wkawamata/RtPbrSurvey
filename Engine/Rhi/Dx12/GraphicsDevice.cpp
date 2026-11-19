@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
 
 #include "GraphicsDevice.h"
 #include "Shared/Error.h"
@@ -289,7 +290,9 @@ void GraphicsDevice::Present(UINT syncInterval, UINT flags)
     }
     m_lastPresentInterval = syncInterval;
     m_lastPresentFlags = flags;
-    ThrowIfFailed(m_swapChain->Present(syncInterval, flags));
+    const HRESULT result = m_swapChain->Present(syncInterval, flags);
+    RtPbrSurvey::g_rrFenceTrace.Record("present_result", static_cast<uint32_t>(result), syncInterval, flags);
+    ThrowIfFailed(result);
 }
 
 void GraphicsDevice::ResizeSwapChain(UINT bufferCount, UINT newWidth, UINT newHeight, DXGI_FORMAT format, UINT flags)

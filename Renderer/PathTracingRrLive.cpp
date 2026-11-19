@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
 
 #include "PathTracingRrLive.h"
 #include "Shared/Error.h"
@@ -104,6 +105,8 @@ void PathTracingRrLive::MarkSubmitted(uint64_t fence)
 {
     if (m_submissionPending)
     {
+        RtPbrSurvey::g_rrFenceTrace.Production(m_key.frameId, m_key.resetToken);
+        RtPbrSurvey::g_rrFenceTrace.Record("rr_mark_submitted", fence, static_cast<uint64_t>(m_phase));
         m_fence = fence;
         m_submissionPending = false;
     }
@@ -111,6 +114,9 @@ void PathTracingRrLive::MarkSubmitted(uint64_t fence)
 
 void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction, bool eagerProduction)
 {
+    RtPbrSurvey::g_rrFenceTrace.Production(m_key.frameId, m_key.resetToken);
+    RtPbrSurvey::g_rrFenceTrace.Record(
+        "rr_poll", m_fence, completedFence, static_cast<uint64_t>(m_phase), m_submissionPending ? 1 : 0);
     if (m_phase == Phase::InputPending)
         ++m_packetLatency.inputPolls;
     else if (m_phase == Phase::OutputPending)
@@ -122,6 +128,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         return;
     if (currentEpoch != m_epoch)
     {
+        RtPbrSurvey::g_rrFenceTrace.Record("rr_epoch_change", m_epoch, currentEpoch, static_cast<uint64_t>(m_phase));
         if (m_phase == Phase::InputPending || m_phase == Phase::Evaluate || m_phase == Phase::OutputPending ||
             m_phase == Phase::DrainingRejected)
             ++m_cancelledCount;
@@ -178,8 +185,11 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         return serial == m_productionSerial && counts[offset] == 0 &&
             counts[offset + 1] == uint64_t(m_key.renderWidth) * m_key.renderHeight;
     };
+    RtPbrSurvey::g_rrFenceTrace.Record("rr_summary", counts[0], counts[1], counts[4], counts[5]);
     const bool inputPassed = passed(0);
     const bool outputPassed = m_phase != Phase::OutputPending || passed(4);
+    RtPbrSurvey::g_rrFenceTrace.Record("rr_summary_result", inputPassed ? 1 : 0, outputPassed ? 1 : 0,
+                                     m_productionSerial, static_cast<uint64_t>(m_phase));
     if (!inputPassed || !outputPassed)
     {
         m_retryInput = m_chainedPacket || m_phase == Phase::InputPending;
@@ -201,6 +211,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
         m_packetLatency.inputWaitMs = std::chrono::duration<double, std::milli>(
             m_inputAdmitted - m_packetStarted).count();
         m_phase = Phase::Evaluate;
+        RtPbrSurvey::g_rrFenceTrace.Record("rr_admitted");
     }
     else
     {
@@ -221,6 +232,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             m_lastPacketLatency = m_packetLatency;
             m_historyDirty = false;
             ++m_completedCount;
+            RtPbrSurvey::g_rrFenceTrace.Published(m_key.frameId);
             // A verified published image is immutable and the next production
             // uses the other output slot. No presentation-only tick is needed.
             m_phase = eagerProduction && advanceProduction ? Phase::Idle : Phase::Ready;
@@ -290,6 +302,8 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
     m_packetLatency = {};
     m_packetLatency.frameId = key.frameId;
     m_key = key;
+    RtPbrSurvey::g_rrFenceTrace.Production(key.frameId, key.resetToken);
+    RtPbrSurvey::g_rrFenceTrace.Record("rr_input", m_productionSerial, outputSlot, key.renderWidth, key.renderHeight);
     m_retryInput = false;
     m_constants = constants;
     for (size_t i = 0; i < inputs.size(); ++i)
@@ -339,7 +353,11 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     const auto evaluateStarted = Clock::now();
     m_packetLatency.admittedWaitMs = m_chainedPacket ? 0 : std::chrono::duration<double, std::milli>(
         evaluateStarted - m_inputAdmitted).count();
+    RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR SDK begin");
+    RtPbrSurvey::g_rrFenceTrace.Record("rr_sdk_begin");
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
+    RtPbrSurvey::g_rrFenceTrace.Record("rr_sdk_end", result.outputAvailable ? 1 : 0);
+    RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR SDK end");
     m_packetLatency.evaluateCpuMs = std::chrono::duration<double, std::milli>(
         Clock::now() - evaluateStarted).count();
     const bool sdkOutputAvailable = result.outputAvailable && m_packetFault != RrRecoveryFault::SdkPostRecordFailure;
@@ -380,6 +398,7 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
         m_output.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     commands->ResourceBarrier(1, &barrier);
     RecordValidation(commands, outputSrv, true);
+    RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR summary copy end");
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_output.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     commands->ResourceBarrier(1, &barrier);

@@ -482,6 +482,34 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTrace"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-RrFenceTrace requires a path");
+            options.rrFenceTracePath = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceSeconds") ||
+                 IsCommandLineArg(argv[i], L"-RrFenceTraceWarmup"))
+        {
+            const bool warmup = IsCommandLineArg(argv[i], L"-RrFenceTraceWarmup");
+            if (i + 1 >= argc)
+                throw std::invalid_argument("Trace duration requires seconds");
+            UINT seconds = 0;
+            if (!TryParseUint(argv[++i], false, seconds) || seconds > 120)
+                throw std::invalid_argument("Trace seconds must be 1..120");
+            if (warmup)
+                options.rrFenceTraceWarmup = static_cast<UINT>(seconds);
+            else
+                options.rrFenceTraceSeconds = static_cast<UINT>(seconds);
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceTimingOnly"))
+        {
+            options.rrFenceTraceTimingOnly = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceCameraMotion"))
+        {
+            options.rrFenceTraceCameraMotion = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-NonblockingFrameAcquisition"))
         {
             options.nonblockingFrameAcquisition = true;

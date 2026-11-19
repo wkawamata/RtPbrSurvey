@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
 #include "Scene/ImportedVolumeScene.h"
 
 #include "RtPbrSurveyEngine.h"
@@ -6174,6 +6175,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     PIXBeginEvent(0, L"RenderFrame");
 
     ProcessCompletedScreenshot();
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
 
     // Select the per-frame chunk within the main heap's reserved range and
     // stage descriptors from the CPU heap into that chunk.
@@ -6188,10 +6190,16 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::RecordSubmit);
         // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
+        trace.Record("record_begin");
         PopulateCommandList();
+        if (!m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.empty())
+            trace.Submission(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.front().frameId);
+        trace.Record("record_end");
         m_activeUiRenderHandler = nullptr;
         ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
+        trace.Record("execute_begin");
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+        trace.Record("execute_end");
         CommitReflectionHistoryFrame();
         CommitReflectionSamplingFrame();
         CommitPathTracingFrame();
@@ -6228,12 +6236,23 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         m_specularDebugRayQueryPending = false;
     }
 
+    // Capture the RR image actually selected by this recorded graph, not a later publication.
+    uint64_t presentedRr = 0;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_ptRrLive &&
+        ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+        presentedRr = m_ptRrLive->FrameId();
+#endif
+    trace.Record("present_begin", presentedRr, m_vSyncEnabled ? 1 : 0, m_currentFrameIndex);
     // Present the frame.
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::Present);
         m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
     }
 
+    trace.Record(
+        "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
+    trace.Presented(presentedRr);
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     if (m_ptRrLive)
@@ -6278,6 +6297,7 @@ void RtPbrSurveyEngine::ReadCompletedFrameData()
     }
     if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), m_currentFrameIndex))
     {
+        RtPbrSurvey::g_rrFenceTrace.Gpu(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
         m_completedGpuWorkMeterCheckPoints = m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints;
         m_completedReconstructionPlan = m_frameResources[m_currentFrameIndex].reconstructionPlan;
     }
@@ -6309,6 +6329,12 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     // Direct diagnostic callers retain a safe blocking fallback. The normal
     // application loop tests readiness before entering this function.
     AcquireFrameResources(true);
+    RtPbrSurvey::g_rrFenceTrace.BeginFrame(m_graphicsDevice.CommandQueue());
+    if (RtPbrSurvey::g_rrFenceTrace.Capturing())
+    {
+        RtPbrSurvey::g_rrFenceTrace.gpuMarker = [this](const char* name)
+        { m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), name); };
+    }
     m_cpuFrameTimer.Begin();
     if (m_pendingResize)
     {
@@ -6332,6 +6358,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
 #endif
 
     UpdateFrame(advanceFrame);
+    RtPbrSurvey::g_rrFenceTrace.Record("pose_ready");
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     // Scene updates can invalidate history after the early publication poll.
     // Drain/reconcile that epoch before recording a new immutable packet.
@@ -6541,6 +6568,13 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 void RtPbrSurveyEngine::Shutdown()
 {
     DestroyFrameResources();
+    if (RtPbrSurvey::g_rrFenceTrace.Running())
+    {
+        // DestroyFrameResources drained the queue; include the final pending queries.
+        for (UINT i = 0; i < kFrameCount; ++i)
+            if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), i))
+                RtPbrSurvey::g_rrFenceTrace.Gpu(m_frameResources[i].gpuWorkMeterCheckPoints);
+    }
     ProcessCompletedScreenshot();
     m_mp4Encoder.Shutdown();
     ProcessCompletedScreenshot();
@@ -7514,6 +7548,12 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     memcpy(produced.worldToView.data(), &view, sizeof(view));
     memcpy(produced.viewToClip.data(), &projection, sizeof(projection));
     memcpy(produced.previousViewProjection.data(), &previousViewProjection, sizeof(previousViewProjection));
+    RtPbrSurvey::g_rrFenceTrace.Record(
+        "input_snapshot",
+        produced.frameId,
+        m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
+        produced.sampleStartIndex,
+        produced.samplesPerFrame);
     m_pathTracingProduction.Capture(produced, GetPathTracingReconstructionResources());
 #endif
     m_pathTracingGeometryToken = m_nrdGeometrySnapshot.Token();
@@ -9486,6 +9526,7 @@ bool RtPbrSurveyEngine::AcquireFrameResources(bool wait)
         if (!wait)
         {
             ++m_frameAcquisitionPolls;
+            RtPbrSurvey::g_rrFenceTrace.Record("resource_pending", required, completed, m_currentFrameIndex);
             return false;
         }
         ++m_frameAcquisitionFallbackWaits;
@@ -9493,6 +9534,8 @@ bool RtPbrSurveyEngine::AcquireFrameResources(bool wait)
     }
     m_frameResources[m_currentFrameIndex].fenceValue = m_nextFrameSignalValue;
     m_frameAcquisitionPending = false;
+    RtPbrSurvey::g_rrFenceTrace.Record(
+        "resource_acquired", required, m_graphicsDevice.CompletedFenceValue(), m_currentFrameIndex);
     ReadCompletedFrameData();
     return true;
 }
@@ -9504,7 +9547,9 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
 
     // Schedule a Signal command in the queue.
     const UINT64 currentFenceValue = m_frameResources[m_currentFrameIndex].fenceValue;
+    RtPbrSurvey::g_rrFenceTrace.Record("signal_begin", currentFenceValue, m_currentFrameIndex);
     m_graphicsDevice.SignalFence(currentFenceValue);
+    RtPbrSurvey::g_rrFenceTrace.Record("signal_end", currentFenceValue, m_graphicsDevice.CompletedFenceValue());
 
     // Update the frame index.
     m_previousFrameIndex = m_currentFrameIndex;
@@ -9517,6 +9562,10 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
     {
         m_nextFrameSignalValue = currentFenceValue + 1;
         m_frameAcquisitionPending = true;
+        RtPbrSurvey::g_rrFenceTrace.Record("resource_deferred",
+                                           m_frameResources[m_currentFrameIndex].fenceValue,
+                                           m_currentFrameIndex,
+                                           currentFenceValue);
         ++m_frameAcquisitionDeferrals;
         PIXEndEvent();
         return currentFenceValue;
@@ -9528,7 +9577,15 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
         PIXBeginEvent(4, L"WaitForSingleObjectEx");
         {
             RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+            RtPbrSurvey::g_rrFenceTrace.Record("resource_wait_begin",
+                                               m_frameResources[m_currentFrameIndex].fenceValue,
+                                               m_currentFrameIndex,
+                                               m_graphicsDevice.CompletedFenceValue());
             m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+            RtPbrSurvey::g_rrFenceTrace.Record("resource_wait_end",
+                                               m_frameResources[m_currentFrameIndex].fenceValue,
+                                               m_currentFrameIndex,
+                                               m_graphicsDevice.CompletedFenceValue());
         }
         PIXEndEvent();
     }
