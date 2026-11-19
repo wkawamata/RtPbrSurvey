@@ -8,9 +8,14 @@ must not be launched for this investigation until the hold is explicitly cleared
 
 ## User report
 
-The screen went black/froze and the user manually restarted Windows. The user also
-suspects a similar symptom when maximizing the app. Maximization/resize association
-is unconfirmed; do not treat it as a reproduced root cause.
+The screen went black/froze and the user manually restarted Windows. The user
+subsequently clarified that a maximization-related dark-screen/freeze occurred
+shortly BEFORE the PF measurements started. This is recalled chronology, not a
+controlled reproduction or proof of a resize root cause. It weakens the hypothesis
+that the newly enabled PF measurement alone introduced the issue; existing RR,
+resize and driver interactions remain candidates. When the user proposed launching
+the glass scene with RR and maximizing it again, the recommendation was to retain
+the hold and avoid repeating a whole-system freeze.
 
 ## Confirmed local evidence
 
@@ -75,6 +80,9 @@ Other candidates for review include the new clock-calibration/query instrumentat
 GPU telemetry sampling, and the existing RR/driver interaction. None is established
 as the cause. Do not disable a candidate and immediately restart stress tests to
 infer causation on this PC while the incident remains unresolved.
+
+The follow-up [offline lifetime and trace audit](rr-crash-offline-audit-20261119.md)
+records checked paths, evidence limitations and the next diagnostic design.
 
 ## Next work permitted without GPU execution
 
