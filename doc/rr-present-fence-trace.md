@@ -82,3 +82,16 @@ VSyncをON→OFF→ONと切り替える。起動時はVSync ON、詳細トレー
 集計の presentSyncSegments は起動時の設定値ではなく、各Presentの実際の
 SyncIntervalで区間を識別する。切替の前後1秒は比較から外す。各区間で
 Present頻度、新規RR画像の採用頻度、CPU側のRR評価APIの時間を比較できる。
+
+## 同じプロセス内でのフレーム資源取得の比較
+
+詳細トレースに -RrFenceTraceNonblockingCycle を付けると、VSync ONの
+状態でBlocking→Nonblocking→Blockingを比較できる。12秒以上の詳細
+トレースを指定し、VSync切替オプションとは併用しない。
+保留中の資源取得がある場合は、取得を済ませてから次のモードへ切り替える。
+
+presentAcquisitionSegments は各Present後の実際の資源取得モードで区間を
+識別し、切替の前後1秒を除く。resourceBlockingWaitMsはCPUがその場で
+待ったフレームの時間、resourceDeferralMsは待たずに戻ってから再取得する
+までの時間を示す。各区間のmeasuredPresentsに対する件数と、
+freshPresentFpsを合わせて確認する。

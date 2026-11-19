@@ -6262,6 +6262,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     trace.Record(
         "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
     trace.Presented(presentedRr);
+    trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     if (m_ptRrLive)

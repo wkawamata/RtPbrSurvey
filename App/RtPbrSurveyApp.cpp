@@ -1160,6 +1160,15 @@ void RtPbrSurveyApp::OnIdle()
         MsgWaitForMultipleObjectsEx(0, nullptr, 1, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
         return;
     }
+    if (m_commandLineOptions.rrFenceTraceNonblockingCycle)
+    {
+        // Finish any acquisition deferred by the old mode before switching.
+        const double phaseDuration = m_commandLineOptions.rrFenceTraceSeconds / 3.0;
+        const double elapsed = RtPbrSurvey::g_rrFenceTrace.MeasurementElapsedSeconds();
+        const bool nonblocking = elapsed >= phaseDuration && elapsed < 2.0 * phaseDuration;
+        m_commandLineOptions.nonblockingFrameAcquisition = nonblocking;
+        m_sceneRenderer.EngineForDebugTools().SetNonblockingFrameAcquisition(nonblocking);
+    }
     if (!m_commandLineOptions.pathTracingRrComparisonCaptureDirectory.empty())
     {
         RunPathTracingRrComparisonCapture();

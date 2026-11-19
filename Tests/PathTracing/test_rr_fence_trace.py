@@ -88,6 +88,19 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(first['rrSdkCpuMs']['p50'], 300)
         self.assertEqual(second['measuredPresents'], 0)  # The first second after switching is excluded.
 
+    def test_frame_acquisition_cycle_and_deferred_time(self):
+        trace = fixture()
+        results = [dict(row, event='present_result', a=0, b=1)
+                   for row in trace['events'] if row['event'] == 'present_end']
+        modes = [dict(row, event='resource_mode', a=row['frame'] - 1) for row in results]
+        deferred = dict(results[1], event='resource_deferred', qpc=216, a=8, b=1)
+        acquired = dict(results[1], event='resource_acquired', qpc=226, a=8, b=9, c=1)
+        trace['events'] = sorted(trace['events'] + results + modes + [deferred, acquired],
+                                 key=lambda row: row['qpc'])
+        report = analyze(trace)
+        self.assertEqual([s['nonblocking'] for s in report['presentAcquisitionSegments']], [0, 1])
+        self.assertEqual(report['metrics']['resourceDeferralMs']['p50'], 10)
+
     def test_overflow_rejected(self):
         f=fixture();f['overflow']=True
         with self.assertRaises(AssertionError): analyze(f)

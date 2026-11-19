@@ -518,6 +518,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.rrFenceTraceVSyncCycle = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceNonblockingCycle"))
+        {
+            options.rrFenceTraceNonblockingCycle = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-RrFenceTraceCameraMotion"))
         {
             options.rrFenceTraceCameraMotion = true;
@@ -1170,6 +1174,14 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
     {
         throw std::invalid_argument("-RrFenceTraceVSyncCycle requires a detailed trace of at least 12 seconds "
                                     "starting with VSync enabled.");
+    }
+
+    if (options.rrFenceTraceNonblockingCycle &&
+        (options.rrFenceTracePath.empty() || options.rrFenceTraceTimingOnly || options.rrFenceTraceSeconds < 12 ||
+         options.disableVSync || options.rrFenceTraceVSyncCycle || options.nonblockingFrameAcquisition))
+    {
+        throw std::invalid_argument("-RrFenceTraceNonblockingCycle requires a detailed trace of at least 12 seconds "
+                                    "with VSync enabled and blocking acquisition at startup.");
     }
 
     return options;

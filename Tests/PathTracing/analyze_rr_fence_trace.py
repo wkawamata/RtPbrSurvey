@@ -50,6 +50,8 @@ def analyze(trace):
     first_present, snapshots, published = {}, {}, {}
     associations = []
     sdk_cpu_ms_by_frame = {}
+    blocking_wait_ms_by_frame = {}
+    deferral_ms_by_frame = {}
     sequence = ['execute_begin', 'execute_end', 'present_begin', 'present_end', 'signal_begin', 'signal_end']
     for frame, ev in frames.items():
         if 'execute_begin' not in ev:
@@ -79,7 +81,18 @@ def analyze(trace):
         if 'resource_wait_begin' in ev:
             a,b=ev['resource_wait_begin'][0],ev['resource_wait_end'][0]
             assert a['a']==b['a'] and b['c']>=b['a'] and b['qpc']>=a['qpc']
-            if measured(e['execute_begin']): durations['resourceWaitMs'].append(ms(b['qpc']-a['qpc']))
+            if measured(e['execute_begin']):
+                wait_ms = ms(b['qpc'] - a['qpc'])
+                blocking_wait_ms_by_frame[frame] = wait_ms
+                durations['resourceWaitMs'].append(wait_ms)
+        deferred = ev.get('resource_deferred', [])
+        acquired = ev.get('resource_acquired', [])
+        if deferred and acquired and measured(e['execute_begin']):
+            assert len(deferred) == len(acquired) == 1
+            a, b = deferred[0], acquired[0]
+            assert a['a'] == b['a'] and a['b'] == b['c'] and b['b'] >= a['a'] and b['qpc'] >= a['qpc']
+            deferral_ms_by_frame[frame] = ms(b['qpc'] - a['qpc'])
+            durations['resourceDeferralMs'].append(deferral_ms_by_frame[frame])
         mark = ev.get('rr_mark_submitted', [])
         assert len(mark)<=1
         if mark:
@@ -124,27 +137,36 @@ def analyze(trace):
             if e['a'] and e['a']!=previous and measured(e): fresh.append(e['qpc'])
             previous=e['a']
     assert len(fresh)==trace['freshPresents'], 'Fresh-present counter mismatch'
-    sync_runs = [(interval, list(rows)) for interval, rows in groupby(results, key=lambda e: e['b'])]
-    if len(sync_runs) > 1:
-        # Trim one second on both sides of a switch. Attribute CPU SDK samples
-        # to the actual Present interval of that frame, not the startup setting.
+    def present_segments(key, mode_field):
         segments = []
-        for index, (interval, rows) in enumerate(sync_runs):
+        runs = [(mode, list(rows)) for mode, rows in groupby(results, key=key)]
+        for index, (mode, rows) in enumerate(runs):
             first_qpc = rows[0]['qpc']
-            last_qpc = sync_runs[index + 1][1][0]['qpc'] if index + 1 < len(sync_runs) else end
+            last_qpc = runs[index + 1][1][0]['qpc'] if index + 1 < len(runs) else end
+            # Trim one second on both sides of each observed switch.
             stable_start = first_qpc + (freq if index > 0 else 0)
-            stable_end = last_qpc - (freq if index + 1 < len(sync_runs) else 0)
-            stable = [e for e in rows if stable_start <= e['qpc'] < stable_end]
-            cpu = [sdk_cpu_ms_by_frame[e['frame']] for e in stable if e['frame'] in sdk_cpu_ms_by_frame]
-            segment = dict(syncInterval=interval, presentSamples=len(rows),
-                           measuredPresents=len(stable), measuredSeconds=max(0, stable_end - stable_start) / freq,
-                           rrSdkCpuMs=stats(cpu))
+            stable_end = last_qpc - (freq if index + 1 < len(runs) else 0)
+            stable = [e['frame'] for e in rows if stable_start <= e['qpc'] < stable_end]
+            segment = {mode_field: mode, 'presentSamples': len(rows), 'measuredPresents': len(stable),
+                       'measuredSeconds': max(0, stable_end - stable_start) / freq}
+            for field, values in [('rrSdkCpuMs', sdk_cpu_ms_by_frame),
+                                  ('resourceBlockingWaitMs', blocking_wait_ms_by_frame),
+                                  ('resourceDeferralMs', deferral_ms_by_frame)]:
+                segment[field] = stats([values[frame] for frame in stable if frame in values])
             if stable_end > stable_start:
                 segment['presentFps'] = len(stable) * freq / (stable_end - stable_start)
                 segment['freshPresentFps'] = sum(stable_start <= qpc < stable_end for qpc in fresh) * freq / (
                     stable_end - stable_start)
             segments.append(segment)
-        report['presentSyncSegments'] = segments
+        return segments
+
+    if len({row['b'] for row in results}) > 1:
+        report['presentSyncSegments'] = present_segments(lambda row: row['b'], 'syncInterval')
+    resource_modes = {row['frame']: row['a'] for row in events if row['event'] == 'resource_mode'}
+    if len(set(resource_modes.values())) > 1:
+        assert all(row['frame'] in resource_modes for row in results), 'Missing frame acquisition mode'
+        report['presentAcquisitionSegments'] = present_segments(
+            lambda row: resource_modes[row['frame']], 'nonblocking')
     durations['freshPresentIntervalMs']=[ms(b-a) for a,b in zip(fresh,fresh[1:])]
     durations['presentIntervalMs']=[ms(b['qpc']-a['qpc']) for a,b in zip(measured_presents,measured_presents[1:])]
     gpu=defaultdict(list)
