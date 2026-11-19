@@ -63,6 +63,15 @@ def analyze(trace):
                             ('presentCpuMs','present_begin','present_end'),
                             ('submitToSignalMs','execute_end','signal_begin')]:
                 durations[out].append(ms(e[b]['qpc']-e[a]['qpc']))
+        sdk_begin = ev.get('rr_sdk_begin', [])
+        sdk_end = ev.get('rr_sdk_end', [])
+        if sdk_begin or sdk_end:
+            assert len(sdk_begin) == len(sdk_end) == 1, 'Unpaired CPU RR SDK markers'
+            sdk_begin_qpc, sdk_end_qpc = sdk_begin[0]['qpc'], sdk_end[0]['qpc']
+            assert sdk_begin_qpc <= sdk_end_qpc <= e['execute_begin']['qpc'], 'CPU RR SDK order invalid'
+            if measured(e['execute_begin']):
+                durations['rrSdkCpuMs'].append(ms(sdk_end_qpc - sdk_begin_qpc))
+                durations['rrSdkCpuEndToSubmitMs'].append(ms(e['execute_end']['qpc'] - sdk_end_qpc))
         if 'resource_wait_begin' in ev:
             a,b=ev['resource_wait_begin'][0],ev['resource_wait_end'][0]
             assert a['a']==b['a'] and b['c']>=b['a'] and b['qpc']>=a['qpc']
@@ -146,6 +155,7 @@ def analyze(trace):
             if p['name']=='PathTracingPass': durations['ptGpuMs'].append(ms(times[index]-times[index-1]))
         if 'PF RR SDK begin' in by_name and 'PF RR SDK end' in by_name:
             durations['rrSdkGpuMs'].append(ms(by_name['PF RR SDK end']-by_name['PF RR SDK begin']))
+            durations['rrSubmitToGpuSdkBeginMs'].append(ms(by_name['PF RR SDK begin'] - a['executeEndQpc']))
             durations['rrValidationCopyGpuMs'].append(ms(by_name['PF RR summary copy end']-by_name['PF RR SDK end']))
         if 'publishedQpc' not in a:
             publication=published.get((a['production'],a['epoch']))

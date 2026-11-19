@@ -10,6 +10,7 @@ def fixture():
         rows.append(dict(qpc=t,event=name,frame=frame,tick=frame,submission=sub,
                          production=1,epoch=1,a=a,b=b,c=c,d=d))
     e(102,'pose_ready');e(105,'input_snapshot',a=1,b=1)
+    e(106,'rr_sdk_begin');e(109,'rr_sdk_end',a=1)
     for frame,base,sub,rr,fence in [(1,110,1,0,1),(2,210,2,1,2)]:
         for offset,name in [(0,'execute_begin'),(1,'execute_end'),(2,'present_begin'),
                             (3,'present_end'),(4,'signal_begin'),(5,'signal_end')]:
@@ -39,6 +40,9 @@ class TraceTests(unittest.TestCase):
         self.assertAlmostEqual(r['freshPresentFps'],1/.3)
         self.assertEqual(m['signalToRrRegisterMs']['mean'],26)
         self.assertEqual(m['rrSdkGpuMs']['mean'],16)
+        self.assertEqual(m['rrSdkCpuMs']['mean'],3)
+        self.assertEqual(m['rrSdkCpuEndToSubmitMs']['mean'],2)
+        self.assertEqual(m['rrSubmitToGpuSdkBeginMs']['mean'],3)
         self.assertEqual(m['summaryEndToPublicationMs']['mean'],71)
         self.assertEqual(m['poseToFirstPresentMs']['mean'],110)
         self.assertEqual(m['publishToFirstPresentMs']['mean'],10)
