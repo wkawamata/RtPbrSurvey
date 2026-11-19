@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 
 #include <algorithm>
 #include <cmath>
@@ -355,10 +356,18 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    if (!m_commandLineOptions.rrCrashLogPath.empty())
+    {
+        crashLog.Open(m_commandLineOptions.rrCrashLogPath);
+    }
+    crashLog.Record("app.init.begin", GetWidth(), GetHeight());
     if (!m_commandLineOptions.enablePathTracing || m_commandLineOptions.enableExperimentalNativeRayReconstruction)
     {
         const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+        crashLog.Record("streamline.init.begin");
         Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+        crashLog.Record("streamline.init.end");
     }
 
     CreateSampleScenes();
@@ -375,7 +384,9 @@ void RtPbrSurveyApp::OnInit()
     {
         deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
     }
+    crashLog.Record("graphics.init.begin");
     m_graphicsDevice.Initialize(deviceDesc);
+    crashLog.Record("graphics.init.end");
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
     if (!m_commandLineOptions.logFilePath.empty())
@@ -785,6 +796,7 @@ void RtPbrSurveyApp::OnInit()
                           {"cameraMotion", m_commandLineOptions.rrFenceTraceCameraMotion},
                           {"cameraStartX", m_sceneRenderer.GetCamera().pos.x}};
     }
+    crashLog.Record("app.init.end");
 }
 
 void RtPbrSurveyApp::UpdateSampleState()
@@ -2730,6 +2742,8 @@ void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
 
 void RtPbrSurveyApp::OnDestroy()
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("app.shutdown.begin");
     if (m_logFile)
     {
         FlushD3D12DebugMessages();
@@ -2745,6 +2759,8 @@ void RtPbrSurveyApp::OnDestroy()
         m_logFile = nullptr;
     }
     m_d3d12InfoQueue.Reset();
+    crashLog.Record("app.shutdown.end");
+    crashLog.Close();
 }
 
 void RtPbrSurveyApp::FlushD3D12DebugMessages()

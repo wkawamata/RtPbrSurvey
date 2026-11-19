@@ -102,6 +102,7 @@ struct CommandLineOptions
     bool pathTracingRrStrictSchedule = false;
     bool nonblockingFrameAcquisition = false;
     std::filesystem::path rrFenceTracePath;
+    std::filesystem::path rrCrashLogPath;
     UINT rrFenceTraceWarmup = 5;
     UINT rrFenceTraceSeconds = 30;
     bool rrFenceTraceTimingOnly = false;

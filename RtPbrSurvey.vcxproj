@@ -179,6 +179,7 @@
     <ClInclude Include="Renderer\PathTracingRrHistory.h" />
     <ClInclude Include="Renderer\PathTracingRrLive.h" />
     <ClInclude Include="Runtime\RrFenceTrace.h" />
+    <ClInclude Include="Runtime\RrCrashLog.h" />
     <ClInclude Include="Renderer\NrdRelaxAdapter.h" />
     <ClInclude Include="Renderer\NrdReconstructionInputs.h" />
     <ClInclude Include="Renderer\RayQuerySceneBindings.h" />

@@ -482,6 +482,14 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-RrCrashLog"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0' || argv[i + 1][0] == L'-')
+            {
+                throw std::invalid_argument("-RrCrashLog requires a new log file path");
+            }
+            options.rrCrashLogPath = argv[++i];
+        }
         else if (IsCommandLineArg(argv[i], L"-RrFenceTrace"))
         {
             if (i + 1 >= argc)

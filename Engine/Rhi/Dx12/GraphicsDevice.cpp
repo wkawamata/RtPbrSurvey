@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 
 #include "GraphicsDevice.h"
 #include "Shared/Error.h"
@@ -297,6 +298,10 @@ void GraphicsDevice::Present(UINT syncInterval, UINT flags)
 
 void GraphicsDevice::ResizeSwapChain(UINT bufferCount, UINT newWidth, UINT newHeight, DXGI_FORMAT format, UINT flags)
 {
-    ThrowIfFailed(m_swapChain->ResizeBuffers(bufferCount, newWidth, newHeight, format, flags | m_swapChainFlags));
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("swapchain.resize_buffers.begin", newWidth, newHeight, bufferCount);
+    const HRESULT result = m_swapChain->ResizeBuffers(bufferCount, newWidth, newHeight, format, flags | m_swapChainFlags);
+    crashLog.Record("swapchain.resize_buffers.end", static_cast<uint32_t>(result));
+    ThrowIfFailed(result);
     SetSize(newWidth, newHeight);
 }

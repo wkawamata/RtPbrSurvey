@@ -100,6 +100,31 @@ timing-onlyはGPU query marker/calibrationを省くが、telemetryも同時に�
 この手順は試験開始の許可ではない。GPU holdは解除せず、PRもDraftのまま保持する。
 PF-05の性能変更採否は、安定性の問題を整理し、必要な反復測定が成立してから判断する。
 
+## 境界ログの実装（2026-11-20）
+
+調査用ビルドでは起動オプション `-RrCrashLog <path>` で記録を有効にする。
+親フォルダを事前に作成し、試験ごとに新しいローカルファイル名を使う。
+既存ファイルがある場合は起動時にエラーとなる。各行はUTC時刻、連番、
+イベント名、補足値3個の順で、書き込みごとにFlushFileBuffersを呼ぶ。
+
+- `app.init.*`、`streamline.init.*`、`graphics.init.*` で起動時の到達点を確認する。
+- `rr.settings` にはRR有効とNative Evaluate有効の設定値を記録する。
+  `pt.reconstruction` はPTの再構成バックエンドの変更前後を記録する。
+  `rr.evaluate.first.*` はSDK資源が未確保の状態から最初に評価APIを呼んだ前後を表す。
+- `resize.request` と `resize.begin` は出力寸法を記録する。
+  `gpu.flush.*` はSignal、待機、フェンス値を示す。
+  `rr.resources.free.*` と `swapchain.resize_buffers.*` は各APIの呼び出し前後を示す。
+  `resize.resources.begin` は描画資源更新の入口と新しい描画寸法、
+  `resize.end` は資源更新を含むリサイズ全体の終了を示す。
+- 終了時はアプリ、レンダラー、GPU待機、SDK終了の境界を記録する。
+  SDK/DXGI呼び出しの結果を持つ `.end` 行では、最初の補足値がAPI戻り値。
+  `gpu.flush.wait.end` は既存の待機関数が戻ったことを示す。
+
+停止後は最後の完全な行と、直前に同じ操作の開始・終了があるかを確認する。
+CPU側で最後に記録できた位置を示すため、GPU内部の停止位置は別の証拠で確認する。
+実行中の書き込みやflushに失敗した場合はデバッガに通知し、ログを閉じる。
+ディスクへのflushは操作にかかる時間を変えうるため、性能測定時はこのログを外す。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、

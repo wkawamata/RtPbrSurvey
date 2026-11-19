@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 #include "Scene/ImportedVolumeScene.h"
 
 #include "RtPbrSurveyEngine.h"
@@ -756,6 +757,8 @@ void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstruc
         m_rayReconstructionSettings.experimentalNativeEvaluationEnabled !=
             settings.experimentalNativeEvaluationEnabled)
     {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.settings", settings.enabled,
+                                        settings.experimentalNativeEvaluationEnabled);
         InvalidateReflectionHistory();
         if (m_renderingPath == RenderingPath::PathTracing)
             InvalidatePathTracingHistory(PathTracingResetReason::Settings);
@@ -801,6 +804,12 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_nrdComposedOutputValid = false;
         m_nrdFrameIndex = 0;
 #endif
+    }
+    if (m_pathTracingSettings.reconstructionBackend != validated.reconstructionBackend)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("pt.reconstruction",
+                                        static_cast<uint64_t>(m_pathTracingSettings.reconstructionBackend),
+                                        static_cast<uint64_t>(validated.reconstructionBackend));
     }
     m_pathTracingSettings = validated;
     if (changed || reconstructionChanged)
@@ -6319,6 +6328,7 @@ void RtPbrSurveyEngine::SetSceneViewport(UINT x, UINT y, UINT width, UINT height
 
 void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 {
+    RtPbrSurvey::g_rrCrashLog.Record("resize.request", width, height);
     m_pendingResize = true;
     m_pendingResizeWidth = width;
     m_pendingResizeHeight = height;
@@ -6377,6 +6387,8 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
 
 void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("resize.begin", width, height);
     DBG_PRINT("RtPbrSurveyEngine::ApplyResize() %d %d\n", width, height);
     m_width = width;
     m_height = height;
@@ -6388,11 +6400,13 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 
     if (width == 0 || height == 0)
     {
+        crashLog.Record("resize.skip.zero_extent");
         return;
     }
 
     if (!m_graphicsDevice.HasSwapChain())
     {
+        crashLog.Record("resize.skip.no_swapchain");
         return;
     }
 
@@ -6402,6 +6416,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     if (!Engine::ReleaseStreamlineRayReconstructionResources())
         throw std::runtime_error("Could not release RR resolution resources after GPU drain");
 
+    crashLog.Record("resize.resources.begin", m_renderWidth, m_renderHeight);
     // Clear RTV
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     if (m_nrdGpu != nullptr)
@@ -6563,10 +6578,12 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_renderViewport = CD3DX12_VIEWPORT(
         0.0f, 0.0f, static_cast<FLOAT>(m_renderWidth), static_cast<FLOAT>(m_renderHeight), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
     m_renderScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_renderWidth), static_cast<LONG>(m_renderHeight));
+    crashLog.Record("resize.end", width, height);
 }
 
 void RtPbrSurveyEngine::Shutdown()
 {
+    RtPbrSurvey::g_rrCrashLog.Record("renderer.shutdown.begin");
     DestroyFrameResources();
     if (RtPbrSurvey::g_rrFenceTrace.Running())
     {
@@ -6598,13 +6615,16 @@ void RtPbrSurveyEngine::Shutdown()
     }
     m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
+    RtPbrSurvey::g_rrCrashLog.Record("renderer.shutdown.end");
 }
 
 void RtPbrSurveyEngine::DestroyFrameResources()
 {
     // Ensure that the GPU is no longer referencing resources that are about to be
     // cleaned up by the destructor.
+    RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.begin");
     WaitForGpu();
+    RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.end");
 
     m_graphicsDevice.CloseFenceEvent();
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
@@ -9490,6 +9510,8 @@ void RtPbrSurveyEngine::WaitForGpu()
 
 void RtPbrSurveyEngine::FlushGpu()
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("gpu.flush.begin");
     AcquireFrameResources(true);
     UINT64 fenceValue = m_graphicsDevice.CompletedFenceValue() + 1;
     for (const FrameResource& frameResource : m_frameResources)
@@ -9497,16 +9519,20 @@ void RtPbrSurveyEngine::FlushGpu()
         fenceValue = (std::max)(fenceValue, frameResource.fenceValue);
     }
 
+    crashLog.Record("gpu.flush.signal.begin", fenceValue);
     m_graphicsDevice.SignalFence(fenceValue);
+    crashLog.Record("gpu.flush.wait.begin", fenceValue);
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
         m_graphicsDevice.WaitForFenceValue(fenceValue);
     }
+    crashLog.Record("gpu.flush.wait.end", fenceValue);
 
     for (FrameResource& frameResource : m_frameResources)
     {
         frameResource.fenceValue = fenceValue + 1;
     }
+    crashLog.Record("gpu.flush.end", fenceValue);
 }
 
 bool RtPbrSurveyEngine::AcquireFrameResources(bool wait)

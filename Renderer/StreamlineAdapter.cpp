@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "StreamlineAdapter.h"
+#include "Runtime/RrCrashLog.h"
 
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
 #include <sl.h>
@@ -648,7 +649,9 @@ void ShutdownStreamlineAdapterWithSdk()
         // allocations while the device and tagged resources are still alive.
         if (!ReleaseStreamlineRayReconstructionResources())
             OutputDebugStringA("RR resource release failed during shutdown.\n");
-        slShutdown();
+        RtPbrSurvey::g_rrCrashLog.Record("streamline.shutdown.begin");
+        const sl::Result result = slShutdown();
+        RtPbrSurvey::g_rrCrashLog.Record("streamline.shutdown.end", static_cast<uint32_t>(result));
     }
 }
 
@@ -859,10 +862,19 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
+    const bool firstEvaluateForResources = !g_streamlineAdapterState.rayReconstructionResourcesAllocated;
+    if (firstEvaluateForResources)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.evaluate.first.begin");
+    }
     g_streamlineAdapterState.rayReconstructionResourcesAllocated = true;
     ++g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     const sl::Result evaluateResult =
         slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
+    if (firstEvaluateForResources)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.evaluate.first.end", static_cast<uint32_t>(evaluateResult));
+    }
     // Streamline v2.12 commonInterface.cpp returns eWarnOutOfVRAM only
     // after a successful evaluate. Preserve the warning in diagnostics, but
     // let the PT GPU output validation decide whether the result can publish.
@@ -1098,7 +1110,9 @@ bool ReleaseStreamlineRayReconstructionResources()
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
     if (g_streamlineAdapterState.sdkInitialized && g_streamlineAdapterState.rayReconstructionResourcesAllocated)
     {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.resources.free.begin");
         const sl::Result result = slFreeResources(sl::kFeatureDLSS_RR, sl::ViewportHandle(0));
+        RtPbrSurvey::g_rrCrashLog.Record("rr.resources.free.end", static_cast<uint32_t>(result));
         if (result != sl::Result::eOk)
             return false;
         g_streamlineAdapterState.rayReconstructionResourcesAllocated = false;
