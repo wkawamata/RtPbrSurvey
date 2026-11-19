@@ -329,6 +329,32 @@ Present回数はアプリ側の提出で、物理ディスプレイの表示回�
 ログと集計は build/pf-crash-incident-20261119/pf-vsync-performance-check-20261120/
 に保存した。
 
+## PF-04 同じプロセスでのフレーム資源取得の性能比較（2026-11-20）
+
+Debugビルド（11d2733）、Warm Glass Table＋RR、960×540、VSync ONで、
+ユーザ承認を得て24秒のBlocking→Nonblocking→Blockingを1回実施した。
+実際の取得モードは0→1→0、全PresentのSyncIntervalは1。
+切替前後の各1秒を除いた結果。RR完了164回、初期リセット1回、
+キャンセル・拒否・SDK失敗0、終了コード0。
+
+| 区間 | Present/秒 | 新規RR画像採用/秒 | CPU待機の中央値 | 資源取得を保留した時間の中央値 |
+| --- | ---: | ---: | ---: | ---: |
+| Blocking 1 | 22.28 | 5.57 | 43.60 ms（156/156） | — |
+| Nonblocking | 24.08 | 5.98 | 0件 | 44.09 ms（145/145） |
+| Blocking 2 | 21.60 | 5.44 | 43.85 ms（151/151） | — |
+
+NonblockingはブロックするCPU待機をなくしたが、資源が再利用可能になるまで
+約44 msは保留だった。新規RR画像の採用は前後のBlocking平均より約9%増えた
+ものの、全区間で約4 Presentにつき1回のまま。CPU側RR評価APIの中央値も
+0.54〜0.56 ms程度だった。単発・固定カメラのため、増加の一般化や入力応答の
+改善は未判定。
+
+PF-05では、CPU待機方式の切替だけでなく、PT入力とRR評価の間にある
+完了確認を減らす候補を検証する。既存のChained経路を候補に、入出力の検証、
+出力公開の安全性、毎フレームの新規画像採用率を比較する。自動コホートは保留。
+ログと集計は build/pf-crash-incident-20261119/pf-acquisition-performance-check-20261120/
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
