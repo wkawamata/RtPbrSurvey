@@ -1,0 +1,6 @@
+{
+  "blocked": true,
+  "reason": "Windows freeze/manual reboot and BugCheck 0x133 during PF validation; no automatic retry",
+  "incident": "doc/rr-pf-windows-crash-20261119.md",
+  "clearance": "Requires explicit resumption after crash investigation; do not auto-clear on reboot"
+}

@@ -15,10 +15,17 @@ from measure_rr_release import require_isolation
 ROOT=Path(__file__).resolve().parents[2]
 
 
+def require_gpu_clearance():
+    hold=Path(__file__).with_name('pf_gpu_validation_hold.json')
+    if hold.exists() and json.loads(hold.read_text(encoding='utf-8')).get('blocked'):
+        raise RuntimeError('PF GPU validation is on hold after Windows crashes. See doc/rr-pf-windows-crash-20261119.md')
+
+
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
 def run(exe, baseline, out, label, vsync, nonblocking, seconds, warmup, timing_only=False, motion=False, case="Glass 01"):
+    require_gpu_clearance()
     require_isolation()
     folder=out/label;folder.mkdir()
     appdata=folder/'appdata/RtPbrSurvey';appdata.mkdir(parents=True)
@@ -76,9 +83,13 @@ def main():
     parser.add_argument('--warmup',type=int,default=5)
     parser.add_argument('--cohort',choices=['smoke','static','motion','overhead'],default='static')
     parser.add_argument('--pairs',type=int,default=2)
+    parser.add_argument('--resume',action='store_true')
+    parser.add_argument('--max-new-runs',type=int,default=0)
     args=parser.parse_args()
+    require_gpu_clearance()
     exe=args.exe.resolve(strict=True);baseline=args.baseline.resolve(strict=True);out=args.output.resolve()
-    if out.exists() and any(out.iterdir()): parser.error('Output must be empty')
+    existing=out.exists() and any(out.iterdir())
+    if existing and not args.resume: parser.error('Output must be empty, or use --resume')
     out.mkdir(parents=True,exist_ok=True)
     report=dict(status='running',sourceCommit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                 exeSha256=sha(exe),scriptSha256=sha(Path(__file__)),
@@ -87,12 +98,25 @@ def main():
                 assetSha256={str(p.relative_to(ROOT)):sha(p) for p in (ROOT/'Assets/Scenes/WarmGlassTable').rglob('*') if p.is_file()},
                 runtimeSha256={p.name:sha(p) for p in exe.parent.glob('*') if p.is_file() and (p.suffix=='.cso' or p.name.startswith(('sl.','nvngx_')))},
                 seconds=args.seconds,warmup=args.warmup,cohort=args.cohort,runs=[])
-    def save(): (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+    if existing:
+        previous=json.loads((out/'report.json').read_text(encoding='utf-8'))
+        assert previous['status']=='running', 'Only an unfinished cohort may resume'
+        for key in ['exeSha256','scriptSha256','analyzerSha256','baselineSha256','assetSha256','runtimeSha256','seconds','warmup','cohort']:
+            assert previous[key]==report[key], 'Resume manifest changed: '+key
+        report=previous
+    def save():
+        temporary=out/'report.pending.json'
+        temporary.write_text(json.dumps(report,indent=2),encoding='utf-8')
+        temporary.replace(out/'report.json')
+    report.setdefault('sessions',[])
+    session=len(report['sessions'])
+    gpu_name=f'gpu-{session:02d}.csv'
+    report['sessions'].append(dict(start=datetime.now().astimezone().isoformat(),gpuCsv=gpu_name))
     save()
     sampler=None
     try:
         startup=subprocess.STARTUPINFO();startup.dwFlags|=subprocess.STARTF_USESHOWWINDOW;startup.wShowWindow=0
-        hardware=open(out/'gpu.csv','w',encoding='utf-8')
+        hardware=open(out/gpu_name,'w',encoding='utf-8')
         sampler=subprocess.Popen(['nvidia-smi','--query-gpu=timestamp,name,driver_version,clocks.gr,clocks.sm,clocks.mem,utilization.gpu,power.draw,temperature.gpu',
                                   '--format=csv','-l','1'],stdout=hardware,stderr=subprocess.STDOUT,startupinfo=startup)
         if args.cohort=='smoke': sequence=[(True,False,False)]
@@ -103,15 +127,28 @@ def main():
                 for pair in range(args.pairs):
                     for vs in ([True,False,False,True] if pair%2==0 else [False,True,True,False]):
                         sequence.append((vs,nb,False))
+        new_runs=0
+        report['expectedRuns']=len(sequence)
         for index,(vs,nb,timing) in enumerate(sequence):
+            if index < len(report['runs']): continue
+            if args.max_new_runs and new_runs>=args.max_new_runs: break
             label=f'{index:02d}-vs{int(vs)}-nb{int(nb)}'+('-timing' if timing else '-trace')
-            report['runs'].append(run(exe,baseline,out,label,vs,nb,args.seconds,args.warmup,timing,args.cohort=='motion',args.case))
+            if (out/label).exists():
+                interrupted=out/(label+'-interrupted-'+str(time.time_ns()))
+                assert interrupted.parent.resolve()==out and (out/label).resolve().parent==out
+                (out/label).rename(interrupted)
+                report.setdefault('interruptions',[]).append(dict(folder=interrupted.name,
+                    reason='No committed run result; previous process/controller completion unknown'))
+            row=run(exe,baseline,out,label,vs,nb,args.seconds,args.warmup,timing,args.cohort=='motion',args.case)
+            row['gpuCsv']=gpu_name
+            report['runs'].append(row)
+            new_runs+=1
             save()
         assert sha(exe)==report['exeSha256'],'Executable changed during cohort'
         assert all(sha(ROOT/n)==h for n,h in report['assetSha256'].items()),'Asset changed'
         assert all(sha(exe.parent/n)==h for n,h in report['runtimeSha256'].items()),'Runtime changed'
         assert all(sha(baseline/n)==h for n,h in report['baselineSha256'].items())
-        report['status']='passed'
+        report['status']='passed' if len(report['runs'])==len(sequence) else 'running'
     except Exception as e:
         report.update(status='failed',error=str(e));raise
     finally:
