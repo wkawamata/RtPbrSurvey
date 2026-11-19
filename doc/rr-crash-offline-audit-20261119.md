@@ -162,6 +162,17 @@ PF性能計測は未実施。
 ログは build/pf-crash-incident-20261119/native-resize-20261120/rr-crash.log
 に保存した。
 
+## Warm Glass Table＋RRでの小幅なリサイズ確認（2026-11-20）
+
+Debugビルド（090a2f2）、隔離したAPPDATA、PF persisted Warm Glass Tableを使用。
+初回のRR SDK評価成功後、上枠を1回動かし、960×540から960×504に変更した。
+GPUフェンス296の待機、旧RR資源解放、ResizeBuffers、資源再構築、変更後の
+初回RR SDK評価を順に確認した。API戻り値はいずれも0。変更後のGlassシーンの
+表示と、再度のRR資源解放を含む正常終了も確認した。
+小幅なリサイズ試験はこの条件で合格。最大化とPF性能計測は保留。
+ログは build/pf-crash-incident-20261119/glass-rr-small-resize-20261120/rr-crash.log
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
