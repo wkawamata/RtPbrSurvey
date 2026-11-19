@@ -355,6 +355,33 @@ PF-05では、CPU待機方式の切替だけでなく、PT入力とRR評価の�
 ログと集計は build/pf-crash-incident-20261119/pf-acquisition-performance-check-20261120/
 に保存した。
 
+## PF-05 Warm Glass TableでのSafe Serial／Chained比較（2026-11-20）
+
+ユーザ承認を得て、共通の安全入力プロファイルを使うSafe SerialとChainedを
+同じDebugビルドで各1回実施した。Warm Glass Table、960×540、VSync ON、
+blocking、5秒ウォームアップ／8秒詳細トレース。両方とも初期リセット1回、
+拒否・キャンセル・SDK失敗0、終了コード0。
+
+| 指標 | Safe Serial | Chained |
+| --- | ---: | ---: |
+| Present回数（回/秒） | 172（21.47） | 160（19.98） |
+| 新規RR画像の採用回数（回/秒） | 43（5.37） | 80（9.99） |
+| PT入力からそのRR画像の最初のPresentまでの中央値 | 196.38 ms | 101.56 ms |
+| PT GPU時間の中央値 | 28.30 ms | 15.93 ms |
+| RR GPU時間の中央値 | 14.97 ms | 13.65 ms |
+
+productionとepochを突き合わせた。計測区間で採用された全画像が、
+Safe Serialでは入力→評価2フレーム、評価→公開2フレーム、Chainedでは
+入力と評価が同じフレーム、評価→公開2フレームだった。両者とも公開した
+フレームで最初にPresent。Chainedは新規採用が4 Presentに1枚から2 Presentに
+1枚へ変わり、今回の採用頻度は約86%増えた。物理画面の走査は計測範囲外。
+
+各1回の別プロセス試行なので、GPU時間の差をパス自体の高速化とは判定しない。
+同一フレームにまとまったことはトレースで検証済み。残る2フレームはGPU完了と
+出力検証を確認してから公開する部分。既定化や毎フレーム化の検証には、
+カメラ移動時の画質・遅延と、完了確認を維持した出力公開の設計が残る。
+ログは build/pf-crash-incident-20261119/pf05-chained-pair-20261120/ に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
