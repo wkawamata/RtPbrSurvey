@@ -407,6 +407,14 @@ Warm Glass Tableで移動中の輪郭・屈折の残像は目視確認が必要�
 元ログと集計は build/pf-crash-incident-20261119/pf05-camera-pair-20261120/
 に保存した。
 
+## PF-05 Chainedの目視確認（2026-11-20）
+
+Warm Glass Table、960×540、VSync ONで、ユーザがカメラ移動中と停止後の
+輪郭、屈折、残像を確認し、問題は見つからなかったと報告した。
+約30秒の試行は正常終了し、RR完了380回、拒否・キャンセル・SDK失敗0。
+この条件の目視確認は合格。毎フレームへの新規RR出力は今後の課題。
+ログは build/pf-crash-incident-20261119/pf05-chained-visual-20261120/ に保存。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
