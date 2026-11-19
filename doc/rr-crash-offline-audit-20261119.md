@@ -183,6 +183,18 @@ GPUフェンス432の待機完了、ResizeBuffersの戻り値0、描画資源の
 ログは build/pf-crash-incident-20261119/native-maximize-20261120/rr-crash.log
 に保存した。
 
+## Warm Glass Table＋RRでの最大化確認（2026-11-20）
+
+Debugビルド（090a2f2）、隔離したAPPDATA、PF persisted Warm Glass Tableを使用。
+960×540で初回RR評価が完了した後、RR有効のまま一度だけ3840×2089へ最大化した。
+GPUフェンス488の待機、旧RR資源解放、ResizeBuffers、描画資源更新を順に確認した。
+最大化後の最初のRR評価の戻り値は0。終了時もGPU待機、RR資源解放、
+Streamline終了、アプリの通常終了まで記録された。今回の試行で暗転・フリーズは
+再現しなかった。判定範囲は最大化後の初回評価APIと通常終了まで。
+既知のクラッシュ原因は未特定で、PF-04/PF-05と自動計測の保留は継続する。
+ログは build/pf-crash-incident-20261119/glass-rr-maximize-20261120/rr-crash.log
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
