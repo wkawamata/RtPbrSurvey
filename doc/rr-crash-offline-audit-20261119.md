@@ -136,6 +136,21 @@ GlassシーンでのRR有効化、最大化、およびPF計測は保留する�
 ログは `build/pf-crash-incident-20261119/startup-baseline-20261120/rr-crash.log`
 に保存した。
 
+## 固定サイズでのGlassシーンとRRの確認（2026-11-20）
+
+Debugビルド（090a2f2）で、保存済み設定から再構成した
+PF persisted Warm Glass Tableを960×540で1回起動した。
+初回のRR SDK評価は01:24:26 JSTに完了し、戻り値は0。
+固定サイズのウィンドウでGlassシーンの表示を確認した。この試験で
+確認したのは初回評価APIの戻り値と画面表示まで。
+
+終了操作と対象ウィンドウの再アクティブ化がタイムアウトした。
+ホストで同じPIDが稼働中かつ応答中であることを確認し、通常終了は保留とした。
+Windows起動時刻の更新はなかった。
+最大化とPF計測は保留し、同じ試験の再起動は行っていない。
+ログは build/pf-crash-incident-20261119/glass-rr-fixed-window-20261120/rr-crash.log
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
