@@ -125,6 +125,17 @@ CPU側で最後に記録できた位置を示すため、GPU内部の停止位�
 実行中の書き込みやflushに失敗した場合はデバッガに通知し、ログを閉じる。
 ディスクへのflushは操作にかかる時間を変えうるため、性能測定時はこのログを外す。
 
+## 通常起動の確認（2026-11-20）
+
+ユーザ承認を得て、診断ログ付きのDebugビルド（090a2f2）を1回起動した。
+隔離したAPPDATA、960×540、RR無効でトップメニューを表示し、通常終了した。
+`app.init.end` と `app.shutdown.end` を確認。初回表示時に同寸法の
+リサイズ要求があり、GPU待機と描画資源の更新が完了した。
+今回のログには `ResizeBuffers`、RR評価、RR資源解放の呼び出しは現れていない。
+GlassシーンでのRR有効化、最大化、およびPF計測は保留する。
+ログは `build/pf-crash-incident-20261119/startup-baseline-20261120/rr-crash.log`
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
