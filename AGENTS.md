@@ -3,9 +3,6 @@
 ## Repository Context
 
 - This repository is `RtPbrSurvey`, a standalone DirectX 12 / PBR / ray tracing survey application.
-- It has been separated from Microsoft DirectX-Graphics-Samples. Do not assume the old `HelloTextureModified` or `DXSample` directory layout exists.
-- Current workspace root: `C:\work\RtPbrSurvey-work`.
-- Treat Microsoft sample-derived code as historical background only; new work should follow the standalone repository structure.
 
 ## DirectX 12 Conventions
 
@@ -18,7 +15,6 @@
 - Use UTF-8 without BOM for text files unless an existing file clearly uses another encoding.
 - Do not use emoji in any output or committed documentation; use text markers like `[x]`, `[ ]`, and `[*]` instead.
 - Keep changes scoped and reviewable.
-- Do not commit generated logs, build outputs, `.vs`, `bin`, `obj`, or local editor state.
 
 ## Project Layout
 
@@ -29,83 +25,22 @@
 - `Shaders/`: HLSL shader sources.
 - `Shared/`: cross-cutting data types shared by CPU/GPU or multiple modules.
 - `Ui/`: ImGui system and UI helpers.
-- `Assets/`: local runtime assets. Large external test assets should be handled deliberately and not committed accidentally.
+- `Assets/`: local runtime assets.
 - `doc/`: branch notes, design notes, debug checklists, and review reports.
 
-## CLI Flags for Automation
+## Automation and Build References
 
-Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
+Read these documents only when the related workflow is used:
 
-| Flag | Example | Description |
-|------|---------|-------------|
-| `-LogToFile` | `-LogToFile d3d12_debug.log` | On startup, dump accumulated D3D12 Debug Layer messages via `ID3D12InfoQueue` to the specified file. Also append new messages as they arrive when polled each frame. |
-| `-LogFPS` | `-LogFPS 60` | Log CPU FPS to the same log file every N frames. Only active when `-LogToFile` is also specified. Value is `1000.0f / cpuFrameTimeMs`. |
-| `-AutoSelectGltfDamagedHelmet` | `-AutoSelectGltfDamagedHelmet` | On startup, automatically select the `glTF Viewer > DamagedHelmet` scene and switch to Running mode without user interaction. |
-| `-EnableDlssSr` | `-EnableDlssSr` | Enable DLSS Super Resolution at startup. Forces Deferred rendering and the final Light Pass view. |
-| `-DlssQuality` | `-DlssQuality quality` | Enable DLSS SR and select `dlaa`, `quality`, `balanced`, `performance`, or `ultra-performance`. |
-| `-CapturePath` | `-CapturePath Screenshots\\validation.png` | Queue one PNG capture through the existing renderer screenshot path. |
-| `-CaptureAfterFrames` | `-CaptureAfterFrames 60` | Render this many warm-up frames before queuing the CLI screenshot. Used with `-CapturePath`. |
-| `-ExitAfterCapture` | `-ExitAfterCapture` | Close the application after the CLI screenshot succeeds or fails. Used with `-CapturePath`. |
-| `-EnableDlssRayReconstruction` | `-EnableDlssRayReconstruction` | Enable the experimental DLSS Ray Reconstruction render-graph path for automation. Native RR evaluate still requires the separate native flag. |
-| `-EnableExperimentalNativeRayReconstruction` | `-EnableExperimentalNativeRayReconstruction` | Opt into the guarded native DLSS Ray Reconstruction evaluate call. Implies `-EnableDlssRayReconstruction`; specify both flags in validation commands for clarity. |
-| `-CaptureReflectionResolvedRadiance` | `-CaptureReflectionResolvedRadiance` | Force Deferred rendering, Hybrid Reflection, and the resolved-radiance debug view for an automated capture. |
-| `-ReflectionTemporalWeight` | `-ReflectionTemporalWeight 0.9` | Override the experimental reflection history weight for an automated resolved-radiance capture. |
-| `-ReflectionOrbitDegrees` | `-ReflectionOrbitDegrees 20` | Apply a deterministic horizontal Arcball orbit ending on the automated capture frame. |
-| `-ReflectionOrbitFrames` | `-ReflectionOrbitFrames 30` | Spread the automated reflection orbit over this many rendered frames. |
-| `-ReflectionTemporalNoiseStrength` | `-ReflectionTemporalNoiseStrength 0.5` | Inject deterministic zero-mean luminance noise into the current resolved-radiance input for temporal validation. |
-| `-ReflectionCapturePlan` | `-ReflectionCapturePlan Tests\\SubjectiveValidation\\HybridReflection\\capture-plan.json` | Load a versioned continuous-timeline Hybrid Reflection multi-capture plan. Implies the resolved-radiance capture mode and is mutually exclusive with `-CapturePath`. |
-| `-ReflectionCaptureVariant` | `-ReflectionCaptureVariant a` | Replace the required `{variant}` token in every planned capture path. Accepts letters, digits, `-`, and `_`. |
-
-## D3D12 Debug Layer Check
-
-Use the Debug build with CLI automation when checking whether a change introduced D3D12 Debug Layer errors.
-
-From repository root:
-
-```powershell
-.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
-```
-
-Recommended check:
-
-```powershell
-Select-String -LiteralPath d3d12_debug.log -Pattern "\[ERROR\]|\[WARNING\]|D3D12"
-```
-
-For automated verification, start the exe, let it run for a few seconds, close it, then inspect `d3d12_debug.log`.
-An empty log, or a log without `[ERROR]`, means no D3D12 Debug Layer error was captured for that run.
-Do not commit generated log files such as `d3d12_debug.log`.
-
-## Build Notes
-
-Preferred Debug build command from repository root:
-
-```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" RtPbrSurvey.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
-```
-
-If the solution or project file changes, verify the actual project name before reusing old commands.
-
-## Windows GUI Automation
-
-- Before operating native Windows apps, read [Windows GUI Automation](doc/windows-gui-automation.md) and the installed Computer Use skill's current guidance/API/safety instructions.
-- Use the Windows `@oai/sky` API through `node_repl`. Do not conclude native automation is unavailable from a browser-only `cua` connection.
-
-## OpenCode Delegation
-
-When delegating work to OpenCode:
-
-- Editing target/workspace: `C:\work\RtPbrSurvey-work`.
-- Task/report/log coordination folder should live outside the repo, typically under `C:\work\RtPbrSurvey-agents` unless a new RtPbrSurvey-specific agents folder is introduced.
-- Always distinguish the edited workspace from the task folder in reports.
-- Require CRLF and UTF-8 without BOM in task instructions.
-- Require a machine-readable final status line such as `Status: done` or `Status: blocked`.
-- Do not ask OpenCode to commit, push, merge, reset, checkout, or switch branches unless explicitly requested.
+- CLI automation flags: [doc/cli-flags.md](doc/cli-flags.md)
+- D3D12 Debug Layer check: [doc/d3d12-debug-layer-check.md](doc/d3d12-debug-layer-check.md)
+- Debug build command: [doc/build.md](doc/build.md)
+- Native Windows automation: [doc/windows-gui-automation.md](doc/windows-gui-automation.md)
 
 ## Git Hygiene
 
 - Check `git status --short` before committing.
-- Do not stage generated files such as logs, build outputs, `.vs`, `bin`, `obj`, or temporary screenshots unless explicitly requested.
+- Do not stage generated files such as logs, build outputs, `.vs`, `bin`, `obj`, or temporary screenshots. Do not stage large external test assets unless explicitly requested.
 - If the working tree contains unrelated user changes, leave them alone.
 - Prefer small commits with clear intent.
 - Before squash/merge/rebase operations, show the planned commit list when practical.
