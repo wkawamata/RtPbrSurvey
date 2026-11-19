@@ -293,6 +293,16 @@ PT入力の記録から2アプリフレーム後にRR入力を受理して同一
 基準計測のログは build/pf-crash-incident-20261119/pf-isolated-conditions-20261120/
 に保存した。再集計は各詳細トレースの隣の analysis-with-cpu-sdk.json を参照。
 
+## 同じプロセスでのVSync切替の動作確認（2026-11-20）
+
+Debugビルド（78df18e）で、Warm Glass Table＋RRを960×540の固定ウィンドウで
+24秒間動作確認した。PresentのSyncIntervalでON→OFF→ON（1→0→1）を確認し、
+すべての区間で新規RR画像の採用を確認した。RR完了52回、初期リセット1回、
+キャンセル・入出力拒否・SDK失敗0。終了コード0とapp.shutdown.endを確認した。
+GPUの他の利用条件を揃えていないため、速度の優劣は判定しない。
+ログと集計は build/pf-crash-incident-20261119/pf-vsync-within-process-20261120/
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
