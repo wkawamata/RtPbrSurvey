@@ -151,6 +151,17 @@ PF persisted Warm Glass Tableを960×540で1回起動した。
 ログは build/pf-crash-incident-20261119/glass-rr-fixed-window-20261120/rr-crash.log
 に保存した。
 
+## RR無効での小幅なリサイズ確認（2026-11-20）
+
+ユーザ承認のうえ、Debugビルド（090a2f2）を隔離したAPPDATAで起動した。
+RR無効のトップメニューで上枠を動かし、クライアント領域を960×540から
+960×504に一度変更した。GPUフェンス1461の待機完了後、
+ResizeBuffersの戻り値0、resize.end、app.shutdown.endを確認した。
+この条件で実寸変更と通常終了は合格。RR有効時の実寸変更、最大化、
+PF性能計測は未実施。
+ログは build/pf-crash-incident-20261119/native-resize-20261120/rr-crash.log
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
