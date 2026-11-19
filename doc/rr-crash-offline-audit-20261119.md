@@ -173,6 +173,16 @@ GPUフェンス296の待機、旧RR資源解放、ResizeBuffers、資源再構�
 ログは build/pf-crash-incident-20261119/glass-rr-small-resize-20261120/rr-crash.log
 に保存した。
 
+## RR無効での最大化確認（2026-11-20）
+
+ユーザ承認のうえ、Debugビルド（090a2f2）を隔離したAPPDATAで起動した。
+RR無効のトップメニューを一度だけ最大化し、960×540から3840×2089に変更した。
+GPUフェンス432の待機完了、ResizeBuffersの戻り値0、描画資源の再構築、
+最大化後のトップメニュー表示、通常終了を確認した。
+この条件で最大化は合格。GlassシーンでのRR有効時の最大化とPF性能計測は未実施。
+ログは build/pf-crash-incident-20261119/native-maximize-20261120/rr-crash.log
+に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
