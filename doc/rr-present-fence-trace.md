@@ -74,3 +74,11 @@ other RtPbrSurvey processes, records nvidia-smi clock/power/utilization samples 
 pins executable/runtime/shader/asset/config/script hashes. It never terminates other
 workspace apps. Build/benchmark workloads must not overlap. Child timeouts stop
 only that harness's own child. Raw logs and data live under ignored build folders.
+
+## 同じプロセス内でのVSync比較
+
+詳細トレースに -RrFenceTraceVSyncCycle を付けると、計測区間を三等分し、
+VSyncをON→OFF→ONと切り替える。起動時はVSync ON、詳細トレース12秒以上が必要。
+集計の presentSyncSegments は起動時の設定値ではなく、各Presentの実際の
+SyncIntervalで区間を識別する。切替の前後1秒は比較から外す。各区間で
+Present頻度、新規RR画像の採用頻度、CPU側のRR評価APIの時間を比較できる。

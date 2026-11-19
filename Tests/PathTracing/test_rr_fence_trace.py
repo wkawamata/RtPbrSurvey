@@ -72,6 +72,22 @@ class TraceTests(unittest.TestCase):
         f['events'].append(row);f['events'].sort(key=lambda e:e['qpc'])
         with self.assertRaises(AssertionError): analyze(f)
 
+    def test_present_sync_intervals_form_separate_segments(self):
+        trace = fixture()
+        for row in trace['events']:
+            row['qpc'] *= 100
+        for point in trace['gpu']:
+            point['tick'] *= 100
+        trace['windowStart'] *= 100
+        trace['windowEnd'] *= 100
+        results = [dict(row, event='present_result', a=0, b=2 - row['frame'])
+                   for row in trace['events'] if row['event'] == 'present_end']
+        trace['events'] = sorted(trace['events'] + results, key=lambda row: row['qpc'])
+        first, second = analyze(trace)['presentSyncSegments']
+        self.assertEqual([first['syncInterval'], second['syncInterval']], [1, 0])
+        self.assertEqual(first['rrSdkCpuMs']['p50'], 300)
+        self.assertEqual(second['measuredPresents'], 0)  # The first second after switching is excluded.
+
     def test_overflow_rejected(self):
         f=fixture();f['overflow']=True
         with self.assertRaises(AssertionError): analyze(f)

@@ -514,6 +514,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.rrFenceTraceTimingOnly = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceVSyncCycle"))
+        {
+            options.rrFenceTraceVSyncCycle = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-RrFenceTraceCameraMotion"))
         {
             options.rrFenceTraceCameraMotion = true;
@@ -1158,6 +1162,14 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         !options.autoSelectHybridReflectionEstimatorTest)
     {
         options.autoSelectGltfDamagedHelmet = true;
+    }
+
+    if (options.rrFenceTraceVSyncCycle &&
+        (options.rrFenceTracePath.empty() || options.rrFenceTraceTimingOnly || options.rrFenceTraceSeconds < 12 ||
+         options.disableVSync))
+    {
+        throw std::invalid_argument("-RrFenceTraceVSyncCycle requires a detailed trace of at least 12 seconds "
+                                    "starting with VSync enabled.");
     }
 
     return options;

@@ -1,6 +1,7 @@
 """PF trace decoding. CPU times are QPC; GPU time uses measured queue calibration."""
 import argparse
 from collections import defaultdict
+from itertools import groupby
 import json
 import math
 from pathlib import Path
@@ -48,6 +49,7 @@ def analyze(trace):
     durations = defaultdict(list)
     first_present, snapshots, published = {}, {}, {}
     associations = []
+    sdk_cpu_ms_by_frame = {}
     sequence = ['execute_begin', 'execute_end', 'present_begin', 'present_end', 'signal_begin', 'signal_end']
     for frame, ev in frames.items():
         if 'execute_begin' not in ev:
@@ -70,7 +72,9 @@ def analyze(trace):
             sdk_begin_qpc, sdk_end_qpc = sdk_begin[0]['qpc'], sdk_end[0]['qpc']
             assert sdk_begin_qpc <= sdk_end_qpc <= e['execute_begin']['qpc'], 'CPU RR SDK order invalid'
             if measured(e['execute_begin']):
-                durations['rrSdkCpuMs'].append(ms(sdk_end_qpc - sdk_begin_qpc))
+                sdk_cpu_ms = ms(sdk_end_qpc - sdk_begin_qpc)
+                sdk_cpu_ms_by_frame[frame] = sdk_cpu_ms
+                durations['rrSdkCpuMs'].append(sdk_cpu_ms)
                 durations['rrSdkCpuEndToSubmitMs'].append(ms(e['execute_end']['qpc'] - sdk_end_qpc))
         if 'resource_wait_begin' in ev:
             a,b=ev['resource_wait_begin'][0],ev['resource_wait_end'][0]
@@ -120,6 +124,27 @@ def analyze(trace):
             if e['a'] and e['a']!=previous and measured(e): fresh.append(e['qpc'])
             previous=e['a']
     assert len(fresh)==trace['freshPresents'], 'Fresh-present counter mismatch'
+    sync_runs = [(interval, list(rows)) for interval, rows in groupby(results, key=lambda e: e['b'])]
+    if len(sync_runs) > 1:
+        # Trim one second on both sides of a switch. Attribute CPU SDK samples
+        # to the actual Present interval of that frame, not the startup setting.
+        segments = []
+        for index, (interval, rows) in enumerate(sync_runs):
+            first_qpc = rows[0]['qpc']
+            last_qpc = sync_runs[index + 1][1][0]['qpc'] if index + 1 < len(sync_runs) else end
+            stable_start = first_qpc + (freq if index > 0 else 0)
+            stable_end = last_qpc - (freq if index + 1 < len(sync_runs) else 0)
+            stable = [e for e in rows if stable_start <= e['qpc'] < stable_end]
+            cpu = [sdk_cpu_ms_by_frame[e['frame']] for e in stable if e['frame'] in sdk_cpu_ms_by_frame]
+            segment = dict(syncInterval=interval, presentSamples=len(rows),
+                           measuredPresents=len(stable), measuredSeconds=max(0, stable_end - stable_start) / freq,
+                           rrSdkCpuMs=stats(cpu))
+            if stable_end > stable_start:
+                segment['presentFps'] = len(stable) * freq / (stable_end - stable_start)
+                segment['freshPresentFps'] = sum(stable_start <= qpc < stable_end for qpc in fresh) * freq / (
+                    stable_end - stable_start)
+            segments.append(segment)
+        report['presentSyncSegments'] = segments
     durations['freshPresentIntervalMs']=[ms(b-a) for a,b in zip(fresh,fresh[1:])]
     durations['presentIntervalMs']=[ms(b['qpc']-a['qpc']) for a,b in zip(measured_presents,measured_presents[1:])]
     gpu=defaultdict(list)

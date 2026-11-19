@@ -1144,6 +1144,13 @@ void RtPbrSurveyApp::OnIdle()
             RequestCloseApplication();
             return;
         }
+        if (m_commandLineOptions.rrFenceTraceVSyncCycle)
+        {
+            const double phaseDuration = m_commandLineOptions.rrFenceTraceSeconds / 3.0;
+            const double elapsed = trace.MeasurementElapsedSeconds();
+            const bool vsync = elapsed < phaseDuration || elapsed >= 2.0 * phaseDuration;
+            m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(vsync);
+        }
     }
     if (m_commandLineOptions.nonblockingFrameAcquisition &&
         !m_sceneRenderer.EngineForDebugTools().AcquireFrameResources())

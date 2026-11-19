@@ -65,6 +65,10 @@ public:
     {
         return m_start ? double(Now() - m_start) / m_frequency : 0.0;
     }
+    double MeasurementElapsedSeconds() const
+    {
+        return m_windowStart ? double(Now() - m_windowStart) / m_frequency : 0.0;
+    }
     bool Capturing() const
     {
         return m_capture && !m_finished;
