@@ -435,6 +435,8 @@ void RtPbrSurveyApp::OnInit()
          !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty()))
         throw std::invalid_argument("Chained RR cannot use strict first-output/lifecycle validators.");
     m_sceneRenderer.EngineForDebugTools().SetRrChainedSchedule(m_commandLineOptions.pathTracingRrChained);
+    m_sceneRenderer.EngineForDebugTools().SetRrSeparateCompletionFence(
+        m_commandLineOptions.pathTracingRrSeparateCompletionFence);
     // First-output/lifecycle validators require the observable Ready phase.
     m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
         !m_commandLineOptions.pathTracingRrStrictSchedule &&
@@ -788,6 +790,7 @@ void RtPbrSurveyApp::OnInit()
                            : m_commandLineOptions.pathTracingRrStrictSchedule ? "strict"
                                                                               : "eager"},
                           {"nonblocking", m_commandLineOptions.nonblockingFrameAcquisition},
+                          {"rrSeparateCompletionFence", m_commandLineOptions.pathTracingRrSeparateCompletionFence},
                           {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
                           {"renderWidth", context.renderWidth},
                           {"renderHeight", context.renderHeight},

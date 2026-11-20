@@ -3078,6 +3078,13 @@ void RtPbrSurveyEngine::LoadAssets()
 
     // Create fence early so WaitForGpu() can be called during resource creation.
     m_graphicsDevice.CreateFence(0);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_rrSeparateCompletionFence)
+    {
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateFence(
+            0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_rrCompletionFence)));
+    }
+#endif
     m_frameResources[m_currentFrameIndex].fenceValue = 1;
 
     ReloadEnvironmentResources(m_environmentSettings);
@@ -6209,6 +6216,15 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         trace.Record("execute_begin");
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
         trace.Record("execute_end");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_rrCompletionFence && m_ptRrLive && m_ptRrLive->HasUnsubmittedWork())
+        {
+            const uint64_t fenceValue = ++m_rrCompletionFenceValue;
+            ThrowIfFailed(m_graphicsDevice.CommandQueue()->Signal(m_rrCompletionFence.Get(), fenceValue));
+            trace.Record("rr_completion_signal", fenceValue);
+            m_ptRrLive->MarkSubmitted(fenceValue);
+        }
+#endif
         CommitReflectionHistoryFrame();
         CommitReflectionSamplingFrame();
         CommitPathTracingFrame();
@@ -6265,7 +6281,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_ptRrLive)
+    if (m_ptRrLive && !m_rrCompletionFence)
         m_ptRrLive->MarkSubmitted(submittedFenceValue);
     if (CanRunPtRrNative() && m_ptRrLive &&
         ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
@@ -6362,7 +6378,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     const uint64_t rrEpochBeforeUpdate =
         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
     if (m_ptRrLive)
-        m_ptRrLive->Poll(m_graphicsDevice.CompletedFenceValue(),
+        m_ptRrLive->Poll(CompletedRrFenceValue(),
                          m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
                          m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused &&
                              m_pathTracingFrameAdvance, m_rrEagerProduction);
@@ -6376,7 +6392,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     const uint64_t rrEpochAfterUpdate =
         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
     if (m_ptRrLive && rrEpochAfterUpdate != rrEpochBeforeUpdate)
-        m_ptRrLive->Poll(m_graphicsDevice.CompletedFenceValue(), rrEpochAfterUpdate,
+        m_ptRrLive->Poll(CompletedRrFenceValue(), rrEpochAfterUpdate,
             m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused && advanceFrame,
             m_rrEagerProduction);
 #endif
@@ -7617,6 +7633,13 @@ bool RtPbrSurveyEngine::SupportsPtRrSurfaces() const
             material.volumeAbsorption.attenuationDistance == std::numeric_limits<float>::infinity();
     });
 }
+
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+uint64_t RtPbrSurveyEngine::CompletedRrFenceValue() const
+{
+    return m_rrCompletionFence ? m_rrCompletionFence->GetCompletedValue() : m_graphicsDevice.CompletedFenceValue();
+}
+#endif
 
 bool RtPbrSurveyEngine::CanRunPtRrNative() const
 {

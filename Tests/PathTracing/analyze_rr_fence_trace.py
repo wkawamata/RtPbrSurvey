@@ -94,16 +94,25 @@ def analyze(trace):
             deferral_ms_by_frame[frame] = ms(b['qpc'] - a['qpc'])
             durations['resourceDeferralMs'].append(deferral_ms_by_frame[frame])
         mark = ev.get('rr_mark_submitted', [])
-        assert len(mark)<=1
+        rr_signal = ev.get('rr_completion_signal', [])
+        assert len(mark) <= 1 and len(rr_signal) <= 1
+        dedicated_fence = trace['metadata'].get('rrSeparateCompletionFence', False)
+        assert bool(rr_signal) == (dedicated_fence and bool(mark)), 'RR fence domain mismatch'
+        completion_signal = rr_signal[0] if rr_signal else e['signal_end']
         if mark:
-            m=mark[0]
-            assert m['a']==e['signal_end']['a'] and m['qpc']>=e['signal_end']['qpc']
-            if 'resource_wait_end' in ev: assert m['qpc']>=ev['resource_wait_end'][0]['qpc']
-            if measured(e['execute_begin']): durations['signalToRrRegisterMs'].append(ms(m['qpc']-e['signal_end']['qpc']))
+            m = mark[0]
+            assert m['a'] == completion_signal['a'] and m['qpc'] >= completion_signal['qpc']
+            if rr_signal:
+                assert e['execute_end']['qpc'] <= completion_signal['qpc'] <= m['qpc'] <= e['present_begin']['qpc']
+            elif 'resource_wait_end' in ev:
+                assert m['qpc'] >= ev['resource_wait_end'][0]['qpc']
+            if measured(e['execute_begin']):
+                durations['signalToRrRegisterMs'].append(ms(m['qpc'] - completion_signal['qpc']))
         associations.append(dict(frame=frame,submission=sub,production=e['execute_end']['production'],epoch=e['execute_end']['epoch'],
                                  executeQpc=e['execute_begin']['qpc'],executeEndQpc=e['execute_end']['qpc'],
                                  presentQpc=e['present_begin']['qpc'],presentEndQpc=e['present_end']['qpc'],
-                                 signalQpc=e['signal_end']['qpc'],fence=e['signal_end']['a'],
+                                 signalQpc=e['signal_end']['qpc'],fence=completion_signal['a'],
+                                 frameFence=e['signal_end']['a'],rrCompletionSignalQpc=completion_signal['qpc'] if mark else None,
                                  registerQpc=mark[0]['qpc'] if mark else None,
                                  rrPhase=mark[0]['b'] if mark else None))
         for snap in ev.get('input_snapshot', []):

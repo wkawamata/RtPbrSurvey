@@ -108,6 +108,7 @@ struct CommandLineOptions
     bool rrFenceTraceTimingOnly = false;
     bool rrFenceTraceVSyncCycle = false;
     bool rrFenceTraceNonblockingCycle = false;
+    bool pathTracingRrSeparateCompletionFence = false;
     bool rrFenceTraceCameraMotion = false;
     bool pathTracingRrSafeSerial = false;
     bool pathTracingRrChained = false;

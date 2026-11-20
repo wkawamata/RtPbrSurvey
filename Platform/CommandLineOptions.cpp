@@ -538,6 +538,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.pathTracingRrChained = IsCommandLineArg(argv[++i], L"chained");
             options.pathTracingRrSafeSerial = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrSeparateCompletionFence"))
+        {
+            options.pathTracingRrSeparateCompletionFence = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrStrictSchedule"))
         {
             options.pathTracingRrStrictSchedule = true;
@@ -1182,6 +1186,11 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
     {
         throw std::invalid_argument("-RrFenceTraceNonblockingCycle requires a detailed trace of at least 12 seconds "
                                     "with VSync enabled and blocking acquisition at startup.");
+    }
+
+    if (options.pathTracingRrSeparateCompletionFence && !options.pathTracingRrChained)
+    {
+        throw std::invalid_argument("-PathTracingRrSeparateCompletionFence requires -PathTracingRrSchedule chained.");
     }
 
     return options;

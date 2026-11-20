@@ -519,6 +519,7 @@ public:
     void SetRrEagerProduction(bool enabled) { m_rrEagerProduction = enabled; }
     void SetRrSafeInputs(bool enabled) { m_rrSafeInputs = enabled; }
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
+    void SetRrSeparateCompletionFence(bool enabled) { m_rrSeparateCompletionFence = enabled; }
     void SetRrRecoveryFault(Engine::RrRecoveryFault fault)
     {
         m_rrRecoveryFault = fault;
@@ -1625,6 +1626,11 @@ private:
     bool m_rrEagerProduction = true;
     bool m_rrSafeInputs = false;
     bool m_rrChainedSchedule = false;
+    bool m_rrSeparateCompletionFence = false;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    ComPtr<ID3D12Fence> m_rrCompletionFence;
+    uint64_t m_rrCompletionFenceValue = 0;
+#endif
     unsigned int m_rrReservedOutputSlot = 0;
     Engine::RrRecoveryFault m_rrRecoveryFault = Engine::RrRecoveryFault::None;
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
@@ -2153,6 +2159,9 @@ private:
     void ExecutePtRrEvaluatePass(const RenderPass& pass);
     bool IsPtRrNativeRequested() const;
     bool CanRunPtRrNative() const;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    uint64_t CompletedRrFenceValue() const;
+#endif
     bool SupportsPathTracingReconstructionSurfaces() const;
     bool SupportsPtRrSurfaces() const;
     void ExecuteNrdReconstructionPass(const RenderPass& pass);

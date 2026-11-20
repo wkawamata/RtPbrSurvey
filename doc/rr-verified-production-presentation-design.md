@@ -148,3 +148,21 @@ ToneMapとCaptureは検証済みslotを読み、最後のGPU読取をTrackRead�
 比較には [Nsight SystemsのChained基準](rr-crash-offline-audit-20261119.md) を使う。
 現行は71 Presentのうち35提出がPT＋RRを含まなかった。試作では再提示の数と、
 アプリ内トレースの新規RR採用頻度・姿勢の遅延を合わせて見る。
+
+## Chainedの完了フェンスを分離（2026-11-20）
+
+-PathTracingRrSchedule chained に -PathTracingRrSeparateCompletionFence を
+併用したときだけ、RR検証結果を含むGPU提出直後に専用フェンスへSignalする。
+直後にRRパケットへフェンス値を登録し、Presentとフレーム資源取得の前に
+登録を済ませる。RRのPollはその専用フェンスを監視する。Resizeや終了の
+既存のGPU drainと、表示側資源の再利用フェンスは従来どおり使う。
+
+この段階のSignalは、生成・表示を含む現行コマンドリスト全体の後に置く。
+検証結果のコピー直後にSignalする独立の生成コマンドリストや、完了イベントで
+Presentを駆動する処理は未実装。生成側のアロケーター、定数、ステージング領域の
+独立と所有権モデルの接続が次の作業。既存トレースでは検証コピー完了からCPU公開
+までは約0.9 msなので、Signal位置だけで画面更新間隔が短くなるとは見込まない。
+
+アプリ内詳細トレースは rr_completion_signal を記録する。分析はRRフェンスと
+従来のフレームフェンスを分け、専用Signal→RR登録→Presentの順序とフェンス値を
+検証する。GPU実行による検証は保留。

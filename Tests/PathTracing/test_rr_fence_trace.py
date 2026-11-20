@@ -48,6 +48,21 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(m['publishToFirstPresentMs']['mean'],10)
         self.assertEqual(m['rrRegisterMinusGpuPacketEndMs']['mean'],9)
 
+    def test_rr_completion_fence_is_separate_and_registered_before_present(self):
+        trace = fixture()
+        trace['metadata']['rrSeparateCompletionFence'] = True
+        mark = next(row for row in trace['events'] if row['event'] == 'rr_mark_submitted')
+        mark.update(qpc=111, a=12)
+        signal = dict(mark, event='rr_completion_signal')
+        trace['events'] = sorted(trace['events'] + [signal], key=lambda row: row['qpc'])
+        data = analyze(trace)['associations'][0]
+        self.assertEqual(data['fence'], 12)
+        self.assertEqual(data['frameFence'], 1)
+        self.assertLess(data['registerQpc'], data['presentQpc'])
+        mark.update(a=1)
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+
     def test_regression_and_wrong_fence_rejected(self):
         for name in ['execute_end','rr_mark_submitted']:
             f=fixture();row=next(e for e in f['events'] if e['event']==name)
