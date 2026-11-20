@@ -437,6 +437,7 @@ void RtPbrSurveyApp::OnInit()
     m_sceneRenderer.EngineForDebugTools().SetRrChainedSchedule(m_commandLineOptions.pathTracingRrChained);
     m_sceneRenderer.EngineForDebugTools().SetRrSeparateCompletionFence(
         m_commandLineOptions.pathTracingRrSeparateCompletionFence);
+    m_sceneRenderer.EngineForDebugTools().SetRrVerifiedPresent(m_commandLineOptions.pathTracingRrVerifiedPresent);
     // First-output/lifecycle validators require the observable Ready phase.
     m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
         !m_commandLineOptions.pathTracingRrStrictSchedule &&
@@ -791,6 +792,7 @@ void RtPbrSurveyApp::OnInit()
                                                                               : "eager"},
                           {"nonblocking", m_commandLineOptions.nonblockingFrameAcquisition},
                           {"rrSeparateCompletionFence", m_commandLineOptions.pathTracingRrSeparateCompletionFence},
+                          {"rrVerifiedPresent", m_commandLineOptions.pathTracingRrVerifiedPresent},
                           {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
                           {"renderWidth", context.renderWidth},
                           {"renderHeight", context.renderHeight},
@@ -1154,6 +1156,10 @@ void RtPbrSurveyApp::OnIdle()
             const bool vsync = elapsed < phaseDuration || elapsed >= 2.0 * phaseDuration;
             m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(vsync);
         }
+    }
+    if (!m_sceneRenderer.EngineForDebugTools().WaitForVerifiedRrProduction())
+    {
+        return;
     }
     if (m_commandLineOptions.nonblockingFrameAcquisition &&
         !m_sceneRenderer.EngineForDebugTools().AcquireFrameResources())

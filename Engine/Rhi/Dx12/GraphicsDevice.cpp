@@ -279,7 +279,7 @@ void GraphicsDevice::CloseFenceEvent()
     }
 }
 
-void GraphicsDevice::Present(UINT syncInterval, UINT flags)
+HRESULT GraphicsDevice::Present(UINT syncInterval, UINT flags)
 {
     if (syncInterval == 0 && m_tearingSupported)
     {
@@ -294,6 +294,7 @@ void GraphicsDevice::Present(UINT syncInterval, UINT flags)
     const HRESULT result = m_swapChain->Present(syncInterval, flags);
     RtPbrSurvey::g_rrFenceTrace.Record("present_result", static_cast<uint32_t>(result), syncInterval, flags);
     ThrowIfFailed(result);
+    return result;
 }
 
 void GraphicsDevice::ResizeSwapChain(UINT bufferCount, UINT newWidth, UINT newHeight, DXGI_FORMAT format, UINT flags)

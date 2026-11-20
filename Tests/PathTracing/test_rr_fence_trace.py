@@ -125,6 +125,17 @@ class TraceTests(unittest.TestCase):
         f=fixture();f['overflow']=True
         with self.assertRaises(AssertionError): analyze(f)
 
+    def test_verified_present_reports_split_submissions_and_fallbacks(self):
+        trace = fixture()
+        trace.update(timingOnly=True, events=[], gpu=[], calibrations=[],
+                     metadata={'rrVerifiedPresent': True},
+                     verifiedProductionSubmissions=4, verifiedFreshPresentations=2,
+                     verifiedFallbackPresentations=1)
+        self.assertEqual(analyze(trace)['verifiedPresentSession'], dict(productions=4, fresh=2, fallback=1))
+        trace['verifiedFreshPresentations'] = 4
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+
     def test_timing_control_has_no_events(self):
         f=fixture();f.update(timingOnly=True,events=[],gpu=[],calibrations=[])
         r=analyze(f);self.assertAlmostEqual(r['publishedFps'],1/.3)

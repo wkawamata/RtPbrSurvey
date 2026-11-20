@@ -461,7 +461,6 @@ public:
     // Restricts scene buffers and final tone mapping; (0,0,0,0) restores full-window output.
     void SetSceneViewport(UINT x, UINT y, UINT width, UINT height);
     void Initialize(UINT width, UINT height);
-    void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     const RtPbrSurvey::RendererCpuTiming& CpuFrameTiming() const { return m_cpuFrameTimer.Completed(); }
     const DXGI_ADAPTER_DESC1& AdapterDescription() const { return m_graphicsDevice.AdapterDescription(); }
@@ -520,6 +519,8 @@ public:
     void SetRrSafeInputs(bool enabled) { m_rrSafeInputs = enabled; }
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
     void SetRrSeparateCompletionFence(bool enabled) { m_rrSeparateCompletionFence = enabled; }
+    void SetRrVerifiedPresent(bool enabled) { m_rrVerifiedPresent = enabled; }
+    bool WaitForVerifiedRrProduction();
     void SetRrRecoveryFault(Engine::RrRecoveryFault fault)
     {
         m_rrRecoveryFault = fault;
@@ -1627,11 +1628,16 @@ private:
     bool m_rrSafeInputs = false;
     bool m_rrChainedSchedule = false;
     bool m_rrSeparateCompletionFence = false;
+    bool m_rrVerifiedPresent = false;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     ComPtr<ID3D12Fence> m_rrCompletionFence;
     uint64_t m_rrCompletionFenceValue = 0;
     ComPtr<ID3D12CommandAllocator> m_rrProductionAllocator;
     uint64_t m_rrProductionAllocatorFence = 0;
+    uint64_t m_rrVerifiedFrameFence = 0;
+    uint64_t m_rrVerifiedFrameEpoch = 0;
+    uint64_t m_rrVerifiedFrameInputId = 0;
+    std::unique_ptr<void, decltype(&CloseHandle)> m_rrProductionEvent{nullptr, &CloseHandle};
 #endif
     unsigned int m_rrReservedOutputSlot = 0;
     Engine::RrRecoveryFault m_rrRecoveryFault = Engine::RrRecoveryFault::None;
@@ -2052,7 +2058,14 @@ private:
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);
     std::vector<UINT8> GenerateSemanticFallbackTextureData(Engine::TextureSemantic semantic);
-    void PopulateCommandList(ID3D12CommandAllocator& allocator);
+    enum class FramePasses
+    {
+        Combined,
+        Production,
+        Presentation,
+    };
+    void RenderFrame(const UiRenderHandler& uiRenderHandler, FramePasses passes, uint64_t expectedRrInputId = 0);
+    void PopulateCommandList(ID3D12CommandAllocator& allocator, FramePasses passes);
 
     void AddPass(RenderPass pass);
     ResourceUsages MakeResourceUsages(std::initializer_list<ResourceUsage> usages) const;
@@ -2100,7 +2113,7 @@ private:
     RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
     RenderPass MakeScreenshotPass();
-    void BuildRenderPasses();
+    void BuildRenderPasses(FramePasses passes);
     void AddFrameScenePasses(const Engine::PathTracingReconstructionPlan& reconstruction);
     void AddFramePresentationPasses();
     void AddSceneRenderPasses();
@@ -2164,6 +2177,8 @@ private:
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     uint64_t CompletedRrFenceValue() const;
     bool CanUseRrProductionAllocator() const;
+    bool IsVerifiedRrProductionReady() const;
+    bool CanSplitRrFrame() const;
 #endif
     bool SupportsPathTracingReconstructionSurfaces() const;
     bool SupportsPtRrSurfaces() const;

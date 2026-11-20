@@ -13,8 +13,18 @@
 
 #include "RtPbrSurveyEngine.h"
 
-void RtPbrSurveyEngine::BuildRenderPasses()
+void RtPbrSurveyEngine::BuildRenderPasses(FramePasses passes)
 {
+    m_renderGraphRuntime.Graph().Clear();
+    m_renderGraphRuntime.Operations().Clear();
+
+    if (passes == FramePasses::Presentation)
+    {
+        AddPass(MakeClearPass());
+        AddFramePresentationPasses();
+        return;
+    }
+
     m_temporalUpscalerOutputAvailable = false;
     m_reflectionHistoryCommitPending = false;
     m_reflectionSamplingCommitPending = false;
@@ -41,16 +51,18 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         m_nrdLastDispatchCount = 0;
     }
 #endif
-    m_renderGraphRuntime.Graph().Clear();
-    m_renderGraphRuntime.Operations().Clear();
-
-    AddPass(MakeClearPass());
-
+    if (passes == FramePasses::Combined)
+    {
+        AddPass(MakeClearPass());
+    }
     if (m_sceneResourcesAvailable)
     {
         AddFrameScenePasses(reconstruction);
     }
-    AddFramePresentationPasses();
+    if (passes == FramePasses::Combined)
+    {
+        AddFramePresentationPasses();
+    }
 }
 
 void RtPbrSurveyEngine::AddFrameScenePasses(const Engine::PathTracingReconstructionPlan& reconstruction)

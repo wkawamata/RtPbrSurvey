@@ -542,6 +542,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.pathTracingRrSeparateCompletionFence = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrVerifiedPresent"))
+        {
+            options.pathTracingRrVerifiedPresent = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrStrictSchedule"))
         {
             options.pathTracingRrStrictSchedule = true;
@@ -1191,6 +1195,17 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
     if (options.pathTracingRrSeparateCompletionFence && !options.pathTracingRrChained)
     {
         throw std::invalid_argument("-PathTracingRrSeparateCompletionFence requires -PathTracingRrSchedule chained.");
+    }
+
+    if (options.pathTracingRrVerifiedPresent &&
+        (!options.pathTracingRrSeparateCompletionFence ||
+         (!options.rrFenceTracePath.empty() && !options.rrFenceTraceTimingOnly) ||
+         !options.pathTracingRrComparisonCaptureDirectory.empty() ||
+         !options.pathTracingRrRegressionValidationDirectory.empty() ||
+         !options.pathTracingRrRecoveryValidationDirectory.empty()))
+    {
+        throw std::invalid_argument("-PathTracingRrVerifiedPresent requires the separate RR completion fence and "
+                                    "supports timing-only traces and regular scene rendering.");
     }
 
     return options;

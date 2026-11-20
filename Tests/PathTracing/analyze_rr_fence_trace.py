@@ -36,6 +36,12 @@ def analyze(trace):
                   freshPresentFps=trace['freshPresents']/seconds,
                   publishedFps=trace['published']/seconds,
                   metadata=trace['metadata'], timingOnly=trace['timingOnly'])
+    if trace['metadata'].get('rrVerifiedPresent', False):
+        production = trace['verifiedProductionSubmissions']
+        fresh = trace['verifiedFreshPresentations']
+        fallback = trace['verifiedFallbackPresentations']
+        assert min(production, fresh, fallback) >= 0 and fresh + fallback <= production
+        report['verifiedPresentSession'] = dict(productions=production, fresh=fresh, fallback=fallback)
     if trace['timingOnly']:
         assert not trace['events'] and not trace['gpu'] and not trace['calibrations']
         return report

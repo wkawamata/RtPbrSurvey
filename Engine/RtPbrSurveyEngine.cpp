@@ -3085,6 +3085,14 @@ void RtPbrSurveyEngine::LoadAssets()
             0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_rrCompletionFence)));
         ThrowIfFailed(m_graphicsDevice.Device()->CreateCommandAllocator(
             D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_rrProductionAllocator)));
+        if (m_rrVerifiedPresent)
+        {
+            m_rrProductionEvent.reset(CreateEventW(nullptr, FALSE, FALSE, nullptr));
+            if (!m_rrProductionEvent)
+            {
+                ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+            }
+        }
     }
 #endif
     m_frameResources[m_currentFrameIndex].fenceValue = 1;
@@ -6188,7 +6196,9 @@ UINT RtPbrSurveyEngine::GetVisibleCubeCount() const
 }
 
 // Render the scene.
-void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
+void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
+                                      FramePasses passes,
+                                      uint64_t expectedRrInputId)
 {
     PIXBeginEvent(0, L"RenderFrame");
 
@@ -6210,14 +6220,18 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
         ID3D12CommandAllocator* allocator = m_frameResources[m_currentFrameIndex].commandAllocator.Get();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-        const bool usingRrAllocator = CanUseRrProductionAllocator();
+        const bool usingRrAllocator = passes != FramePasses::Presentation && CanUseRrProductionAllocator();
+        if (passes == FramePasses::Production && !usingRrAllocator)
+        {
+            throw std::logic_error("Split RR production requires a retired production allocator");
+        }
         if (usingRrAllocator)
         {
             allocator = m_rrProductionAllocator.Get();
         }
 #endif
         trace.Record("record_begin");
-        PopulateCommandList(*allocator);
+        PopulateCommandList(*allocator, passes);
         if (!m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.empty())
             trace.Submission(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.front().frameId);
         trace.Record("record_end");
@@ -6244,11 +6258,33 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
                 trace.Record("rr_completion_signal", fenceValue);
                 m_ptRrLive->MarkSubmitted(fenceValue);
             }
+            if (passes == FramePasses::Production)
+            {
+                m_rrVerifiedFrameEpoch = m_pathTracingReconstructionHistory.Epoch(
+                    Engine::PathTracingReconstructionBackend::Rr);
+                m_rrVerifiedFrameInputId = submittedRrWork ? m_ptRrLive->InputFrameId() : 0;
+                m_rrVerifiedFrameFence = fenceValue;
+                trace.VerifiedProductionSubmitted();
+                if (!ResetEvent(m_rrProductionEvent.get()))
+                {
+                    ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+                }
+                ThrowIfFailed(m_rrCompletionFence->SetEventOnCompletion(fenceValue, m_rrProductionEvent.get()));
+            }
         }
 #endif
-        CommitReflectionHistoryFrame();
-        CommitReflectionSamplingFrame();
-        CommitPathTracingFrame();
+        if (passes != FramePasses::Presentation)
+        {
+            CommitReflectionHistoryFrame();
+            CommitReflectionSamplingFrame();
+            CommitPathTracingFrame();
+        }
+    }
+
+    if (passes == FramePasses::Production)
+    {
+        PIXEndEvent();
+        return;
     }
 
     if (m_reflectionHdrDiagnosticPending)
@@ -6290,21 +6326,29 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         presentedRr = m_ptRrLive->FrameId();
 #endif
     trace.Record("present_begin", presentedRr, m_vSyncEnabled ? 1 : 0, m_currentFrameIndex);
-    // Present the frame.
+    HRESULT presentResult;
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::Present);
-        m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
+        presentResult = m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
     }
 
     trace.Record(
         "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
-    trace.Presented(presentedRr);
+    if (passes != FramePasses::Presentation || presentResult == S_OK)
+    {
+        trace.Presented(presentedRr);
+    }
+    if (passes == FramePasses::Presentation && presentResult == S_OK)
+    {
+        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId);
+    }
     trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     if (m_ptRrLive && !m_rrCompletionFence)
         m_ptRrLive->MarkSubmitted(submittedFenceValue);
-    if (CanRunPtRrNative() && m_ptRrLive &&
+    if ((passes != FramePasses::Presentation || presentResult == S_OK) &&
+        CanRunPtRrNative() && m_ptRrLive &&
         ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
         m_ptRrLive->MarkPresented();
 #endif
@@ -6372,8 +6416,53 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
     m_pendingResizeHeight = height;
 }
 
+bool RtPbrSurveyEngine::WaitForVerifiedRrProduction()
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (!IsVerifiedRrProductionReady())
+    {
+        const HANDLE readyEvent = m_rrProductionEvent.get();
+        const DWORD result = MsgWaitForMultipleObjectsEx(1, &readyEvent, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        if (result == WAIT_FAILED)
+        {
+            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+        }
+        // Return to the message loop before either recording or reusing the frame resources.
+        return false;
+    }
+#endif
+    return true;
+}
+
 void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
 {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_rrVerifiedFrameFence != 0)
+    {
+        if (!IsVerifiedRrProductionReady())
+        {
+            return;
+        }
+        m_rrVerifiedFrameFence = 0;
+        ReadCompletedFrameData();
+        const uint64_t currentEpoch =
+            m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
+        if (!m_pendingResize && CanSplitRrFrame() && currentEpoch == m_rrVerifiedFrameEpoch)
+        {
+            m_cpuFrameTimer.Begin();
+            m_workMeter.Start();
+            m_ptRrLive->Poll(CompletedRrFenceValue(), currentEpoch, false, m_rrEagerProduction);
+            RenderFrame(uiRenderHandler, FramePasses::Presentation, m_rrVerifiedFrameInputId);
+            m_workMeter.End();
+            m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
+            m_cpuFrameTimer.End();
+            return;
+        }
+        // A scene/settings change intervened. Retire submitted resources with
+        // the ordinary frame fence; the standard path handles the new epoch.
+        MarkPendingTransientResources(SignalFenceForQueuedGpuWork());
+    }
+#endif
     // Direct diagnostic callers retain a safe blocking fallback. The normal
     // application loop tests readiness before entering this function.
     AcquireFrameResources(true);
@@ -6417,7 +6506,14 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
             m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused && advanceFrame,
             m_rrEagerProduction);
 #endif
-    RenderFrame(uiRenderHandler);
+    FramePasses passes = FramePasses::Combined;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (CanSplitRrFrame() && CanUseRrProductionAllocator() && MakePathTracingReconstructionPlan().runRrConversion)
+    {
+        passes = FramePasses::Production;
+    }
+#endif
+    RenderFrame(uiRenderHandler, passes);
     m_workMeter.End();
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
     m_cpuFrameTimer.End();
@@ -6716,14 +6812,17 @@ void RtPbrSurveyEngine::RegisterDepthPrePassPipeline(const D3D12_GRAPHICS_PIPELI
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
 
-void RtPbrSurveyEngine::PopulateCommandList(ID3D12CommandAllocator& allocator)
+void RtPbrSurveyEngine::PopulateCommandList(ID3D12CommandAllocator& allocator, FramePasses passes)
 {
     PIXBeginEvent(1, L"PopulateCommandList");
 
     BeginFrame(allocator);
     ResetResourceStates();
-    RebuildAccelerationStructures();
-    BuildRenderPasses();
+    if (passes != FramePasses::Presentation)
+    {
+        RebuildAccelerationStructures();
+    }
+    BuildRenderPasses(passes);
     ValidateRenderPassGraph();
     AnalyzeResourceLifetimes();
     // DebugPrintLifetimes();
@@ -7673,6 +7772,28 @@ bool RtPbrSurveyEngine::CanUseRrProductionAllocator() const
         throw std::runtime_error("Device removed before RR command allocator retirement");
     }
     return completed >= m_rrProductionAllocatorFence;
+}
+
+bool RtPbrSurveyEngine::IsVerifiedRrProductionReady() const
+{
+    if (m_rrVerifiedFrameFence == 0)
+    {
+        return true;
+    }
+    const uint64_t completed = CompletedRrFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        throw std::runtime_error("Device removed before verified RR presentation");
+    }
+    return completed >= m_rrVerifiedFrameFence;
+}
+
+bool RtPbrSurveyEngine::CanSplitRrFrame() const
+{
+    return m_rrProductionEvent && m_sceneResourcesAvailable && m_ptRrLive &&
+           CanRunPtRrNative() && m_rayReconstructionSupport.IsAvailable() &&
+           m_pathTracingSettings.rrContinuous && !m_toneMapPass.settings.highlight.enabled &&
+           !m_pixelPickPending && !m_specularDebugRayQueryPending;
 }
 #endif
 

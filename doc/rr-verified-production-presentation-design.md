@@ -182,3 +182,29 @@ rr_allocator_signalでアロケーターの退役値を記録する。同じ提�
 ディスクリプターのステージング、GPU時刻の読み戻しは引き続き現行の
 フレーム資源フェンスに従う。専用アロケーターを導入しただけでは描画頻度は
 変わらない。次の境界は、これらの資源を確保して生成専用の提出を可能にすること。
+
+## 先行上限1の分割提出試作（2026-11-20）
+
+-PathTracingRrSchedule chained -PathTracingRrSeparateCompletionFence に
+-PathTracingRrVerifiedPresent を付けると、対応中のChained RRフレームを
+生成と提示の2提出に分ける。初期試作は既存のPathTracingRrLiveで
+同時生成を1件に限定する。第1段階の複数スロットの状態モデルへの接続は、
+生成資源を複数確保する前に行う。
+
+生成ではClear・ToneMap・UI・Captureを組み立てず、PT、RRとその検証を
+提出する。専用フェンスのイベントをWindowsメッセージと一緒に待つ。
+GPU完了までは同じフレーム資源を保持し、次の生成や提示で再利用しない。
+完了後に既存のPollがsummaryを検証し、その後の提示のみでToneMapやUIを
+記録する。S_OKのPresentを採用として数える。新規出力が拒否された場合の
+保持画像やNativeによる提示は別に数える。resize、epoch変更、対象外の
+描画条件が介在した場合は、生成を退役させて従来の描画経路へ戻す。
+
+生成専用アロケーターは分離した。定数とdescriptor stagingは初期試作では
+複製せず、1件の生成から提示まで同じフレーム資源を占有させる。
+新規生成の先行投入を増やせる構成ではない。
+既存の詳細トレースは1提出につき1 Presentを前提としているため、
+この試作のアプリ内トレースはTimingOnlyを使う。集計の
+verifiedPresentSessionに、ウォームアップを含むセッション全体の
+生成提出・新規画像採用・fallback提示を出力する。
+固定ウィンドウでこの3つの数とRR失敗カウンターを確認してから、
+Nsight Systemsの提出単位の比較へ進む。

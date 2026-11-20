@@ -154,6 +154,20 @@ public:
             ++m_freshPresents;
         m_lastPresented = id;
     }
+    void VerifiedProductionSubmitted()
+    {
+        if (m_running && !m_finished)
+            ++m_verifiedProductionSubmissions;
+    }
+    void VerifiedPresentation(bool newRr)
+    {
+        if (!m_running || m_finished)
+            return;
+        if (newRr)
+            ++m_verifiedFreshPresentations;
+        else
+            ++m_verifiedFallbackPresentations;
+    }
     void Published(uint64_t id)
     {
         if (!m_running || m_finished)
@@ -231,6 +245,9 @@ public:
                                        {"presents", m_presents - m_startPresent},
                                        {"freshPresents", m_freshPresents - m_startFresh},
                                        {"published", m_published - m_startPublished},
+                                       {"verifiedProductionSubmissions", m_verifiedProductionSubmissions},
+                                       {"verifiedFreshPresentations", m_verifiedFreshPresentations},
+                                       {"verifiedFallbackPresentations", m_verifiedFallbackPresentations},
                                        {"metadata", metadata},
                                        {"events", std::move(events)},
                                        {"gpu", std::move(gpu)},
@@ -252,6 +269,7 @@ private:
     uint64_t m_frequency = 0, m_start = 0, m_windowStart = 0, m_windowEnd = 0, m_lastCalibration = 0;
     uint64_t m_frame = 0, m_tick = 0, m_submission = 0, m_production = 0, m_epoch = 0, m_lastGpu = 0;
     uint64_t m_presents = 0, m_freshPresents = 0, m_published = 0, m_lastPresented = 0;
+    uint64_t m_verifiedProductionSubmissions = 0, m_verifiedFreshPresentations = 0, m_verifiedFallbackPresentations = 0;
     uint64_t m_startPresent = 0, m_startFresh = 0, m_startPublished = 0;
     std::vector<Event> m_events;
     std::vector<GpuPoint> m_gpu;
