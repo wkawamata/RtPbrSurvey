@@ -105,3 +105,27 @@ GPUの処理能力や表示条件が変わるため、1対1の目標と60 FPSの
 MoveToNextFrame、Engine/RtPbrSurveyEnginePasses.cppのBuildRenderPasses、
 Renderer/PathTracingRrLive.cppのPoll、Renderer/PathTracingRrHistory.hの履歴状態。
 変更は実験経路で進める。現行経路と試験用GPU計測の保留は維持する。
+
+## 第1段階の実装結果（2026-11-20）
+
+Renderer/PathTracingRrProductionQueue はGPU APIから独立したCPU側の所有権モデル。
+生成完了まで検証を許さず、検証済み出力は古い順に提示候補にする。
+上限1／2は記録中・投入済み・検証済み未提示の合計に適用し、表示やCaptureの
+GPU参照が残るスロットは最終参照の完了まで再利用しない。
+
+組み込み時はレンダースレッドで次の順序を維持する。
+
+1. Reserveのticketを生成資源と対応づける。GPU提出を記録したら、完了値を観測する前に
+   Submitでそのフェンスを登録する。未提出で打ち切った記録はDiscardRecordingで破棄する。
+2. ObserveFencesには生成完了と表示側のGPU完了を別々の値として渡す。完了した生成の
+   summaryの照合を実行し、古いticketからValidateへ結果を渡す。
+3. NextPresentationで新規候補を選ぶ。実際にGPUへ出した読み取りをTrackReadで凍結し、
+   PresentがS_OKで終わった時だけMarkPresentedする。失敗やocclusionでも、
+   すでにGPUへ出した読み取りのフェンスは守る。Captureも読み取りを登録する。
+4. epoch変更はAdvanceEpochで旧ticketを提示対象から外す。生成・参照の退役が終わって
+   から予約を再開する。拒否時は同じSDK履歴に依存する後続を破棄し、次のticketの
+   previousEvaluationSerialを0にする。既存のsamplingやカメラの履歴判定も維持する。
+
+CMake Debugで新規のPathTracingRrProductionQueueと既存のPathTracingRrHistoryを
+実行して合格した。上限、順序、古いticket、失敗したPresent後の参照、拒否と履歴reset、
+epoch切替、GPU未提出時の破棄、device removalを確認した。描画経路への組み込みは第2段階。

@@ -177,6 +177,7 @@
     <ClInclude Include="Renderer\PathTracingReconstructionResources.h" />
     <ClInclude Include="Renderer\PathTracingRrInputs.h" />
     <ClInclude Include="Renderer\PathTracingRrHistory.h" />
+    <ClInclude Include="Renderer\PathTracingRrProductionQueue.h" />
     <ClInclude Include="Renderer\PathTracingRrLive.h" />
     <ClInclude Include="Runtime\RrFenceTrace.h" />
     <ClInclude Include="Runtime\RrCrashLog.h" />
@@ -324,6 +325,9 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrProductionQueue.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrLive.cpp" />

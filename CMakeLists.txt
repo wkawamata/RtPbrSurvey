@@ -118,6 +118,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/PathTracingReconstructionResources.cpp
     Renderer/PathTracingRrInputs.cpp
     Renderer/PathTracingRrHistory.cpp
+    Renderer/PathTracingRrProductionQueue.cpp
     Renderer/PathTracingRrLive.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
@@ -568,6 +569,11 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_include_directories(RtPbrSurvey.PathTracingRrHistoryTests PRIVATE "${RTPBRSURVEY_ROOT}")
     target_compile_features(RtPbrSurvey.PathTracingRrHistoryTests PRIVATE cxx_std_20)
     add_test(NAME RtPbrSurvey.PathTracingRrHistory COMMAND RtPbrSurvey.PathTracingRrHistoryTests)
+    add_executable(RtPbrSurvey.PathTracingRrProductionQueueTests Tests/PathTracingRrProductionQueueTests.cpp
+        Renderer/PathTracingRrProductionQueue.cpp)
+    target_include_directories(RtPbrSurvey.PathTracingRrProductionQueueTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.PathTracingRrProductionQueueTests PRIVATE cxx_std_20)
+    add_test(NAME RtPbrSurvey.PathTracingRrProductionQueue COMMAND RtPbrSurvey.PathTracingRrProductionQueueTests)
     add_executable(RtPbrSurvey.RayReconstructionInputTests Tests/RayReconstructionInputTests.cpp)
     target_link_libraries(RtPbrSurvey.RayReconstructionInputTests PRIVATE RtPbrSurvey::SceneRenderer d3d12 dxgi)
     add_test(NAME RtPbrSurvey.RayReconstructionInputs COMMAND RtPbrSurvey.RayReconstructionInputTests)
