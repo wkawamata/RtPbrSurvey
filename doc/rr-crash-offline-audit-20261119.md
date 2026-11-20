@@ -415,6 +415,38 @@ Warm Glass Table、960×540、VSync ONで、ユーザがカメラ移動中と停
 この条件の目視確認は合格。毎フレームへの新規RR出力は今後の課題。
 ログは build/pf-crash-incident-20261119/pf05-chained-visual-20261120/ に保存。
 
+## Nsight SystemsでのChained基準キャプチャ（2026-11-20）
+
+Windows版Nsight Systems 2026.6.1.251で、Warm Glass Table、960×540、
+VSync ON、Chained RRを3秒収録した。D3D12 API、PIXマーカー、
+ExecuteCommandLists単位のGPU workload、待機APIを記録した。
+アプリ側はTimingOnlyで実行し、RR完了542回、初期リセット1回、
+SDK失敗・拒否・キャンセル0、正常終了を確認した。この完了数は
+アプリの試行全体の集計で、Nsight収録の3秒とは別。
+
+収録されたPresentは71回。PT・RR・ToneMapのあるCPU提出36回と、
+PT・RRがなくToneMapを含むCPU提出35回が交互に現れた。
+CPU提出とGPU workloadはthread IDとcorrelation IDで照合し、計測境界で
+無効または欠けていた3提出をGPU処理時間の集計から外した。
+
+| 区間 | 中央値 | 件数 |
+| --- | ---: | ---: |
+| PT＋RR＋ToneMapを含む提出のGPU workload | 14.88 ms | 34 |
+| PT・RRがなくToneMapを含む提出のGPU workload | 0.15 ms | 34 |
+| Present APIのCPU時間 | 0.33 ms | 71 |
+| 同じレンダースレッドでSignal後のフェンス通知登録に続くWin32 Wait | 42.09 ms | 69 |
+
+Win32 WaitはAPI順序とスレッドで対応づけた。OSスケジューリング情報の
+収集は行っていない。このキャプチャのGPU時間は提出単位。PTとRRの個別GPU
+時間は従来のアプリ内詳細トレースで確認する。
+別セッションの値を引き算して待ちを見積もったり、CPU側のPIXマーカーの長さを
+個別パスのGPU時間と判断したりしない。
+
+今回も約2 Presentごとに1回のPT＋RR提出が観測された。生成と提示の分離を
+試作した際は、同じ条件で交互の再提示、待機、新規採用の変化を比較する。
+.nsys-rep、SQLite、要約は build/pf-crash-incident-20261119/
+nsys-warm-glass-chained-20261120/ に保存した。
+
 ## ローカル証拠
 
 build/pf-crash-incident-20261119/ 以下のdump-all-contexts.txt、
