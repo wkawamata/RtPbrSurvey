@@ -54,11 +54,16 @@ class TraceTests(unittest.TestCase):
         mark = next(row for row in trace['events'] if row['event'] == 'rr_mark_submitted')
         mark.update(qpc=111, a=12)
         signal = dict(mark, event='rr_completion_signal')
-        trace['events'] = sorted(trace['events'] + [signal], key=lambda row: row['qpc'])
+        allocator = dict(signal, event='rr_allocator_signal')
+        trace['events'] = sorted(trace['events'] + [signal, allocator], key=lambda row: row['qpc'])
         data = analyze(trace)['associations'][0]
         self.assertEqual(data['fence'], 12)
         self.assertEqual(data['frameFence'], 1)
         self.assertLess(data['registerQpc'], data['presentQpc'])
+        allocator.update(a=1)
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+        allocator.update(a=12)
         mark.update(a=1)
         with self.assertRaises(AssertionError):
             analyze(trace)

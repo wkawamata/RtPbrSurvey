@@ -98,6 +98,13 @@ def analyze(trace):
         assert len(mark) <= 1 and len(rr_signal) <= 1
         dedicated_fence = trace['metadata'].get('rrSeparateCompletionFence', False)
         assert bool(rr_signal) == (dedicated_fence and bool(mark)), 'RR fence domain mismatch'
+        allocator_signal = ev.get('rr_allocator_signal', [])
+        assert len(allocator_signal) <= 1
+        if allocator_signal:
+            allocator = allocator_signal[0]
+            assert dedicated_fence and e['execute_end']['qpc'] <= allocator['qpc'] <= e['present_begin']['qpc']
+            if rr_signal:
+                assert allocator['a'] == rr_signal[0]['a'], 'RR allocator and completion must share the same signal'
         completion_signal = rr_signal[0] if rr_signal else e['signal_end']
         if mark:
             m = mark[0]

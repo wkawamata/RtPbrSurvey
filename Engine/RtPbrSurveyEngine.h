@@ -1630,6 +1630,8 @@ private:
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     ComPtr<ID3D12Fence> m_rrCompletionFence;
     uint64_t m_rrCompletionFenceValue = 0;
+    ComPtr<ID3D12CommandAllocator> m_rrProductionAllocator;
+    uint64_t m_rrProductionAllocatorFence = 0;
 #endif
     unsigned int m_rrReservedOutputSlot = 0;
     Engine::RrRecoveryFault m_rrRecoveryFault = Engine::RrRecoveryFault::None;
@@ -2050,7 +2052,7 @@ private:
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);
     std::vector<UINT8> GenerateSemanticFallbackTextureData(Engine::TextureSemantic semantic);
-    void PopulateCommandList();
+    void PopulateCommandList(ID3D12CommandAllocator& allocator);
 
     void AddPass(RenderPass pass);
     ResourceUsages MakeResourceUsages(std::initializer_list<ResourceUsage> usages) const;
@@ -2150,7 +2152,7 @@ private:
     void UpdatePerFrameRenderSettings();
     UINT GetVisibleCubeCount() const;
 
-    void BeginFrame();
+    void BeginFrame(ID3D12CommandAllocator& allocator);
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecuteNrdConversionPass(const RenderPass& pass);
@@ -2161,6 +2163,7 @@ private:
     bool CanRunPtRrNative() const;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     uint64_t CompletedRrFenceValue() const;
+    bool CanUseRrProductionAllocator() const;
 #endif
     bool SupportsPathTracingReconstructionSurfaces() const;
     bool SupportsPtRrSurfaces() const;

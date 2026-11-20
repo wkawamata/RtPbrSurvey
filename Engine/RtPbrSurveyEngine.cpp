@@ -3083,6 +3083,8 @@ void RtPbrSurveyEngine::LoadAssets()
     {
         ThrowIfFailed(m_graphicsDevice.Device()->CreateFence(
             0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_rrCompletionFence)));
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateCommandAllocator(
+            D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_rrProductionAllocator)));
     }
 #endif
     m_frameResources[m_currentFrameIndex].fenceValue = 1;
@@ -6206,8 +6208,16 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::RecordSubmit);
         // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
+        ID3D12CommandAllocator* allocator = m_frameResources[m_currentFrameIndex].commandAllocator.Get();
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        const bool usingRrAllocator = CanUseRrProductionAllocator();
+        if (usingRrAllocator)
+        {
+            allocator = m_rrProductionAllocator.Get();
+        }
+#endif
         trace.Record("record_begin");
-        PopulateCommandList();
+        PopulateCommandList(*allocator);
         if (!m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.empty())
             trace.Submission(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.front().frameId);
         trace.Record("record_end");
@@ -6217,12 +6227,23 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
         trace.Record("execute_end");
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-        if (m_rrCompletionFence && m_ptRrLive && m_ptRrLive->HasUnsubmittedWork())
+        const bool submittedRrWork = m_ptRrLive && m_ptRrLive->HasUnsubmittedWork();
+        if (m_rrCompletionFence && (usingRrAllocator || submittedRrWork))
         {
             const uint64_t fenceValue = ++m_rrCompletionFenceValue;
             ThrowIfFailed(m_graphicsDevice.CommandQueue()->Signal(m_rrCompletionFence.Get(), fenceValue));
-            trace.Record("rr_completion_signal", fenceValue);
-            m_ptRrLive->MarkSubmitted(fenceValue);
+            // A host-side gate may skip RR after the graph is built. The
+            // allocator still owns the submitted commands and needs a fence.
+            if (usingRrAllocator)
+            {
+                m_rrProductionAllocatorFence = fenceValue;
+                trace.Record("rr_allocator_signal", fenceValue);
+            }
+            if (submittedRrWork)
+            {
+                trace.Record("rr_completion_signal", fenceValue);
+                m_ptRrLive->MarkSubmitted(fenceValue);
+            }
         }
 #endif
         CommitReflectionHistoryFrame();
@@ -6695,11 +6716,11 @@ void RtPbrSurveyEngine::RegisterDepthPrePassPipeline(const D3D12_GRAPHICS_PIPELI
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
 
-void RtPbrSurveyEngine::PopulateCommandList()
+void RtPbrSurveyEngine::PopulateCommandList(ID3D12CommandAllocator& allocator)
 {
     PIXBeginEvent(1, L"PopulateCommandList");
 
-    BeginFrame();
+    BeginFrame(allocator);
     ResetResourceStates();
     RebuildAccelerationStructures();
     BuildRenderPasses();
@@ -7271,7 +7292,7 @@ void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE
     m_resourceRegistry.SetState(name, state);
 }
 
-void RtPbrSurveyEngine::BeginFrame()
+void RtPbrSurveyEngine::BeginFrame(ID3D12CommandAllocator& allocator)
 {
     if (m_hasRenderGraphBarrierEvents)
     {
@@ -7285,13 +7306,10 @@ void RtPbrSurveyEngine::BeginFrame()
     // Command list allocators can only be reset when the associated
     // command lists have finished execution on the GPU; apps should use
     // fences to determine GPU execution progress.
-    ThrowIfFailed(m_frameResources[m_currentFrameIndex].commandAllocator->Reset());
+    ThrowIfFailed(allocator.Reset());
 
-    // However, when ExecuteCommandList() is called on a particular command
-    // list, that command list can then be reset at any time and must be before
-    // re-recording.
-    ThrowIfFailed(m_commandList->Reset(m_frameResources[m_currentFrameIndex].commandAllocator.Get(),
-                                       GetPipelineState(PipelineId(Pipe::Forward))));
+    // The command list can be reused with a different, retired allocator.
+    ThrowIfFailed(m_commandList->Reset(&allocator, GetPipelineState(PipelineId(Pipe::Forward))));
 
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
@@ -7638,6 +7656,23 @@ bool RtPbrSurveyEngine::SupportsPtRrSurfaces() const
 uint64_t RtPbrSurveyEngine::CompletedRrFenceValue() const
 {
     return m_rrCompletionFence ? m_rrCompletionFence->GetCompletedValue() : m_graphicsDevice.CompletedFenceValue();
+}
+
+bool RtPbrSurveyEngine::CanUseRrProductionAllocator() const
+{
+    if (!m_rrProductionAllocator || !m_sceneResourcesAvailable ||
+        !m_pathTracingFrameAdvance || m_pathTracingRuntimeState.accumulationPaused ||
+        !m_ptRrLive || !m_ptRrLive->CanCapture() ||
+        !CanRunPtRrNative() || !m_rayReconstructionSupport.IsAvailable())
+    {
+        return false;
+    }
+    const uint64_t completed = CompletedRrFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        throw std::runtime_error("Device removed before RR command allocator retirement");
+    }
+    return completed >= m_rrProductionAllocatorFence;
 }
 #endif
 
