@@ -129,3 +129,22 @@ GPU参照が残るスロットは最終参照の完了まで再利用しない�
 CMake Debugで新規のPathTracingRrProductionQueueと既存のPathTracingRrHistoryを
 実行して合格した。上限、順序、古いticket、失敗したPresent後の参照、拒否と履歴reset、
 epoch切替、GPU未提出時の破棄、device removalを確認した。描画経路への組み込みは第2段階。
+
+## 第2段階の着手（2026-11-20）
+
+BuildRenderPasses内のシーン生成と、ToneMap・UI・Captureを含む提示側の
+組み立てを別の関数に分けた。現在は両方を現行と同じ順序で組み立て、
+従来の1コマンドリストで投入する。相違はパスの組み立て境界だけ。
+変更前後でパス列と条件式が一致することを確認した。
+
+次の組み込みでは、生成に必要なallocator、定数、descriptor staging、
+GPUタイムスタンプの領域を、表示資源とは別のフェンスで保護する。
+現行BeginFrameはこれらをbackbuffer indexで選んでいる。
+また現行のClearはbackbufferと必要時の深度をまとめて扱うため、
+生成側に必要な深度初期化と、表示側のbackbuffer初期化を分ける。
+ToneMapとCaptureは検証済みslotを読み、最後のGPU読取をTrackReadで管理する。
+これらを先行上限1の同じ所有権モデルにつなぐまでは、分割してGPUに投入しない。
+
+比較には [Nsight SystemsのChained基準](rr-crash-offline-audit-20261119.md) を使う。
+現行は71 Presentのうち35提出がPT＋RRを含まなかった。試作では再提示の数と、
+アプリ内トレースの新規RR採用頻度・姿勢の遅延を合わせて見る。

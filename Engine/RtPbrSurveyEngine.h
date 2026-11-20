@@ -2093,6 +2093,8 @@ private:
     RenderPass MakeImGuiPass();
     RenderPass MakeScreenshotPass();
     void BuildRenderPasses();
+    void AddFrameScenePasses(const Engine::PathTracingReconstructionPlan& reconstruction);
+    void AddFramePresentationPasses();
     void AddSceneRenderPasses();
     void AddDeferredSceneOutputPass();
     void ValidateRenderPassGraph() const;
