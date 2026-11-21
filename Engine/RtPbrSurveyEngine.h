@@ -2121,7 +2121,7 @@ private:
     void ValidateRenderPassGraph() const;
     void AnalyzeResourceLifetimes();
     void DebugPrintLifetimes();
-    void ExecutePasses();
+    void ExecutePasses(FramePasses passes);
     void ExecutePassOperation(const RenderPass& pass);
     void CreateResourcesForPass(int passIndex);
     void CreateCommittedTransientResource(TransientResource& resource);

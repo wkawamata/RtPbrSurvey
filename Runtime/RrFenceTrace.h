@@ -35,6 +35,16 @@ public:
         uint64_t before, after, gpu, cpu, frequency;
         int64_t result;
     };
+    struct GraphCpuPass
+    {
+        std::string name;
+        uint64_t ticks;
+    };
+    struct GraphCpuTiming
+    {
+        uint64_t documentTicks = 0;
+        std::vector<GraphCpuPass> passes;
+    };
     static uint64_t Now()
     {
         LARGE_INTEGER value;
@@ -197,7 +207,17 @@ public:
             m_verifiedReadyQpc = 0;
             m_verifiedCpuQpc.fill(0);
             m_verifiedGpuMs.fill(-1.0);
+            m_verifiedProductionGraph = {};
+            m_verifiedPresentationGraph = {};
         }
+    }
+    GraphCpuTiming* VerifiedGraphCpuTiming(bool presentation)
+    {
+        if (!m_running || m_finished)
+        {
+            return nullptr;
+        }
+        return presentation ? &m_verifiedPresentationGraph : &m_verifiedProductionGraph;
     }
     void VerifiedProductionReady()
     {
@@ -257,7 +277,9 @@ public:
                                              presentQpc - m_verifiedReadyQpc,
                                              m_verifiedGpuMs,
                                              m_verifiedPoseQpc,
-                                             m_verifiedCpuQpc});
+                                             m_verifiedCpuQpc,
+                                             std::move(m_verifiedProductionGraph),
+                                             std::move(m_verifiedPresentationGraph)});
             }
         }
     }
@@ -326,6 +348,15 @@ public:
                                     {"frequency", c.frequency},
                                     {"result", c.result}});
         auto verifiedTimings = nlohmann::json::array();
+        const auto writeGraphCpu = [](const GraphCpuTiming& graph)
+        {
+            auto passes = nlohmann::json::array();
+            for (const auto& pass : graph.passes)
+            {
+                passes.push_back({{"name", pass.name}, {"ticks", pass.ticks}});
+            }
+            return nlohmann::json{{"documentTicks", graph.documentTicks}, {"passes", std::move(passes)}};
+        };
         for (const auto& timing : m_verifiedTimings)
         {
             auto gpuMs = nlohmann::json::object();
@@ -346,7 +377,9 @@ public:
                                        {"submitToReadyTicks", timing.submitToReady},
                                        {"readyToPresentTicks", timing.readyToPresent},
                                        {"gpuMs", std::move(gpuMs)},
-                                       {"productionCpuOffsets", std::move(cpuOffsets)}});
+                                       {"productionCpuOffsets", std::move(cpuOffsets)},
+                                       {"productionGraphCpu", writeGraphCpu(timing.productionGraph)},
+                                       {"presentationGraphCpu", writeGraphCpu(timing.presentationGraph)}});
         }
         const nlohmann::json report = {{"version", 1},
                                        {"qpcFrequency", m_frequency},
@@ -402,6 +435,8 @@ private:
         std::array<double, kVerifiedGpuPasses.size()> gpuMs;
         uint64_t poseQpc;
         ProductionCpuTimes cpuQpc;
+        GraphCpuTiming productionGraph;
+        GraphCpuTiming presentationGraph;
     };
     std::filesystem::path m_path;
     bool m_running = false, m_capture = false, m_finished = false, m_overflow = false;
@@ -413,6 +448,8 @@ private:
     uint64_t m_verifiedPoseQpc = 0, m_verifiedSubmitQpc = 0, m_verifiedReadyQpc = 0;
     bool m_verifiedCpuRecording = false;
     ProductionCpuTimes m_verifiedCpuQpc = {};
+    GraphCpuTiming m_verifiedProductionGraph;
+    GraphCpuTiming m_verifiedPresentationGraph;
     std::array<double, kVerifiedGpuPasses.size()> m_verifiedGpuMs = {};
     std::vector<uint64_t> m_verifiedPoseToPresentTicks;
     std::vector<VerifiedTiming> m_verifiedTimings;

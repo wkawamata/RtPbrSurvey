@@ -168,6 +168,19 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(stages['passRecordingOutsideSdkMs']['p50'], 8)
         self.assertEqual(stages['rrSdkCallMs']['p50'], 4)
         self.assertEqual(sum(stage['p50'] for stage in stages.values()), 20)
+        row = trace['verifiedTimings'][0]
+        row['productionGraphCpu'] = dict(documentTicks=2, passes=[
+            dict(name='PathTracingPass', ticks=2), dict(name='PT DLSS RR Native', ticks=6)])
+        row['presentationGraphCpu'] = dict(documentTicks=1, passes=[dict(name='ToneMapPass', ticks=1)])
+        graphs = analyze(trace)['verifiedRenderGraphCpuBreakdown']
+        self.assertEqual(graphs['production']['debugDocumentMs']['p50'], 2)
+        self.assertEqual(graphs['production']['passRecordingMs']['p50'], 8)
+        self.assertEqual(graphs['production']['passesMs']['PT DLSS RR Native']['p50'], 6)
+        self.assertEqual(graphs['presentation']['passesMs']['ToneMapPass']['p50'], 1)
+        row['presentationGraphCpu']['documentTicks'] = 2
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+        row['presentationGraphCpu']['documentTicks'] = 1
         offsets['sdkEnd'] = 6
         with self.assertRaises(AssertionError):
             analyze(trace)

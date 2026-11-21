@@ -6850,7 +6850,7 @@ void RtPbrSurveyEngine::PopulateCommandList(ID3D12CommandAllocator& allocator, F
     AnalyzeResourceLifetimes();
     // DebugPrintLifetimes();
     trace.MarkVerifiedProductionCpu(CpuPoint::PassesBegin);
-    ExecutePasses();
+    ExecutePasses(passes);
     trace.MarkVerifiedProductionCpu(CpuPoint::PassesEnd);
     EndFrame();
 
@@ -6876,26 +6876,61 @@ ID3D12PipelineState* RtPbrSurveyEngine::GetPipelineState(PipelineKey pipeline) c
     return m_renderGraphRuntime.Pipelines().Find(pipeline);
 }
 
-void RtPbrSurveyEngine::ExecutePasses()
+void RtPbrSurveyEngine::ExecutePasses(FramePasses passes)
 {
+    using Trace = RtPbrSurvey::RrFenceTrace;
+    struct
+    {
+        Trace::GraphCpuTiming* timing;
+        uint64_t passStart = 0;
+        std::string passName;
+    } cpu{passes == FramePasses::Combined ? nullptr :
+              RtPbrSurvey::g_rrFenceTrace.VerifiedGraphCpuTiming(passes == FramePasses::Presentation)};
+    const uint64_t documentStart = cpu.timing ? Trace::Now() : 0;
     m_renderGraphBarrierDocument = CaptureRenderGraphDocument();
+    const auto& graph = m_renderGraphRuntime.Graph();
+    if (cpu.timing)
+    {
+        cpu.timing->documentTicks = Trace::Now() - documentStart;
+        cpu.timing->passes.reserve(graph.Size());
+    }
     Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
-    Engine::ExecuteRenderPassGraph(m_renderGraphRuntime.Graph(),
+    Engine::ExecuteRenderPassGraph(graph,
                                    {m_commandList.Get(),
                                     &m_renderGraphRuntime.Bindings(),
                                     &m_renderGraphRuntime.Pipelines(),
                                     &m_renderGraphRuntime.Constants(),
                                     &resourceTransitions,
-                                    [this](int passIndex) { CreateResourcesForPass(passIndex); },
+                                    [this, &cpu](int passIndex)
+                                    {
+                                        if (cpu.timing)
+                                        {
+                                            cpu.passStart = Trace::Now();
+                                        }
+                                        CreateResourcesForPass(passIndex);
+                                    },
                                     [this](const RenderPass& pass) { ExecutePassOperation(pass); },
-                                    [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); },
-                                    [this](int passIndex, const RenderPass& pass)
+                                    [this, &cpu](int passIndex)
+                                    {
+                                        ReleaseResourcesAfterPass(passIndex);
+                                        if (cpu.timing)
+                                        {
+                                            const uint64_t duration = Trace::Now() - cpu.passStart;
+                                            cpu.timing->passes.push_back({std::move(cpu.passName), duration});
+                                        }
+                                    },
+                                    [this, &cpu](int passIndex, const RenderPass& pass)
                                     {
                                         const auto node = std::find_if(m_renderGraphBarrierDocument.nodes.begin(),
                                             m_renderGraphBarrierDocument.nodes.end(), [&](const auto& value)
                                             { return value.kind == Engine::RenderGraphNodeKind::Pass && value.passIndex == passIndex; });
-                                        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), WideToUtf8(pass.name), passIndex,
+                                        std::string passName = WideToUtf8(pass.name);
+                                        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), passName, passIndex,
                                             node == m_renderGraphBarrierDocument.nodes.end() ? 0 : node->id.value);
+                                        if (cpu.timing)
+                                        {
+                                            cpu.passName = std::move(passName);
+                                        }
                                     }});
     m_hasRenderGraphBarrierEvents = true;
 }

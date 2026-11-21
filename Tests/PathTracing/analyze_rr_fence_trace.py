@@ -40,6 +40,18 @@ def production_cpu_ticks(offsets, total):
                 executeCommandLists=execute, fenceSignalAndRegistration=register)
 
 
+def graph_cpu_ticks(graph, interval):
+    document = graph['documentTicks']
+    assert document >= 0 and graph['passes'], 'Missing render graph CPU timings'
+    passes = defaultdict(int)
+    for entry in graph['passes']:
+        assert entry['name'] and entry['ticks'] >= 0
+        passes[entry['name']] += entry['ticks']
+    total = sum(passes.values())
+    assert document + total <= interval, 'Render graph CPU timings exceed their enclosing interval'
+    return document, total, passes
+
+
 def analyze(trace):
     assert trace['finished'] and not trace['overflow'], 'Incomplete/overflowed trace'
     freq = trace['qpcFrequency']
@@ -66,6 +78,8 @@ def analyze(trace):
             phase_ticks = ('poseToSubmitTicks', 'submitToReadyTicks', 'readyToPresentTicks')
             stages = defaultdict(list)
             production_cpu = defaultdict(list)
+            graph_stages = {'production': defaultdict(list), 'presentation': defaultdict(list)}
+            graph_passes = {'production': defaultdict(list), 'presentation': defaultdict(list)}
             for ticks, timing in zip(samples, timings):
                 assert all(timing[key] >= 0 for key in phase_ticks)
                 assert sum(timing[key] for key in phase_ticks) == ticks
@@ -78,11 +92,28 @@ def analyze(trace):
                     for key, duration in production_cpu_ticks(timing['productionCpuOffsets'],
                                                              timing['poseToSubmitTicks']).items():
                         production_cpu[key + 'Ms'].append(duration * 1000 / freq)
+                if 'productionGraphCpu' in timing or 'presentationGraphCpu' in timing:
+                    offsets = timing['productionCpuOffsets']
+                    intervals = {'production': offsets['passesEnd'] - offsets['passesBegin'],
+                                 'presentation': timing['readyToPresentTicks']}
+                    for stage, interval in intervals.items():
+                        document, total, passes = graph_cpu_ticks(timing[stage + 'GraphCpu'], interval)
+                        graph_stages[stage]['debugDocumentMs'].append(document * 1000 / freq)
+                        graph_stages[stage]['passRecordingMs'].append(total * 1000 / freq)
+                        for name, duration in passes.items():
+                            graph_passes[stage][name].append(duration * 1000 / freq)
             report['verifiedTimingBreakdown'] = {key: stats(values) for key, values in stages.items()}
             if production_cpu:
                 assert all(len(values) == len(timings) for values in production_cpu.values())
                 report['verifiedProductionCpuBreakdown'] = {
                     key: stats(values) for key, values in production_cpu.items()}
+            if graph_stages['production']:
+                report['verifiedRenderGraphCpuBreakdown'] = {}
+                for stage, graph in graph_stages.items():
+                    assert all(len(values) == len(timings) for values in graph.values())
+                    report['verifiedRenderGraphCpuBreakdown'][stage] = {
+                        **{key: stats(values) for key, values in graph.items()},
+                        'passesMs': {name: stats(values) for name, values in graph_passes[stage].items()}}
     if trace['timingOnly']:
         assert not trace['events'] and not trace['gpu'] and not trace['calibrations']
         return report
