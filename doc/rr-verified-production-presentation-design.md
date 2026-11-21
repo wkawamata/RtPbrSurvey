@@ -477,3 +477,23 @@ RenderGraphを閉じた状態で、5秒のウォームアップ後にカメラ�
 生ログと集計は
 build/pf-crash-incident-20261119/rr-verified-present-motion-graph-demand-20261121/
 に保存した。
+
+## 16 msまでの残り時間とRelease比較
+
+17.64 msだった試行の483フレームを、姿勢確定からPresentまでの遅延順に並べた。
+最も遅い25フレームで、生成前のCPU時間とGPU上のPT時間がともに伸びていた。
+
+| 区間の中央値 | 全483フレーム | 遅い25フレーム |
+| --- | ---: | ---: |
+| 姿勢確定からPresent | 15.62 ms | 18.02 ms |
+| 姿勢確定から生成提出 | 3.59 ms | 4.83 ms |
+| GPUの生成処理全体 | 10.05 ms | 10.96 ms |
+| うちGPUのPTパス | 7.47 ms | 8.26 ms |
+| うちGPUのNative RRパス | 2.38 ms | 2.38 ms |
+| 完了観測からPresent | 1.69 ms | 1.95 ms |
+
+次の比較は同じコード、Warm Glass Table、960×540、VSync OFF、
+RenderGraph閉、同じカメラ軌道でReleaseビルドを測る。DebugとReleaseを
+別々に記録し、16 msの合否と各区間の短縮幅を確認する。ビルド構成の変更には
+CPUの最適化とD3D12 Debug Layerの差が含まれる。RenderGraphを開いた時の
+グラフ・バリア表示は独立した動作確認とする。
