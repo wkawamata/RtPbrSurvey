@@ -523,6 +523,7 @@ public:
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
     void SetRrSeparateCompletionFence(bool enabled) { m_rrSeparateCompletionFence = enabled; }
     void SetRrVerifiedPresent(bool enabled) { m_rrVerifiedPresent = enabled; }
+    void SetPathTracingPrimaryGlass16Bounces(bool enabled) { m_pathTracingPrimaryGlass16Bounces = enabled; }
     bool WaitForVerifiedRrProduction();
     void SetRrRecoveryFault(Engine::RrRecoveryFault fault)
     {
@@ -1633,6 +1634,7 @@ private:
     bool m_rrChainedSchedule = false;
     bool m_rrSeparateCompletionFence = false;
     bool m_rrVerifiedPresent = false;
+    bool m_pathTracingPrimaryGlass16Bounces = false;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     ComPtr<ID3D12Fence> m_rrCompletionFence;
     uint64_t m_rrCompletionFenceValue = 0;

@@ -62,6 +62,7 @@ struct PathTracingPassDesc
     bool denoiserDistanceDiagnostics = false;
     bool thinTransmissionActive = false;
     bool rrTransmissionPrimaryGuide = false;
+    bool primaryGlass16Bounces = false;
     bool alphaMaskActive = false;
     bool volumeTransmissionActive = false;
     bool doubleSidedActive = false;

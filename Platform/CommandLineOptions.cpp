@@ -546,6 +546,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.pathTracingRrVerifiedPresent = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingPrimaryGlass16Bounces"))
+        {
+            options.pathTracingPrimaryGlass16Bounces = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrStrictSchedule"))
         {
             options.pathTracingRrStrictSchedule = true;

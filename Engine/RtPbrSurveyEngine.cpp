@@ -174,6 +174,7 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     UINT renderWidth,
     UINT renderHeight,
     const RtPbrSurveyEngine::PathTracingSettings& settings,
+    UINT maxBounces,
     bool shadowRayEnabled,
     bool directLightEnabled,
     UINT lightCount,
@@ -188,7 +189,7 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     diagnostics.primarySamplesPerFrame = static_cast<uint64_t>(renderWidth) * renderHeight *
                                          (std::max)(settings.samplesPerFrame, 1u);
     diagnostics.maxPathSegmentsPerFrame =
-        diagnostics.primarySamplesPerFrame * (std::max)(settings.maxBounces, 1u);
+        diagnostics.primarySamplesPerFrame * maxBounces;
     diagnostics.maxRayQueriesPerFrame = diagnostics.maxPathSegmentsPerFrame;
     if (settings.denoiserDistanceDiagnostics)
     {
@@ -203,12 +204,12 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     if (emissiveNeeActive)
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
-            ((std::max)(settings.maxBounces, 1u) - 1u);
+            (maxBounces - 1u);
     }
     if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
-            ((std::max)(settings.maxBounces, 1u) - 1u);
+            (maxBounces - 1u);
     }
 
     for (size_t i = 1; i < checkPoints.size(); ++i)
@@ -580,11 +581,15 @@ std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 
 RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
+    const UINT maxBounces = (std::max)(m_pathTracingSettings.maxBounces,
+        m_pathTracingPrimaryGlass16Bounces && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
+            ? 16u : 1u);
     PathTracingDiagnostics pathTracingDiagnostics =
         BuildPathTracingDiagnostics(m_completedGpuWorkMeterCheckPoints,
                                     m_renderWidth,
                                     m_renderHeight,
                                     m_pathTracingSettings,
+                                    maxBounces,
                                     m_shadowSettings.enabled,
                                     m_lightingParams.directLightEnabled,
                                     static_cast<UINT>(m_lightingParams.lights.size()),
@@ -7751,6 +7756,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
         passDesc.debugOutput = 3 + m_pathTracingReferenceComponent;
 #endif
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
+    passDesc.primaryGlass16Bounces =
+        m_pathTracingPrimaryGlass16Bounces && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission);
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
@@ -7793,6 +7800,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
                                 (passDesc.pixelCenterPrimary ? 2u : 0u) |
                                 (passDesc.denoiserDistanceDiagnostics ? 4u : 0u) |
                                 (produced.frameJitterPrimary ? 8u : 0u) |
+                                (passDesc.primaryGlass16Bounces ? 16u : 0u) |
                                 (produced.coherentPrimaryBatch ? uint64_t(passDesc.samplesPerFrame) << 8 : 0u);
     produced.jitterPixels = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
     XMFLOAT4X4 view, projection, previousViewProjection;

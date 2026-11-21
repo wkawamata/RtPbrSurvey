@@ -438,6 +438,8 @@ void RtPbrSurveyApp::OnInit()
     m_sceneRenderer.EngineForDebugTools().SetRrSeparateCompletionFence(
         m_commandLineOptions.pathTracingRrSeparateCompletionFence);
     m_sceneRenderer.EngineForDebugTools().SetRrVerifiedPresent(m_commandLineOptions.pathTracingRrVerifiedPresent);
+    m_sceneRenderer.EngineForDebugTools().SetPathTracingPrimaryGlass16Bounces(
+        m_commandLineOptions.pathTracingPrimaryGlass16Bounces);
     // First-output/lifecycle validators require the observable Ready phase.
     m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
         !m_commandLineOptions.pathTracingRrStrictSchedule &&
@@ -793,6 +795,7 @@ void RtPbrSurveyApp::OnInit()
                           {"nonblocking", m_commandLineOptions.nonblockingFrameAcquisition},
                           {"rrSeparateCompletionFence", m_commandLineOptions.pathTracingRrSeparateCompletionFence},
                           {"rrVerifiedPresent", m_commandLineOptions.pathTracingRrVerifiedPresent},
+                          {"primaryGlass16Bounces", m_commandLineOptions.pathTracingPrimaryGlass16Bounces},
                           {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
                           {"renderWidth", context.renderWidth},
                           {"renderHeight", context.renderHeight},
