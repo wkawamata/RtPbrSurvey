@@ -42,6 +42,10 @@ def analyze(trace):
         fallback = trace['verifiedFallbackPresentations']
         assert min(production, fresh, fallback) >= 0 and fresh + fallback <= production
         report['verifiedPresentSession'] = dict(productions=production, fresh=fresh, fallback=fallback)
+        samples = trace.get('verifiedPoseToPresentTicks', [])
+        assert len(samples) <= trace['freshPresents'] and all(sample >= 0 for sample in samples)
+        if samples:
+            report['verifiedPoseToFirstPresentMs'] = stats([sample * 1000 / freq for sample in samples])
     if trace['timingOnly']:
         assert not trace['events'] and not trace['gpu'] and not trace['calibrations']
         return report

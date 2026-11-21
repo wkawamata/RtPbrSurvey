@@ -6325,6 +6325,8 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
         presentedRr = m_ptRrLive->FrameId();
 #endif
+    const uint64_t verifiedPresentQpc =
+        passes == FramePasses::Presentation && trace.Running() ? trace.Now() : 0;
     trace.Record("present_begin", presentedRr, m_vSyncEnabled ? 1 : 0, m_currentFrameIndex);
     HRESULT presentResult;
     {
@@ -6340,7 +6342,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
     }
     if (passes == FramePasses::Presentation && presentResult == S_OK)
     {
-        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId);
+        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId, verifiedPresentQpc);
     }
     trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
@@ -6495,8 +6497,13 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
 #endif
 
     UpdateFrame(advanceFrame);
-    RtPbrSurvey::g_rrFenceTrace.Record("pose_ready");
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
+    trace.Record("pose_ready");
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_rrVerifiedPresent)
+    {
+        trace.VerifiedPoseReady();
+    }
     // Scene updates can invalidate history after the early publication poll.
     // Drain/reconcile that epoch before recording a new immutable packet.
     const uint64_t rrEpochAfterUpdate =

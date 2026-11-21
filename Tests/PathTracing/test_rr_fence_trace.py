@@ -130,8 +130,10 @@ class TraceTests(unittest.TestCase):
         trace.update(timingOnly=True, events=[], gpu=[], calibrations=[],
                      metadata={'rrVerifiedPresent': True},
                      verifiedProductionSubmissions=4, verifiedFreshPresentations=2,
-                     verifiedFallbackPresentations=1)
-        self.assertEqual(analyze(trace)['verifiedPresentSession'], dict(productions=4, fresh=2, fallback=1))
+                     verifiedFallbackPresentations=1, verifiedPoseToPresentTicks=[25])
+        report = analyze(trace)
+        self.assertEqual(report['verifiedPresentSession'], dict(productions=4, fresh=2, fallback=1))
+        self.assertEqual(report['verifiedPoseToFirstPresentMs']['p50'], 25)
         trace['verifiedFreshPresentations'] = 4
         with self.assertRaises(AssertionError):
             analyze(trace)

@@ -159,14 +159,33 @@ public:
         if (m_running && !m_finished)
             ++m_verifiedProductionSubmissions;
     }
-    void VerifiedPresentation(bool newRr)
+    void VerifiedPoseReady()
+    {
+        if (m_running && !m_finished)
+        {
+            m_verifiedPoseQpc = Now();
+        }
+    }
+    void VerifiedPresentation(bool newRr, uint64_t presentQpc)
     {
         if (!m_running || m_finished)
             return;
-        if (newRr)
-            ++m_verifiedFreshPresentations;
-        else
+        if (!newRr)
+        {
             ++m_verifiedFallbackPresentations;
+            return;
+        }
+        ++m_verifiedFreshPresentations;
+        if (m_windowStart && presentQpc >= m_windowStart && m_verifiedPoseQpc &&
+            presentQpc >= m_verifiedPoseQpc)
+        {
+            if (m_verifiedPoseToPresentTicks.size() == 500000)
+            {
+                m_overflow = true;
+                return;
+            }
+            m_verifiedPoseToPresentTicks.push_back(presentQpc - m_verifiedPoseQpc);
+        }
     }
     void Published(uint64_t id)
     {
@@ -248,6 +267,7 @@ public:
                                        {"verifiedProductionSubmissions", m_verifiedProductionSubmissions},
                                        {"verifiedFreshPresentations", m_verifiedFreshPresentations},
                                        {"verifiedFallbackPresentations", m_verifiedFallbackPresentations},
+                                       {"verifiedPoseToPresentTicks", m_verifiedPoseToPresentTicks},
                                        {"metadata", metadata},
                                        {"events", std::move(events)},
                                        {"gpu", std::move(gpu)},
@@ -270,6 +290,8 @@ private:
     uint64_t m_frame = 0, m_tick = 0, m_submission = 0, m_production = 0, m_epoch = 0, m_lastGpu = 0;
     uint64_t m_presents = 0, m_freshPresents = 0, m_published = 0, m_lastPresented = 0;
     uint64_t m_verifiedProductionSubmissions = 0, m_verifiedFreshPresentations = 0, m_verifiedFallbackPresentations = 0;
+    uint64_t m_verifiedPoseQpc = 0;
+    std::vector<uint64_t> m_verifiedPoseToPresentTicks;
     uint64_t m_startPresent = 0, m_startFresh = 0, m_startPublished = 0;
     std::vector<Event> m_events;
     std::vector<GpuPoint> m_gpu;
