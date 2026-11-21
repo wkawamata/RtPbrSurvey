@@ -10,6 +10,8 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 
 #include "GraphicsDevice.h"
 #include "Shared/Error.h"
@@ -277,7 +279,7 @@ void GraphicsDevice::CloseFenceEvent()
     }
 }
 
-void GraphicsDevice::Present(UINT syncInterval, UINT flags)
+HRESULT GraphicsDevice::Present(UINT syncInterval, UINT flags)
 {
     if (syncInterval == 0 && m_tearingSupported)
     {
@@ -289,11 +291,18 @@ void GraphicsDevice::Present(UINT syncInterval, UINT flags)
     }
     m_lastPresentInterval = syncInterval;
     m_lastPresentFlags = flags;
-    ThrowIfFailed(m_swapChain->Present(syncInterval, flags));
+    const HRESULT result = m_swapChain->Present(syncInterval, flags);
+    RtPbrSurvey::g_rrFenceTrace.Record("present_result", static_cast<uint32_t>(result), syncInterval, flags);
+    ThrowIfFailed(result);
+    return result;
 }
 
 void GraphicsDevice::ResizeSwapChain(UINT bufferCount, UINT newWidth, UINT newHeight, DXGI_FORMAT format, UINT flags)
 {
-    ThrowIfFailed(m_swapChain->ResizeBuffers(bufferCount, newWidth, newHeight, format, flags | m_swapChainFlags));
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("swapchain.resize_buffers.begin", newWidth, newHeight, bufferCount);
+    const HRESULT result = m_swapChain->ResizeBuffers(bufferCount, newWidth, newHeight, format, flags | m_swapChainFlags);
+    crashLog.Record("swapchain.resize_buffers.end", static_cast<uint32_t>(result));
+    ThrowIfFailed(result);
     SetSize(newWidth, newHeight);
 }

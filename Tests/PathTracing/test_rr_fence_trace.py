@@ -1,0 +1,189 @@
+"""CPU-only tests of trace identity, ordering and clock interpretation."""
+import copy
+import unittest
+from analyze_rr_fence_trace import analyze, gpu_qpc
+
+
+def fixture():
+    rows=[]
+    def e(t,name,frame=1,sub=1,a=0,b=0,c=0,d=0):
+        rows.append(dict(qpc=t,event=name,frame=frame,tick=frame,submission=sub,
+                         production=1,epoch=1,a=a,b=b,c=c,d=d))
+    e(102,'pose_ready');e(105,'input_snapshot',a=1,b=1)
+    e(106,'rr_sdk_begin');e(109,'rr_sdk_end',a=1)
+    for frame,base,sub,rr,fence in [(1,110,1,0,1),(2,210,2,1,2)]:
+        for offset,name in [(0,'execute_begin'),(1,'execute_end'),(2,'present_begin'),
+                            (3,'present_end'),(4,'signal_begin'),(5,'signal_end')]:
+            e(base+offset,name,frame,sub,a=rr if 'present' in name else fence if 'signal' in name else 0)
+    e(116,'resource_wait_begin',a=0,c=0)
+    e(140,'resource_wait_end',a=0,c=1)
+    e(141,'rr_mark_submitted',a=1)
+    e(200,'rr_poll',2,0,a=1,b=1,c=3)
+    e(201,'rr_summary',2,0)
+    e(202,'published',2,0,a=1)
+    rows.sort(key=lambda r:r['qpc'])
+    gpu=[]
+    for sub,points in [(1,[(112,'StartGpu'),(114,'PF RR SDK begin'),(130,'PF RR SDK end'),
+                           (131,'PF RR summary copy end'),(132,'EndGpu')]),
+                       (2,[(214,'StartGpu'),(220,'EndGpu')])]:
+        for tick,name in points: gpu.append(dict(submission=sub,tick=tick,frequency=1000,node=0,index=-1,name=name))
+    return dict(finished=True,overflow=False,qpcFrequency=1000,windowStart=100,windowEnd=400,
+                presents=2,freshPresents=1,published=1,metadata={},timingOnly=False,
+                events=rows,gpu=gpu,calibrations=[dict(before=t,after=t+1,gpu=t,cpu=t,frequency=1000,result=0)
+                                                for t in [0,500]])
+
+
+class TraceTests(unittest.TestCase):
+    def test_identity_and_distinct_latency_components(self):
+        r=analyze(fixture());m=r['metrics']
+        self.assertAlmostEqual(r['presentFps'],2/.3)
+        self.assertAlmostEqual(r['freshPresentFps'],1/.3)
+        self.assertEqual(m['signalToRrRegisterMs']['mean'],26)
+        self.assertEqual(m['rrSdkGpuMs']['mean'],16)
+        self.assertEqual(m['rrSdkCpuMs']['mean'],3)
+        self.assertEqual(m['rrSdkCpuEndToSubmitMs']['mean'],2)
+        self.assertEqual(m['rrSubmitToGpuSdkBeginMs']['mean'],3)
+        self.assertEqual(m['summaryEndToPublicationMs']['mean'],71)
+        self.assertEqual(m['poseToFirstPresentMs']['mean'],110)
+        self.assertEqual(m['publishToFirstPresentMs']['mean'],10)
+        self.assertEqual(m['rrRegisterMinusGpuPacketEndMs']['mean'],9)
+
+    def test_rr_completion_fence_is_separate_and_registered_before_present(self):
+        trace = fixture()
+        trace['metadata']['rrSeparateCompletionFence'] = True
+        mark = next(row for row in trace['events'] if row['event'] == 'rr_mark_submitted')
+        mark.update(qpc=111, a=12)
+        signal = dict(mark, event='rr_completion_signal')
+        allocator = dict(signal, event='rr_allocator_signal')
+        trace['events'] = sorted(trace['events'] + [signal, allocator], key=lambda row: row['qpc'])
+        data = analyze(trace)['associations'][0]
+        self.assertEqual(data['fence'], 12)
+        self.assertEqual(data['frameFence'], 1)
+        self.assertLess(data['registerQpc'], data['presentQpc'])
+        allocator.update(a=1)
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+        allocator.update(a=12)
+        mark.update(a=1)
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+
+    def test_regression_and_wrong_fence_rejected(self):
+        for name in ['execute_end','rr_mark_submitted']:
+            f=fixture();row=next(e for e in f['events'] if e['event']==name)
+            if name=='execute_end': row['qpc']=100
+            else: row['a']=99
+            with self.assertRaises(AssertionError): analyze(f)
+
+    def test_missing_gpu_and_counter_mismatch_rejected(self):
+        f=fixture();f['gpu']=[x for x in f['gpu'] if x['submission']!=1]
+        with self.assertRaises(AssertionError): analyze(f)
+        f=fixture();f['freshPresents']=2
+        with self.assertRaises(AssertionError): analyze(f)
+
+    def test_failed_or_wrong_frequency_calibration_rejected(self):
+        f=fixture();f['calibrations'][0]['result']=-1
+        with self.assertRaises(AssertionError): analyze(f)
+        with self.assertRaises(ValueError): gpu_qpc(10,2000,fixture()['calibrations'],1000)
+
+    def test_occluded_present_rejected(self):
+        f=fixture()
+        row=dict(f['events'][0]);row.update(event='present_result',qpc=112,a=0x087A0001)
+        f['events'].append(row);f['events'].sort(key=lambda e:e['qpc'])
+        with self.assertRaises(AssertionError): analyze(f)
+
+    def test_present_sync_intervals_form_separate_segments(self):
+        trace = fixture()
+        for row in trace['events']:
+            row['qpc'] *= 100
+        for point in trace['gpu']:
+            point['tick'] *= 100
+        trace['windowStart'] *= 100
+        trace['windowEnd'] *= 100
+        results = [dict(row, event='present_result', a=0, b=2 - row['frame'])
+                   for row in trace['events'] if row['event'] == 'present_end']
+        trace['events'] = sorted(trace['events'] + results, key=lambda row: row['qpc'])
+        first, second = analyze(trace)['presentSyncSegments']
+        self.assertEqual([first['syncInterval'], second['syncInterval']], [1, 0])
+        self.assertEqual(first['rrSdkCpuMs']['p50'], 300)
+        self.assertEqual(second['measuredPresents'], 0)  # The first second after switching is excluded.
+
+    def test_frame_acquisition_cycle_and_deferred_time(self):
+        trace = fixture()
+        results = [dict(row, event='present_result', a=0, b=1)
+                   for row in trace['events'] if row['event'] == 'present_end']
+        modes = [dict(row, event='resource_mode', a=row['frame'] - 1) for row in results]
+        deferred = dict(results[1], event='resource_deferred', qpc=216, a=8, b=1)
+        acquired = dict(results[1], event='resource_acquired', qpc=226, a=8, b=9, c=1)
+        trace['events'] = sorted(trace['events'] + results + modes + [deferred, acquired],
+                                 key=lambda row: row['qpc'])
+        report = analyze(trace)
+        self.assertEqual([s['nonblocking'] for s in report['presentAcquisitionSegments']], [0, 1])
+        self.assertEqual(report['metrics']['resourceDeferralMs']['p50'], 10)
+
+    def test_overflow_rejected(self):
+        f=fixture();f['overflow']=True
+        with self.assertRaises(AssertionError): analyze(f)
+
+    def test_verified_present_reports_split_submissions_and_fallbacks(self):
+        trace = fixture()
+        trace.update(timingOnly=True, events=[], gpu=[], calibrations=[],
+                     metadata={'rrVerifiedPresent': True},
+                     verifiedProductionSubmissions=4, verifiedFreshPresentations=2,
+                     verifiedFallbackPresentations=1, verifiedPoseToPresentTicks=[25])
+        report = analyze(trace)
+        self.assertEqual(report['verifiedPresentSession'], dict(productions=4, fresh=2, fallback=1))
+        self.assertEqual(report['verifiedPoseToFirstPresentMs']['p50'], 25)
+        trace['verifiedTimings'] = [dict(poseToSubmitTicks=5, submitToReadyTicks=18, readyToPresentTicks=2,
+                                         gpuMs={'ptPass': 8, 'rrNativePass': 7})]
+        stages = analyze(trace)['verifiedTimingBreakdown']
+        self.assertEqual(stages['submitToReadyMs']['p50'], 18)
+        self.assertEqual(stages['ptPassGpuMs']['p50'], 8)
+        self.assertNotIn('rrAdmissionPassGpuMs', stages)
+        trace['verifiedTimings'][0]['readyToPresentTicks'] = 3
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+        trace['verifiedTimings'][0]['readyToPresentTicks'] = 2
+        trace['verifiedFreshPresentations'] = 4
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+
+    def test_timing_control_has_no_events(self):
+        f=fixture();f.update(timingOnly=True,events=[],gpu=[],calibrations=[])
+        r=analyze(f);self.assertAlmostEqual(r['publishedFps'],1/.3)
+        f['events']=[{}]
+        with self.assertRaises(AssertionError): analyze(f)
+
+    def test_verified_production_cpu_breakdown_partitions_pose_to_submit(self):
+        trace = fixture()
+        offsets = dict(recordBegin=1, graphBegin=2, passesBegin=4, sdkBegin=7,
+                       sdkEnd=11, passesEnd=16, executeBegin=17, executeEnd=18)
+        trace.update(timingOnly=True, events=[], gpu=[], calibrations=[],
+                     metadata={'rrVerifiedPresent': True}, verifiedProductionSubmissions=1,
+                     verifiedFreshPresentations=1, verifiedFallbackPresentations=0,
+                     verifiedPoseToPresentTicks=[25],
+                     verifiedTimings=[dict(poseToSubmitTicks=20, submitToReadyTicks=3,
+                                           readyToPresentTicks=2, gpuMs={}, productionCpuOffsets=offsets)])
+        stages = analyze(trace)['verifiedProductionCpuBreakdown']
+        self.assertEqual(stages['passRecordingOutsideSdkMs']['p50'], 8)
+        self.assertEqual(stages['rrSdkCallMs']['p50'], 4)
+        self.assertEqual(sum(stage['p50'] for stage in stages.values()), 20)
+        row = trace['verifiedTimings'][0]
+        row['productionGraphCpu'] = dict(documentTicks=2, passes=[
+            dict(name='PathTracingPass', ticks=2), dict(name='PT DLSS RR Native', ticks=6)])
+        row['presentationGraphCpu'] = dict(documentTicks=1, passes=[dict(name='ToneMapPass', ticks=1)])
+        graphs = analyze(trace)['verifiedRenderGraphCpuBreakdown']
+        self.assertEqual(graphs['production']['debugDocumentMs']['p50'], 2)
+        self.assertEqual(graphs['production']['passRecordingMs']['p50'], 8)
+        self.assertEqual(graphs['production']['passesMs']['PT DLSS RR Native']['p50'], 6)
+        self.assertEqual(graphs['presentation']['passesMs']['ToneMapPass']['p50'], 1)
+        row['presentationGraphCpu']['documentTicks'] = 2
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+        row['presentationGraphCpu']['documentTicks'] = 1
+        offsets['sdkEnd'] = 6
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+
+
+if __name__=='__main__': unittest.main()

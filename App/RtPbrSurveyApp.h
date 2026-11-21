@@ -169,6 +169,9 @@ private:
     void LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context);
     void RunPathTracingHistoryValidation();
     void RunPathTracingRrLifecycleValidation();
+    void RunPathTracingRrRecoveryValidation();
+    void RunPathTracingRrRegressionValidation();
+    void RunPathTracingRrComparisonCapture();
     void RunPathTracingRrInputCapture();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
@@ -298,6 +301,11 @@ private:
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;
     UINT64 m_pathTracingGpuTimingSampleCount = 0;
+    RtPbrSurveyEngine::PathTracingDiagnostics m_rrRecoveryBaseline;
+    UINT m_rrRecoveryCheckpointCount = 0;
+    UINT m_rrComparisonProduction = 0;
+    UINT m_rrRegressionStep = 0;
+    UINT m_rrRegressionPhase = 0;
     UINT m_rrLifecycleStage = 0;
     UINT m_rrLifecycleFrames = 0;
     uint64_t m_rrLifecycleCalls = 0;

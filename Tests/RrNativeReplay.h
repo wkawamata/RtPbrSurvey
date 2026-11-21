@@ -32,7 +32,8 @@ void NativeReplay(ID3D12Device* device,
         if (value != 0)
             reject("Native admission rejected an unsupported pixel");
     }
-    if (metadata.at("distanceSource") != "actual-continuation" || metadata.at("samplesPerFrame") != 1 ||
+    const bool numericProbe = metadata.value("numericSafetyProbe", false);
+    if (metadata.at("distanceSource") != (numericProbe ? "numeric-safety-probe" : "actual-continuation") || metadata.at("samplesPerFrame") != 1 ||
         metadata.at("primarySampling") != "pixel-center" || !metadata.at("staticCamera").get<bool>() ||
         !metadata.at("nativeOptIn").get<bool>())
         reject("Native replay profile/opt-in rejected");
@@ -196,6 +197,7 @@ void NativeReplay(ID3D12Device* device,
         if (message->Severity <= D3D12_MESSAGE_SEVERITY_ERROR)
             throw std::runtime_error(message->pDescription);
     }
+    report["numericSafetyProbe"] = numericProbe;
     report["gpuCompleted"] = true;
     report["finiteRgb"] = true;
     report["d3d12Errors"] = 0;

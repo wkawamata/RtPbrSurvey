@@ -13,8 +13,18 @@
 
 #include "RtPbrSurveyEngine.h"
 
-void RtPbrSurveyEngine::BuildRenderPasses()
+void RtPbrSurveyEngine::BuildRenderPasses(FramePasses passes)
 {
+    m_renderGraphRuntime.Graph().Clear();
+    m_renderGraphRuntime.Operations().Clear();
+
+    if (passes == FramePasses::Presentation)
+    {
+        AddPass(MakeClearPass());
+        AddFramePresentationPasses();
+        return;
+    }
+
     m_temporalUpscalerOutputAvailable = false;
     m_reflectionHistoryCommitPending = false;
     m_reflectionSamplingCommitPending = false;
@@ -41,101 +51,122 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         m_nrdLastDispatchCount = 0;
     }
 #endif
-    m_renderGraphRuntime.Graph().Clear();
-    m_renderGraphRuntime.Operations().Clear();
-
-    AddPass(MakeClearPass());
-
+    if (passes == FramePasses::Combined)
+    {
+        AddPass(MakeClearPass());
+    }
     if (m_sceneResourcesAvailable)
     {
-        // PT and Forward do not normally produce a material-ID buffer.
-        // Generate a current-camera surface mask only while the overlay is active.
-        if (m_toneMapPass.settings.highlight.enabled && m_renderingPath == RenderingPath::PathTracing)
+        AddFrameScenePasses(reconstruction);
+    }
+    if (passes == FramePasses::Combined)
+    {
+        AddFramePresentationPasses();
+    }
+}
+
+void RtPbrSurveyEngine::AddFrameScenePasses(const Engine::PathTracingReconstructionPlan& reconstruction)
+{
+    // PT and Forward do not normally produce a material-ID buffer.
+    // Generate a current-camera surface mask only while the overlay is active.
+    if (m_toneMapPass.settings.highlight.enabled && m_renderingPath == RenderingPath::PathTracing)
+    {
+        AddPass(MakeGBufferPass());
+    }
+    if (m_renderingPath == RenderingPath::PathTracing)
+    {
+        bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
+        bool holdRrProduction = false;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        holdRrProduction = CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->HoldProduction();
+        if (holdRrProduction)
+            traceFrame = false;
+        if (m_rrChainedSchedule && m_ptRrLive && m_ptRrLive->CanCapture())
+            m_rrReservedOutputSlot = m_ptRrLive->NextOutputSlot();
+        if (!m_rrChainedSchedule && CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanEvaluate())
+            AddPass(MakePtRrEvaluatePass());
+#endif
+        // Keep the last Native image while an invalidated RR packet drains.
+        // Clearing before the next trace would present an empty fallback frame.
+        if (!holdRrProduction &&
+            (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame)))
         {
-            AddPass(MakeGBufferPass());
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+            m_nrdComposedOutputValid = false;
+#endif
+            AddPass(MakePathTracingHistoryClearPass());
         }
-        if (m_renderingPath == RenderingPath::PathTracing)
+        if (traceFrame)
         {
-            bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
-            bool holdRrProduction = false;
-#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-            holdRrProduction = CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->HoldProduction();
-            if (holdRrProduction)
-                traceFrame = false;
-            if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanEvaluate())
-                AddPass(MakePtRrEvaluatePass());
-#endif
-            // Keep the last Native image while an invalidated RR packet drains.
-            // Clearing before the next trace would present an empty fallback frame.
-            if (!holdRrProduction &&
-                (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame)))
-            {
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-                m_nrdComposedOutputValid = false;
+            m_nrdComposedOutputValid = false;
 #endif
-                AddPass(MakePathTracingHistoryClearPass());
-            }
-            if (traceFrame)
-            {
-#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-                m_nrdComposedOutputValid = false;
-#endif
-                AddPass(MakePathTracingPass());
+            AddPass(MakePathTracingPass());
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-                if (reconstruction.runRrConversion && m_rrConversionPipeline != nullptr)
+            if (reconstruction.runRrConversion && m_rrConversionPipeline != nullptr)
+            {
+                AddPass(MakeRrConversionPass());
+                if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanCapture() &&
+                    m_rayReconstructionSupport.IsAvailable())
                 {
-                    AddPass(MakeRrConversionPass());
-                    if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanCapture() &&
-                        m_rayReconstructionSupport.IsAvailable())
-                        AddPass(MakePtRrValidationPass());
+                    AddPass(MakePtRrValidationPass());
+                    if (m_rrChainedSchedule)
+                        AddPass(MakePtRrEvaluatePass());
                 }
+            }
 #endif
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
-                if (reconstruction.runNrd && m_nrdConversionPipeline != nullptr && SupportsPathTracingReconstructionSurfaces())
-                {
-                    AddPass(MakeNrdConversionPass());
+            if (reconstruction.runNrd && m_nrdConversionPipeline != nullptr && SupportsPathTracingReconstructionSurfaces())
+            {
+                AddPass(MakeNrdConversionPass());
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
-                    if (m_nrdReconstructionPipeline != nullptr)
-                    {
-                        AddPass(MakeNrdReconstructionPass());
-                        AddPass(MakeNrdAdmissionPass());
+                if (m_nrdReconstructionPipeline != nullptr)
+                {
+                    AddPass(MakeNrdReconstructionPass());
+                    AddPass(MakeNrdAdmissionPass());
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-                        if (m_nrdGpu != nullptr && m_nrdFailureReason.empty())
-                        {
-                            AddPass(MakeNrdRelaxPass());
-                            AddPass(MakeNrdCompositionPass());
-                        }
-#endif
+                    if (m_nrdGpu != nullptr && m_nrdFailureReason.empty())
+                    {
+                        AddPass(MakeNrdRelaxPass());
+                        AddPass(MakeNrdCompositionPass());
                     }
 #endif
                 }
 #endif
             }
+#endif
         }
-        else
+    }
+    else
+    {
+        if (m_depthPrepassEnabled)
         {
-            if (m_depthPrepassEnabled)
-            {
-                AddPass(MakeDepthPrePass());
-            }
-            if (m_toneMapPass.settings.highlight.enabled && m_renderingPath == RenderingPath::Forward)
-            {
-                AddPass(MakeGBufferPass());
-            }
-            AddSceneRenderPasses();
-            if (m_reflectionHdrDiagnosticRequested)
-            {
-                AddPass(MakeReflectionHdrDiagnosticPass());
-            }
-            if (!m_rasterBenchmarkMode)
-            {
-                AddPass(MakeDebugLinePass());
-            }
-            if (ShouldRunTemporalUpscaler())
-            {
-                AddPass(MakeTemporalUpscalerPass());
-            }
+            AddPass(MakeDepthPrePass());
         }
+        if (m_toneMapPass.settings.highlight.enabled && m_renderingPath == RenderingPath::Forward)
+        {
+            AddPass(MakeGBufferPass());
+        }
+        AddSceneRenderPasses();
+        if (m_reflectionHdrDiagnosticRequested)
+        {
+            AddPass(MakeReflectionHdrDiagnosticPass());
+        }
+        if (!m_rasterBenchmarkMode)
+        {
+            AddPass(MakeDebugLinePass());
+        }
+        if (ShouldRunTemporalUpscaler())
+        {
+            AddPass(MakeTemporalUpscalerPass());
+        }
+    }
+}
+
+void RtPbrSurveyEngine::AddFramePresentationPasses()
+{
+    if (m_sceneResourcesAvailable)
+    {
         AddPass(MakeToneMapPass());
         for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
         {
@@ -606,7 +637,8 @@ auto RtPbrSurveyEngine::MakePtRrEvaluatePass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PT DLSS RR Native")
         .Reads(std::move(reads))
-        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput + m_ptRrLive->WritingSlot()],
+        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput +
+                      (m_rrChainedSchedule ? m_rrReservedOutputSlot : m_ptRrLive->WritingSlot())],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PtRrEvaluate, &RtPbrSurveyEngine::ExecutePtRrEvaluatePass)
         .Build();

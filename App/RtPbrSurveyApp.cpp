@@ -10,6 +10,8 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 
 #include <algorithm>
 #include <cmath>
@@ -226,6 +228,39 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
+    if (!m_commandLineOptions.pathTracingRrComparisonCaptureDirectory.empty() &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+         !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
+         !m_commandLineOptions.pathTracingRrRecoveryValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrRegressionValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty() ||
+         !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        throw std::invalid_argument("RR comparison capture requires an exclusive PT/RR scene and log.");
+    if (!m_commandLineOptions.pathTracingRrRegressionValidationDirectory.empty() &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+         !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
+         !m_commandLineOptions.pathTracingRrRecoveryValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty() ||
+         !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        throw std::invalid_argument("RR regression validation requires an exclusive PT/RR scene and log.");
+    if (!m_commandLineOptions.pathTracingRrRecoveryValidationDirectory.empty() &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+         !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
+         !m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty() ||
+         !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        throw std::invalid_argument("RR recovery validation requires an exclusive running PT/RR scene and log.");
     if (!m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() &&
         (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
          !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
@@ -321,10 +356,18 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    if (!m_commandLineOptions.rrCrashLogPath.empty())
+    {
+        crashLog.Open(m_commandLineOptions.rrCrashLogPath);
+    }
+    crashLog.Record("app.init.begin", GetWidth(), GetHeight());
     if (!m_commandLineOptions.enablePathTracing || m_commandLineOptions.enableExperimentalNativeRayReconstruction)
     {
         const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+        crashLog.Record("streamline.init.begin");
         Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+        crashLog.Record("streamline.init.end");
     }
 
     CreateSampleScenes();
@@ -341,7 +384,9 @@ void RtPbrSurveyApp::OnInit()
     {
         deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
     }
+    crashLog.Record("graphics.init.begin");
     m_graphicsDevice.Initialize(deviceDesc);
+    crashLog.Record("graphics.init.end");
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
     if (!m_commandLineOptions.logFilePath.empty())
@@ -380,6 +425,25 @@ void RtPbrSurveyApp::OnInit()
     }
 
     InitializeImGui();
+    m_sceneRenderer.EngineForDebugTools().SetNonblockingFrameAcquisition(
+        m_commandLineOptions.nonblockingFrameAcquisition);
+    m_sceneRenderer.EngineForDebugTools().SetRrSafeInputs(m_commandLineOptions.pathTracingRrSafeSerial);
+    if (m_commandLineOptions.pathTracingRrChained &&
+        (m_commandLineOptions.pathTracingRrStrictSchedule ||
+         !m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty()))
+        throw std::invalid_argument("Chained RR cannot use strict first-output/lifecycle validators.");
+    m_sceneRenderer.EngineForDebugTools().SetRrChainedSchedule(m_commandLineOptions.pathTracingRrChained);
+    m_sceneRenderer.EngineForDebugTools().SetRrSeparateCompletionFence(
+        m_commandLineOptions.pathTracingRrSeparateCompletionFence);
+    m_sceneRenderer.EngineForDebugTools().SetRrVerifiedPresent(m_commandLineOptions.pathTracingRrVerifiedPresent);
+    // First-output/lifecycle validators require the observable Ready phase.
+    m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
+        !m_commandLineOptions.pathTracingRrStrictSchedule &&
+        m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() &&
+        m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() &&
+        m_commandLineOptions.pathTracingHistoryValidationDirectory.empty());
     m_sceneRenderer.SetUpdateHandler([this]()
     {
         UpdateSampleState();
@@ -708,6 +772,41 @@ void RtPbrSurveyApp::OnInit()
                                                   ? std::optional<double>(m_commandLineOptions.captureSessionOrbitDegreesPerSecond)
                                                   : std::nullopt);
     }
+    if (!m_commandLineOptions.rrFenceTracePath.empty())
+    {
+        auto& trace = RtPbrSurvey::g_rrFenceTrace;
+        trace.Configure(m_commandLineOptions.rrFenceTracePath,
+                        m_commandLineOptions.rrFenceTraceWarmup,
+                        m_commandLineOptions.rrFenceTraceSeconds,
+                        m_commandLineOptions.rrFenceTraceTimingOnly);
+        RtPbrSurvey::EvaluationState state;
+        std::string error;
+        if (!CaptureEvaluationState(state, &error))
+            throw std::runtime_error(error);
+        const auto context = m_sceneRenderer.GetUiFrameContext();
+        const auto& ptSettings = m_sceneRenderer.GetPathTracingSettings();
+        trace.metadata = {{"evaluation", nlohmann::json::parse(RtPbrSurvey::SerializeEvaluationStates({state}))},
+                          {"schedule",
+                           m_commandLineOptions.pathTracingRrChained          ? "chained"
+                           : m_commandLineOptions.pathTracingRrSafeSerial     ? "safe-serial"
+                           : m_commandLineOptions.pathTracingRrStrictSchedule ? "strict"
+                                                                              : "eager"},
+                          {"nonblocking", m_commandLineOptions.nonblockingFrameAcquisition},
+                          {"rrSeparateCompletionFence", m_commandLineOptions.pathTracingRrSeparateCompletionFence},
+                          {"rrVerifiedPresent", m_commandLineOptions.pathTracingRrVerifiedPresent},
+                          {"primaryGlass16Bounces", ptSettings.primaryGlassBounceOverride &&
+                                                       ptSettings.primaryGlassMaxBounces == 16u},
+                          {"primaryGlassMaxBounces", ptSettings.primaryGlassBounceOverride ?
+                                                        ptSettings.primaryGlassMaxBounces : 0u},
+                          {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
+                          {"renderWidth", context.renderWidth},
+                          {"renderHeight", context.renderHeight},
+                          {"outputWidth", context.outputWidth},
+                          {"outputHeight", context.outputHeight},
+                          {"cameraMotion", m_commandLineOptions.rrFenceTraceCameraMotion},
+                          {"cameraStartX", m_sceneRenderer.GetCamera().pos.x}};
+    }
+    crashLog.Record("app.init.end");
 }
 
 void RtPbrSurveyApp::UpdateSampleState()
@@ -725,6 +824,14 @@ void RtPbrSurveyApp::UpdateSampleState()
 
 void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
 {
+    if (RtPbrSurvey::g_rrFenceTrace.Running() && m_commandLineOptions.rrFenceTraceCameraMotion)
+    {
+        auto camera = m_sceneRenderer.GetCamera();
+        camera.pos.x = RtPbrSurvey::g_rrFenceTrace.metadata.at("cameraStartX").get<float>() +
+                       0.4f * std::sin(static_cast<float>(RtPbrSurvey::g_rrFenceTrace.ElapsedSeconds()));
+        m_sceneRenderer.SetCamera(camera);
+        return;
+    }
     if (IsCaptureOrbitActive())
         return;
     m_debugCamera.SetPrimaryDragButton(m_appMode == AppMode::SceneEditorEdit ? VK_RBUTTON : VK_LBUTTON);
@@ -1029,6 +1136,68 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (RtPbrSurvey::g_rrFenceTrace.Running())
+    {
+        auto& trace = RtPbrSurvey::g_rrFenceTrace;
+        if (!trace.metadata.contains("windowVisibleAtFirstTick"))
+        {
+            trace.metadata["windowVisibleAtFirstTick"] = IsWindowVisible(Win32Application::GetHwnd()) != FALSE;
+            trace.metadata["iconicAtFirstTick"] = IsIconic(Win32Application::GetHwnd()) != FALSE;
+        }
+        trace.Tick();
+        if (trace.Finished())
+        {
+            const auto& rr = m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics;
+            trace.metadata["finalRr"] = {{"completed", rr.rrCompletedCount}, {"cancelled", rr.rrCancelledCount},
+                                        {"inputRejected", rr.rrInputRejectionCount}, {"outputRejected", rr.rrOutputRejected},
+                                        {"sdkFailures", rr.rrSdkFailures}, {"resets", rr.rrResetCount}};
+            RequestCloseApplication();
+            return;
+        }
+        if (m_commandLineOptions.rrFenceTraceVSyncCycle)
+        {
+            const double phaseDuration = m_commandLineOptions.rrFenceTraceSeconds / 3.0;
+            const double elapsed = trace.MeasurementElapsedSeconds();
+            const bool vsync = elapsed < phaseDuration || elapsed >= 2.0 * phaseDuration;
+            m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(vsync);
+        }
+    }
+    if (!m_sceneRenderer.EngineForDebugTools().WaitForVerifiedRrProduction())
+    {
+        return;
+    }
+    if (m_commandLineOptions.nonblockingFrameAcquisition &&
+        !m_sceneRenderer.EngineForDebugTools().AcquireFrameResources())
+    {
+        // Return to the outer message loop before any UI, scene or capture clock
+        // advances. Wake on input, or retry readiness after a bounded idle wait.
+        MsgWaitForMultipleObjectsEx(0, nullptr, 1, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        return;
+    }
+    if (m_commandLineOptions.rrFenceTraceNonblockingCycle)
+    {
+        // Finish any acquisition deferred by the old mode before switching.
+        const double phaseDuration = m_commandLineOptions.rrFenceTraceSeconds / 3.0;
+        const double elapsed = RtPbrSurvey::g_rrFenceTrace.MeasurementElapsedSeconds();
+        const bool nonblocking = elapsed >= phaseDuration && elapsed < 2.0 * phaseDuration;
+        m_commandLineOptions.nonblockingFrameAcquisition = nonblocking;
+        m_sceneRenderer.EngineForDebugTools().SetNonblockingFrameAcquisition(nonblocking);
+    }
+    if (!m_commandLineOptions.pathTracingRrComparisonCaptureDirectory.empty())
+    {
+        RunPathTracingRrComparisonCapture();
+        return;
+    }
+    if (!m_commandLineOptions.pathTracingRrRegressionValidationDirectory.empty())
+    {
+        RunPathTracingRrRegressionValidation();
+        return;
+    }
+    if (!m_commandLineOptions.pathTracingRrRecoveryValidationDirectory.empty())
+    {
+        RunPathTracingRrRecoveryValidation();
+        return;
+    }
     if (!m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty())
     {
         RunPathTracingRrInputCapture();
@@ -2603,11 +2772,14 @@ void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
 
 void RtPbrSurveyApp::OnDestroy()
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("app.shutdown.begin");
     if (m_logFile)
     {
         FlushD3D12DebugMessages();
     }
     m_sceneRenderer.Shutdown();
+    RtPbrSurvey::g_rrFenceTrace.Write();
     m_imguiSystem.Shutdown();
     m_imguiHeap.Reset();
     if (m_logFile)
@@ -2617,6 +2789,8 @@ void RtPbrSurveyApp::OnDestroy()
         m_logFile = nullptr;
     }
     m_d3d12InfoQueue.Reset();
+    crashLog.Record("app.shutdown.end");
+    crashLog.Close();
 }
 
 void RtPbrSurveyApp::FlushD3D12DebugMessages()
@@ -2675,13 +2849,54 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
             static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
             static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
     const auto& rr = context.pathTracingDiagnostics;
-    fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=%llu outputPolls=%llu inputWaitMs=%.6f admittedWaitMs=%.6f evaluateCpuMs=%.6f outputWaitMs=%.6f totalMs=%.6f\n",
-            static_cast<unsigned long long>(rr.rrCompletedCount),
-            static_cast<unsigned long long>(rr.rrLatencyFrameId),
-            static_cast<unsigned long long>(rr.rrInputPolls),
-            static_cast<unsigned long long>(rr.rrOutputPolls),
-            rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
+    if (rr.rrChainedPacket)
+        fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=0 outputPolls=%llu inputWaitMs=N/A admittedWaitMs=N/A evaluateCpuMs=%.6f outputWaitMs=N/A finalGpuWaitMs=%.6f totalMs=%.6f\n",
+                static_cast<unsigned long long>(rr.rrCompletedCount),
+                static_cast<unsigned long long>(rr.rrLatencyFrameId),
+                static_cast<unsigned long long>(rr.rrOutputPolls),
+                rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
+    else
+        fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=%llu outputPolls=%llu inputWaitMs=%.6f admittedWaitMs=%.6f evaluateCpuMs=%.6f outputWaitMs=%.6f totalMs=%.6f\n",
+                static_cast<unsigned long long>(rr.rrCompletedCount),
+                static_cast<unsigned long long>(rr.rrLatencyFrameId),
+                static_cast<unsigned long long>(rr.rrInputPolls),
+                static_cast<unsigned long long>(rr.rrOutputPolls),
+                rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
     const auto& checkPoints = context.gpuCheckPoints;
+    const auto graph = m_sceneRenderer.CaptureRenderGraphDocument();
+    nlohmann::json scheduled = nlohmann::json::array();
+    for (const auto& node : graph.nodes)
+        if (node.kind == Engine::RenderGraphNodeKind::Pass)
+            scheduled.push_back(node.name);
+    nlohmann::json measured = nlohmann::json::array();
+    for (const auto& point : checkPoints)
+        if (point.passIndex >= 0)
+            measured.push_back(point.name);
+    nlohmann::json observation = {
+        {"uiFrame", m_fpsLogFrameCounter},
+        {"gpuPacket", checkPoints.empty() ? 0 : checkPoints.front().frameId},
+        {"rrPhase", rr.rrLivePhase}, {"rrInput", rr.rrInputFrameId},
+        {"rrPublished", rr.rrRetainedFrameId}, {"rrCompleted", rr.rrCompletedCount},
+        {"rrRetainedAgeMs", rr.rrRetainedAgeMs},
+        {"nativeEvaluateCalls", context.rayReconstructionDiagnostics.nativeEvaluateCallCount},
+        {"scheduled", scheduled}, {"measured", measured}};
+    const auto& acquisition = m_sceneRenderer.EngineForDebugTools();
+    observation["frameAcquisition"] = {
+        {"deferrals", acquisition.FrameAcquisitionDeferrals()},
+        {"pendingPolls", acquisition.FrameAcquisitionPolls()},
+        {"fallbackWaits", acquisition.FrameAcquisitionFallbackWaits()}};
+    const auto& cpu = m_sceneRenderer.CpuFrameTiming();
+    if (cpu.available)
+    {
+        observation["rendererCpuMs"] = cpu.totalMs;
+        nlohmann::json phases = nlohmann::json::object();
+        for (size_t i = 0; i < RtPbrSurvey::kRendererCpuPhaseCount; ++i)
+        {
+            phases[RtPbrSurvey::kRendererCpuPhaseNames[i]] = cpu.ms[i];
+        }
+        observation["rendererCpuPhaseMs"] = std::move(phases);
+    }
+    fprintf(m_logFile, "[RenderGraphFrame] %s\n", observation.dump().c_str());
     if (checkPoints.size() >= 2)
     {
         fprintf(m_logFile, "[GPU] Frame %llu: latest completed total %.6f ms\n",
@@ -2787,6 +3002,12 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
           {"inputRejectedCount", context.pathTracingDiagnostics.rrInputRejectionCount},
           {"lastReset", context.pathTracingDiagnostics.rrLastReset},
           {"outputVerified", context.pathTracingDiagnostics.rrRetainedOutputVerified},
+          {"chained", context.pathTracingDiagnostics.rrChainedPacket},
+          {"historyDirty", context.pathTracingDiagnostics.rrHistoryDirty},
+          {"finalFence", context.pathTracingDiagnostics.rrFinalFence},
+          {"outputRejected", context.pathTracingDiagnostics.rrOutputRejected},
+          {"sdkFailures", context.pathTracingDiagnostics.rrSdkFailures},
+          {"retainedAgeMs", context.pathTracingDiagnostics.rrRetainedAgeMs},
           {"nativeEvaluateCallCount", context.rayReconstructionDiagnostics.nativeEvaluateCallCount}}},
         {"adapter",
          {{"name", WideToUtf8(adapter.Description)},
@@ -3960,6 +4181,13 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
 
 void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
 {
+    if (m_commandLineOptions.pathTracingPrimaryGlass16Bounces)
+    {
+        auto settings = m_sceneRenderer.GetPathTracingSettings();
+        settings.primaryGlassBounceOverride = true;
+        settings.primaryGlassMaxBounces = 16u;
+        m_sceneRenderer.SetPathTracingSettings(settings);
+    }
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     m_sceneRenderer.EngineForDebugTools().SetNrdContinuousCameraHistory(
         m_commandLineOptions.nrdContinuousCameraHistory);

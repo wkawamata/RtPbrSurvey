@@ -72,6 +72,8 @@ bool TestRoundTrip()
     source.pathTracing.denoiserDistanceDiagnostics = true;
     source.pathTracing.nrdPreview = true;
     source.pathTracing.maxBounces = 7;
+    source.pathTracing.primaryGlassBounceOverride = true;
+    source.pathTracing.primaryGlassMaxBounces = 13;
     source.pathTracing.randomSeed = 42;
     source.pathTracing.directLightingEnabled = false;
     source.pathTracing.environmentEnabled = false;
@@ -144,6 +146,8 @@ bool TestRoundTrip()
                   restored.pathTracing.denoiserDistanceDiagnostics == source.pathTracing.denoiserDistanceDiagnostics &&
                   restored.pathTracing.nrdPreview == source.pathTracing.nrdPreview &&
                   restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
+                  restored.pathTracing.primaryGlassBounceOverride == source.pathTracing.primaryGlassBounceOverride &&
+                  restored.pathTracing.primaryGlassMaxBounces == source.pathTracing.primaryGlassMaxBounces &&
                   restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
                   restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
                   restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&

@@ -322,6 +322,8 @@ public:
         bool rrRoughVolumeExperiment = false;
         bool rrTransmissionMotionExperiment = false;
         UINT maxBounces = 8;
+        bool primaryGlassBounceOverride = false;
+        UINT primaryGlassMaxBounces = 16;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
         bool environmentEnabled = true;
@@ -375,6 +377,15 @@ public:
         uint64_t rrCancelledCount = 0;
         uint64_t rrInputRejectionCount = 0;
         bool rrLastReset = true;
+        bool rrChainedPacket = false;
+        bool rrHistoryDirty = true;
+        uint64_t rrFinalFence = 0;
+        uint64_t rrOutputRejected = 0;
+        uint64_t rrSdkFailures = 0;
+        uint64_t rrProductionSerial = 0;
+        unsigned int rrWritingSlot = 0;
+        unsigned int rrPublishedSlot = 0;
+        double rrRetainedAgeMs = 0;
         uint64_t rrLatencyFrameId = 0;
         uint64_t rrInputPolls = 0;
         uint64_t rrOutputPolls = 0;
@@ -392,6 +403,8 @@ public:
         bool thinTransmissionActive = false;
         Engine::NrdRelaxPresentationStatus nrdPresentationStatus = Engine::NrdRelaxPresentationStatus::Native;
         std::string nrdFailureReason;
+        bool nrdEvaluationRecorded = false;
+        UINT nrdRecordedDispatches = 0;
         UINT nrdPreparedDispatches = 0;
         UINT nrdPlannedDispatches = 0;
         UINT nrdFailureCount = 0;
@@ -436,6 +449,7 @@ public:
         XMFLOAT2 temporalJitterHalton;
         XMFLOAT2 temporalJitterOffsetPixels;
         const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& gpuCheckPoints;
+        float renderGraphDocumentCpuMs = 0.0f;
     };
 
     using UiRenderHandler = std::function<void(ID3D12GraphicsCommandList*)>;
@@ -450,7 +464,6 @@ public:
     // Restricts scene buffers and final tone mapping; (0,0,0,0) restores full-window output.
     void SetSceneViewport(UINT x, UINT y, UINT width, UINT height);
     void Initialize(UINT width, UINT height);
-    void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     const RtPbrSurvey::RendererCpuTiming& CpuFrameTiming() const { return m_cpuFrameTimer.Completed(); }
     const DXGI_ADAPTER_DESC1& AdapterDescription() const { return m_graphicsDevice.AdapterDescription(); }
@@ -491,6 +504,8 @@ public:
     UiFrameContext GetUiFrameContext() const;
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+    void RequestRenderGraphBarrierDiagnostics() { m_renderGraphBarrierDiagnosticsRequested = true; }
+    const Engine::RenderGraphDocument* LatestRenderGraphBarrierDocument() const;
     const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const
     {
         return m_debugResourceViewRegistry;
@@ -499,6 +514,22 @@ public:
     std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
     bool HasRenderGraphBarrierEvents() const;
     void SetUpdateHandler(UpdateHandler handler);
+    void SetNonblockingFrameAcquisition(bool enabled) { m_nonblockingFrameAcquisition = enabled; }
+    bool AcquireFrameResources(bool wait = false);
+    uint64_t FrameAcquisitionDeferrals() const { return m_frameAcquisitionDeferrals; }
+    uint64_t FrameAcquisitionPolls() const { return m_frameAcquisitionPolls; }
+    uint64_t FrameAcquisitionFallbackWaits() const { return m_frameAcquisitionFallbackWaits; }
+    void ReadCompletedFrameData(bool verifiedProduction = false);
+    void SetRrEagerProduction(bool enabled) { m_rrEagerProduction = enabled; }
+    void SetRrSafeInputs(bool enabled) { m_rrSafeInputs = enabled; }
+    void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
+    void SetRrSeparateCompletionFence(bool enabled) { m_rrSeparateCompletionFence = enabled; }
+    void SetRrVerifiedPresent(bool enabled) { m_rrVerifiedPresent = enabled; }
+    bool WaitForVerifiedRrProduction();
+    void SetRrRecoveryFault(Engine::RrRecoveryFault fault)
+    {
+        m_rrRecoveryFault = fault;
+    }
     void SetLightingParams(const LightingParams& params);
     const LightingParams& GetLightingParams() const { return m_lightingParams; }
     void SetShadowSettings(const ShadowSettings& settings);
@@ -1570,6 +1601,8 @@ private:
     // CPU work meter
     MyDx12Util::WorkMeter m_workMeter;
     float m_cpuFrameTime = 0.f;
+    float m_productionRenderGraphDocumentCpuMs = 0.0f;
+    float m_renderGraphDocumentCpuMs = 0.0f;
     RtPbrSurvey::RendererCpuTimer m_cpuFrameTimer;
     bool m_rasterBenchmarkMode = false;
     bool m_geometryInstancing = false;
@@ -1586,12 +1619,34 @@ private:
     Engine::PathTracingReconstructionPlan m_completedReconstructionPlan;
     std::vector<Engine::RenderGraphBarrierEvent> m_renderGraphBarrierEvents;
     std::vector<Engine::RenderGraphBarrierEvent> m_completedRenderGraphBarrierEvents;
-    Engine::RenderGraphDocument m_renderGraphBarrierDocument;
     Engine::RenderGraphDocument m_completedRenderGraphBarrierDocument;
-    bool m_hasRenderGraphBarrierEvents = false;
+    bool m_renderGraphBarrierDiagnosticsRequested = false;
     bool m_hasCompletedRenderGraphBarrierEvents = false;
     const UiRenderHandler* m_activeUiRenderHandler = nullptr;
     UpdateHandler m_updateHandler;
+    bool m_nonblockingFrameAcquisition = false;
+    bool m_frameAcquisitionPending = false;
+    UINT64 m_nextFrameSignalValue = 0;
+    uint64_t m_frameAcquisitionDeferrals = 0;
+    uint64_t m_frameAcquisitionPolls = 0;
+    uint64_t m_frameAcquisitionFallbackWaits = 0;
+    bool m_rrEagerProduction = true;
+    bool m_rrSafeInputs = false;
+    bool m_rrChainedSchedule = false;
+    bool m_rrSeparateCompletionFence = false;
+    bool m_rrVerifiedPresent = false;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    ComPtr<ID3D12Fence> m_rrCompletionFence;
+    uint64_t m_rrCompletionFenceValue = 0;
+    ComPtr<ID3D12CommandAllocator> m_rrProductionAllocator;
+    uint64_t m_rrProductionAllocatorFence = 0;
+    uint64_t m_rrVerifiedFrameFence = 0;
+    uint64_t m_rrVerifiedFrameEpoch = 0;
+    uint64_t m_rrVerifiedFrameInputId = 0;
+    std::unique_ptr<void, decltype(&CloseHandle)> m_rrProductionEvent{nullptr, &CloseHandle};
+#endif
+    unsigned int m_rrReservedOutputSlot = 0;
+    Engine::RrRecoveryFault m_rrRecoveryFault = Engine::RrRecoveryFault::None;
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
@@ -2009,7 +2064,14 @@ private:
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);
     std::vector<UINT8> GenerateSemanticFallbackTextureData(Engine::TextureSemantic semantic);
-    void PopulateCommandList();
+    enum class FramePasses
+    {
+        Combined,
+        Production,
+        Presentation,
+    };
+    void RenderFrame(const UiRenderHandler& uiRenderHandler, FramePasses passes, uint64_t expectedRrInputId = 0);
+    void PopulateCommandList(ID3D12CommandAllocator& allocator, FramePasses passes);
 
     void AddPass(RenderPass pass);
     ResourceUsages MakeResourceUsages(std::initializer_list<ResourceUsage> usages) const;
@@ -2057,13 +2119,15 @@ private:
     RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
     RenderPass MakeScreenshotPass();
-    void BuildRenderPasses();
+    void BuildRenderPasses(FramePasses passes);
+    void AddFrameScenePasses(const Engine::PathTracingReconstructionPlan& reconstruction);
+    void AddFramePresentationPasses();
     void AddSceneRenderPasses();
     void AddDeferredSceneOutputPass();
     void ValidateRenderPassGraph() const;
     void AnalyzeResourceLifetimes();
     void DebugPrintLifetimes();
-    void ExecutePasses();
+    void ExecutePasses(FramePasses passes);
     void ExecutePassOperation(const RenderPass& pass);
     void CreateResourcesForPass(int passIndex);
     void CreateCommittedTransientResource(TransientResource& resource);
@@ -2094,7 +2158,9 @@ private:
     void ResetResourceStates();
 
     ID3D12PipelineState* GetPipelineState(PipelineKey pipeline) const;
-    Engine::ResourceTransitionContext MakeResourceTransitionContext();
+    Engine::ResourceTransitionContext MakeResourceTransitionContext(
+        const std::vector<int>* visiblePassIndices = nullptr);
+    static bool IsRenderGraphThumbnailPass(const wchar_t* passName);
     void TransitionPassResources(const RenderPass& pass);
     void TransitionResource(const ResourceUsage& usage);
     ID3D12Resource* FindTransientD3DResource(const std::string& name) const;
@@ -2107,7 +2173,7 @@ private:
     void UpdatePerFrameRenderSettings();
     UINT GetVisibleCubeCount() const;
 
-    void BeginFrame();
+    void BeginFrame(ID3D12CommandAllocator& allocator);
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecuteNrdConversionPass(const RenderPass& pass);
@@ -2116,6 +2182,12 @@ private:
     void ExecutePtRrEvaluatePass(const RenderPass& pass);
     bool IsPtRrNativeRequested() const;
     bool CanRunPtRrNative() const;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    uint64_t CompletedRrFenceValue() const;
+    bool CanUseRrProductionAllocator() const;
+    bool IsVerifiedRrProductionReady() const;
+    bool CanSplitRrFrame() const;
+#endif
     bool SupportsPathTracingReconstructionSurfaces() const;
     bool SupportsPtRrSurfaces() const;
     void ExecuteNrdReconstructionPass(const RenderPass& pass);

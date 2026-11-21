@@ -77,6 +77,11 @@
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64' And '$(RTPBRSURVEY_ENABLE_PIX_MARKERS)'=='true'">
+    <OutDir>bin\$(Platform)\ReleasePix\</OutDir>
+    <IntDir>obj\$(Platform)\ReleasePix\</IntDir>
+    <RtPbrSurveyPixDefinitions>USE_PIX;</RtPbrSurveyPixDefinitions>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -117,7 +122,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1;$(RtPbrSurveyPixDefinitions)$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
@@ -177,7 +182,10 @@
     <ClInclude Include="Renderer\PathTracingReconstructionResources.h" />
     <ClInclude Include="Renderer\PathTracingRrInputs.h" />
     <ClInclude Include="Renderer\PathTracingRrHistory.h" />
+    <ClInclude Include="Renderer\PathTracingRrProductionQueue.h" />
     <ClInclude Include="Renderer\PathTracingRrLive.h" />
+    <ClInclude Include="Runtime\RrFenceTrace.h" />
+    <ClInclude Include="Runtime\RrCrashLog.h" />
     <ClInclude Include="Renderer\NrdRelaxAdapter.h" />
     <ClInclude Include="Renderer\NrdReconstructionInputs.h" />
     <ClInclude Include="Renderer\RayQuerySceneBindings.h" />
@@ -324,6 +332,9 @@
     <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrProductionQueue.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrLive.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
@@ -388,7 +399,9 @@
     <ClCompile Include="Ui\DebugUiPreferences.cpp" />
     <ClCompile Include="Ui\ImGuiSystem.cpp" />
     <ClCompile Include="Platform\Win32Application.cpp" />
-    <ClCompile Include="Engine\RtPbrSurveyEngine.cpp" />
+    <ClCompile Include="Engine\RtPbrSurveyEngine.cpp">
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="Engine\RtPbrSurveyEnginePasses.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />
@@ -456,17 +469,18 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\RayReconstructionInputConversion.hlsli" />
+    <None Include="Shaders\RayReconstructionInputSafety.hlsli" />
     <CustomBuild Include="Shaders\shaders_PathTracingRrConversion.hlsl">
       <FileType>Document</FileType>
       <Message>%(Identity)</Message>
       <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -D RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1 -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
-      <AdditionalInputs>$(ProjectDir)Shaders\RayReconstructionInputConversion.hlsli;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\RayReconstructionInputSafety.hlsli;$(ProjectDir)Shaders\RayReconstructionInputConversion.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_PathTracingRrValidation.hlsl">
       <FileType>Document</FileType>
       <Message>%(Identity)</Message>
-      <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -D RTPBRSURVEY_RR_PACKET_SUMMARY=1 -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <AdditionalInputs>%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>

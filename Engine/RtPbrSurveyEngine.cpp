@@ -10,6 +10,8 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 #include "Scene/ImportedVolumeScene.h"
 
 #include "RtPbrSurveyEngine.h"
@@ -172,6 +174,7 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     UINT renderWidth,
     UINT renderHeight,
     const RtPbrSurveyEngine::PathTracingSettings& settings,
+    UINT maxBounces,
     bool shadowRayEnabled,
     bool directLightEnabled,
     UINT lightCount,
@@ -186,7 +189,7 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     diagnostics.primarySamplesPerFrame = static_cast<uint64_t>(renderWidth) * renderHeight *
                                          (std::max)(settings.samplesPerFrame, 1u);
     diagnostics.maxPathSegmentsPerFrame =
-        diagnostics.primarySamplesPerFrame * (std::max)(settings.maxBounces, 1u);
+        diagnostics.primarySamplesPerFrame * maxBounces;
     diagnostics.maxRayQueriesPerFrame = diagnostics.maxPathSegmentsPerFrame;
     if (settings.denoiserDistanceDiagnostics)
     {
@@ -201,12 +204,12 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     if (emissiveNeeActive)
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
-            ((std::max)(settings.maxBounces, 1u) - 1u);
+            (maxBounces - 1u);
     }
     if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
-            ((std::max)(settings.maxBounces, 1u) - 1u);
+            (maxBounces - 1u);
     }
 
     for (size_t i = 1; i < checkPoints.size(); ++i)
@@ -578,11 +581,15 @@ std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 
 RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
+    const UINT maxBounces = (std::max)(m_pathTracingSettings.maxBounces,
+        m_pathTracingSettings.primaryGlassBounceOverride && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
+            ? m_pathTracingSettings.primaryGlassMaxBounces : 1u);
     PathTracingDiagnostics pathTracingDiagnostics =
         BuildPathTracingDiagnostics(m_completedGpuWorkMeterCheckPoints,
                                     m_renderWidth,
                                     m_renderHeight,
                                     m_pathTracingSettings,
+                                    maxBounces,
                                     m_shadowSettings.enabled,
                                     m_lightingParams.directLightEnabled,
                                     static_cast<UINT>(m_lightingParams.lights.size()),
@@ -596,6 +603,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     pathTracingDiagnostics.nrdPreviewBuilt = true;
     pathTracingDiagnostics.nrdFailureReason = m_nrdFailureReason;
+    pathTracingDiagnostics.nrdEvaluationRecorded = m_nrdLastEvaluationRecorded;
+    pathTracingDiagnostics.nrdRecordedDispatches = m_nrdLastDispatchCount;
     pathTracingDiagnostics.nrdPreparedDispatches = m_nrdPreparedDispatches;
     pathTracingDiagnostics.nrdPlannedDispatches = m_nrdPlannedDispatches;
     pathTracingDiagnostics.nrdFailureCount = m_nrdFailureCount;
@@ -614,6 +623,15 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
         pathTracingDiagnostics.rrCancelledCount = m_ptRrLive->CancelledCount();
         pathTracingDiagnostics.rrInputRejectionCount = m_ptRrLive->InputRejectionCount();
         pathTracingDiagnostics.rrLastReset = m_ptRrLive->LastReset();
+        pathTracingDiagnostics.rrChainedPacket = m_rrChainedSchedule;
+        pathTracingDiagnostics.rrHistoryDirty = m_ptRrLive->HistoryDirty();
+        pathTracingDiagnostics.rrFinalFence = m_ptRrLive->FinalFence();
+        pathTracingDiagnostics.rrOutputRejected = m_ptRrLive->OutputRejectionCount();
+        pathTracingDiagnostics.rrSdkFailures = m_ptRrLive->SdkFailureCount();
+        pathTracingDiagnostics.rrProductionSerial = m_ptRrLive->ProductionSerial();
+        pathTracingDiagnostics.rrWritingSlot = m_ptRrLive->WritingSlot();
+        pathTracingDiagnostics.rrPublishedSlot = m_ptRrLive->PublishedSlot();
+        pathTracingDiagnostics.rrRetainedAgeMs = m_ptRrLive->RetainedAgeMs();
         const auto& latency = m_ptRrLive->LastPacketLatency();
         pathTracingDiagnostics.rrLatencyFrameId = latency.frameId;
         pathTracingDiagnostics.rrInputPolls = latency.inputPolls;
@@ -664,7 +682,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,
-            m_completedGpuWorkMeterCheckPoints};
+            m_completedGpuWorkMeterCheckPoints,
+            m_renderGraphDocumentCpuMs};
 }
 
 void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
@@ -744,6 +763,8 @@ void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstruc
         m_rayReconstructionSettings.experimentalNativeEvaluationEnabled !=
             settings.experimentalNativeEvaluationEnabled)
     {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.settings", settings.enabled,
+                                        settings.experimentalNativeEvaluationEnabled);
         InvalidateReflectionHistory();
         if (m_renderingPath == RenderingPath::PathTracing)
             InvalidatePathTracingHistory(PathTracingResetReason::Settings);
@@ -768,11 +789,15 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
     validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
     validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
     validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
+    validated.primaryGlassMaxBounces = (std::clamp)(validated.primaryGlassMaxBounces, 1u, 16u);
     const bool changed =
         m_pathTracingSettings.accumulate != validated.accumulate ||
         m_pathTracingSettings.pixelCenterPrimary != validated.pixelCenterPrimary ||
         m_pathTracingSettings.denoiserDistanceDiagnostics != validated.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.maxBounces != validated.maxBounces ||
+        m_pathTracingSettings.primaryGlassBounceOverride != validated.primaryGlassBounceOverride ||
+        (validated.primaryGlassBounceOverride &&
+            m_pathTracingSettings.primaryGlassMaxBounces != validated.primaryGlassMaxBounces) ||
         m_pathTracingSettings.randomSeed != validated.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
         m_pathTracingSettings.environmentEnabled != validated.environmentEnabled ||
@@ -789,6 +814,12 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_nrdComposedOutputValid = false;
         m_nrdFrameIndex = 0;
 #endif
+    }
+    if (m_pathTracingSettings.reconstructionBackend != validated.reconstructionBackend)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("pt.reconstruction",
+                                        static_cast<uint64_t>(m_pathTracingSettings.reconstructionBackend),
+                                        static_cast<uint64_t>(validated.reconstructionBackend));
     }
     m_pathTracingSettings = validated;
     if (changed || reconstructionChanged)
@@ -852,7 +883,8 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
                                 (m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled()) &&
                                 m_pathTracingSettings.denoiserDistanceDiagnostics &&
                                 m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
-                                m_ptRrLive != nullptr && m_ptRrLive->Failure().empty();
+                                m_ptRrLive != nullptr && (m_ptRrLive->Failure().empty() ||
+                                    (m_rrChainedSchedule && m_ptRrLive->OutputReady()));
         return Engine::ResolvePathTracingReconstructionPresentation(
             backend,
             true,
@@ -3056,6 +3088,23 @@ void RtPbrSurveyEngine::LoadAssets()
 
     // Create fence early so WaitForGpu() can be called during resource creation.
     m_graphicsDevice.CreateFence(0);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_rrSeparateCompletionFence)
+    {
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateFence(
+            0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_rrCompletionFence)));
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateCommandAllocator(
+            D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_rrProductionAllocator)));
+        if (m_rrVerifiedPresent)
+        {
+            m_rrProductionEvent.reset(CreateEventW(nullptr, FALSE, FALSE, nullptr));
+            if (!m_rrProductionEvent)
+            {
+                ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+            }
+        }
+    }
+#endif
     m_frameResources[m_currentFrameIndex].fenceValue = 1;
 
     ReloadEnvironmentResources(m_environmentSettings);
@@ -3566,7 +3615,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         CD3DX12_ROOT_PARAMETER1 parameters[3];
         parameters[0].InitAsDescriptorTable(_countof(reads), reads);
         parameters[1].InitAsDescriptorTable(_countof(writes), writes);
-        parameters[2].InitAsConstants(39, 0);
+        parameters[2].InitAsConstants(41, 0);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
         desc.Init_1_1(_countof(parameters), parameters);
         ComPtr<ID3DBlob> signature, error;
@@ -4030,7 +4079,6 @@ void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Res
     const UINT textureResourceCount = m_sceneTextureCount + Engine::kTextureSemanticCount;
     assert(textureResourceCount <= kTextureDescriptorCapacity);
 
-    // 3ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â²ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â²ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©
     // [0, m_sceneTextureCount)              : Scene textures (from glTF)
     // [m_sceneTextureCount, textureResourceCount) : Semantic fallback (5 types)
     // [textureResourceCount, kTextureDescriptorCapacity) : Unused -> BaseColor fallback
@@ -4711,6 +4759,16 @@ void RtPbrSurveyEngine::CreateGBuffer()
         m_depthStencilSrv = m_descriptorHeapAllocator.AllocWithHandle();
     }
     assert(m_depthStencilSrv.Index == m_gbuffer.srvHandles[Engine::GBuffer::Albedo].Index + Engine::GBuffer::kCount);
+
+    // Tone mapping binds the complete GBuffer/depth table for material highlights.
+    // PT can use it before the lazy depth resource exists, including after resize.
+    // Keep that unused slot valid until CreateDepthStencilDescriptors replaces it.
+    D3D12_SHADER_RESOURCE_VIEW_DESC nullDepthSrv = {};
+    nullDepthSrv.Format = DXGI_FORMAT_R32_FLOAT;
+    nullDepthSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    nullDepthSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    nullDepthSrv.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(nullptr, &nullDepthSrv, m_depthStencilSrv.cpu);
 
     if (m_lightPassColorSrv.Index == UINT_MAX)
     {
@@ -6147,19 +6205,14 @@ UINT RtPbrSurveyEngine::GetVisibleCubeCount() const
 }
 
 // Render the scene.
-void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
+void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
+                                      FramePasses passes,
+                                      uint64_t expectedRrInputId)
 {
     PIXBeginEvent(0, L"RenderFrame");
 
-#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_ptRrLive)
-        m_ptRrLive->Poll(m_graphicsDevice.CompletedFenceValue(),
-                         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
-                         m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused &&
-                             m_pathTracingFrameAdvance);
-#endif
-
     ProcessCompletedScreenshot();
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
 
     // Select the per-frame chunk within the main heap's reserved range and
     // stage descriptors from the CPU heap into that chunk.
@@ -6174,13 +6227,79 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::RecordSubmit);
         // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
-        PopulateCommandList();
+        ID3D12CommandAllocator* allocator = m_frameResources[m_currentFrameIndex].commandAllocator.Get();
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        const bool usingRrAllocator = passes != FramePasses::Presentation && CanUseRrProductionAllocator();
+        if (passes == FramePasses::Production && !usingRrAllocator)
+        {
+            throw std::logic_error("Split RR production requires a retired production allocator");
+        }
+        if (usingRrAllocator)
+        {
+            allocator = m_rrProductionAllocator.Get();
+        }
+#endif
+        trace.Record("record_begin");
+        if (passes == FramePasses::Production)
+        {
+            trace.BeginVerifiedProductionRecording();
+        }
+        PopulateCommandList(*allocator, passes);
+        if (!m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.empty())
+            trace.Submission(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.front().frameId);
+        trace.Record("record_end");
         m_activeUiRenderHandler = nullptr;
         ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
+        trace.Record("execute_begin");
+        trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteBegin);
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-        CommitReflectionHistoryFrame();
-        CommitReflectionSamplingFrame();
-        CommitPathTracingFrame();
+        trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteEnd);
+        trace.Record("execute_end");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        const bool submittedRrWork = m_ptRrLive && m_ptRrLive->HasUnsubmittedWork();
+        if (m_rrCompletionFence && (usingRrAllocator || submittedRrWork))
+        {
+            const uint64_t fenceValue = ++m_rrCompletionFenceValue;
+            ThrowIfFailed(m_graphicsDevice.CommandQueue()->Signal(m_rrCompletionFence.Get(), fenceValue));
+            // A host-side gate may skip RR after the graph is built. The
+            // allocator still owns the submitted commands and needs a fence.
+            if (usingRrAllocator)
+            {
+                m_rrProductionAllocatorFence = fenceValue;
+                trace.Record("rr_allocator_signal", fenceValue);
+            }
+            if (submittedRrWork)
+            {
+                trace.Record("rr_completion_signal", fenceValue);
+                m_ptRrLive->MarkSubmitted(fenceValue);
+            }
+            if (passes == FramePasses::Production)
+            {
+                m_rrVerifiedFrameEpoch = m_pathTracingReconstructionHistory.Epoch(
+                    Engine::PathTracingReconstructionBackend::Rr);
+                m_rrVerifiedFrameInputId = submittedRrWork ? m_ptRrLive->InputFrameId() : 0;
+                m_rrVerifiedFrameFence = fenceValue;
+                trace.VerifiedProductionSubmitted();
+                if (!ResetEvent(m_rrProductionEvent.get()))
+                {
+                    ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+                }
+                ThrowIfFailed(m_rrCompletionFence->SetEventOnCompletion(fenceValue, m_rrProductionEvent.get()));
+            }
+        }
+#endif
+        if (passes != FramePasses::Presentation)
+        {
+            CommitReflectionHistoryFrame();
+            CommitReflectionSamplingFrame();
+            CommitPathTracingFrame();
+        }
+    }
+
+    if (passes == FramePasses::Production)
+    {
+        PIXEndEvent();
+        return;
     }
 
     if (m_reflectionHdrDiagnosticPending)
@@ -6214,17 +6333,39 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         m_specularDebugRayQueryPending = false;
     }
 
-    // Present the frame.
+    // Capture the RR image actually selected by this recorded graph, not a later publication.
+    uint64_t presentedRr = 0;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_ptRrLive &&
+        ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+        presentedRr = m_ptRrLive->FrameId();
+#endif
+    const uint64_t verifiedPresentQpc =
+        passes == FramePasses::Presentation && trace.Running() ? trace.Now() : 0;
+    trace.Record("present_begin", presentedRr, m_vSyncEnabled ? 1 : 0, m_currentFrameIndex);
+    HRESULT presentResult;
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::Present);
-        m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
+        presentResult = m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
     }
 
+    trace.Record(
+        "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
+    if (passes != FramePasses::Presentation || presentResult == S_OK)
+    {
+        trace.Presented(presentedRr);
+    }
+    if (passes == FramePasses::Presentation && presentResult == S_OK)
+    {
+        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId, verifiedPresentQpc);
+    }
+    trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_ptRrLive)
+    if (m_ptRrLive && !m_rrCompletionFence)
         m_ptRrLive->MarkSubmitted(submittedFenceValue);
-    if (CanRunPtRrNative() && m_ptRrLive &&
+    if ((passes != FramePasses::Presentation || presentResult == S_OK) &&
+        CanRunPtRrNative() && m_ptRrLive &&
         ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
         m_ptRrLive->MarkPresented();
 #endif
@@ -6240,6 +6381,16 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     CollectGarbageTransientResources();
     CollectDeferredGpuReleases();
 
+    if (!m_frameAcquisitionPending)
+    {
+        ReadCompletedFrameData();
+    }
+
+    PIXEndEvent();
+}
+
+void RtPbrSurveyEngine::ReadCompletedFrameData(bool verifiedProduction)
+{
     FrameResource& statisticsFrame = m_frameResources[m_currentFrameIndex];
     if (statisticsFrame.gbufferStatisticsPending)
     {
@@ -6254,11 +6405,17 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     }
     if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), m_currentFrameIndex))
     {
-        m_completedGpuWorkMeterCheckPoints = m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints;
+        const auto& checkPoints = statisticsFrame.gpuWorkMeterCheckPoints;
+        auto& trace = RtPbrSurvey::g_rrFenceTrace;
+        trace.Gpu(checkPoints);
+        if (verifiedProduction)
+        {
+            trace.VerifiedProductionGpu(checkPoints);
+        }
+        m_completedGpuWorkMeterCheckPoints = checkPoints;
         m_completedReconstructionPlan = m_frameResources[m_currentFrameIndex].reconstructionPlan;
     }
 
-    PIXEndEvent();
 }
 
 void RtPbrSurveyEngine::SetSceneViewport(UINT x, UINT y, UINT width, UINT height)
@@ -6276,13 +6433,69 @@ void RtPbrSurveyEngine::SetSceneViewport(UINT x, UINT y, UINT width, UINT height
 
 void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 {
+    RtPbrSurvey::g_rrCrashLog.Record("resize.request", width, height);
     m_pendingResize = true;
     m_pendingResizeWidth = width;
     m_pendingResizeHeight = height;
 }
 
+bool RtPbrSurveyEngine::WaitForVerifiedRrProduction()
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (!IsVerifiedRrProductionReady())
+    {
+        const HANDLE readyEvent = m_rrProductionEvent.get();
+        const DWORD result = MsgWaitForMultipleObjectsEx(1, &readyEvent, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        if (result == WAIT_FAILED)
+        {
+            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+        }
+        // Return to the message loop before either recording or reusing the frame resources.
+        return false;
+    }
+#endif
+    return true;
+}
+
 void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
 {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_rrVerifiedFrameFence != 0)
+    {
+        if (!IsVerifiedRrProductionReady())
+        {
+            return;
+        }
+        m_rrVerifiedFrameFence = 0;
+        RtPbrSurvey::g_rrFenceTrace.VerifiedProductionReady();
+        ReadCompletedFrameData(true);
+        const uint64_t currentEpoch =
+            m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
+        if (!m_pendingResize && CanSplitRrFrame() && currentEpoch == m_rrVerifiedFrameEpoch)
+        {
+            m_cpuFrameTimer.Begin();
+            m_workMeter.Start();
+            m_ptRrLive->Poll(CompletedRrFenceValue(), currentEpoch, false, m_rrEagerProduction);
+            RenderFrame(uiRenderHandler, FramePasses::Presentation, m_rrVerifiedFrameInputId);
+            m_workMeter.End();
+            m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
+            m_cpuFrameTimer.End();
+            return;
+        }
+        // A scene/settings change intervened. Retire submitted resources with
+        // the ordinary frame fence; the standard path handles the new epoch.
+        MarkPendingTransientResources(SignalFenceForQueuedGpuWork());
+    }
+#endif
+    // Direct diagnostic callers retain a safe blocking fallback. The normal
+    // application loop tests readiness before entering this function.
+    AcquireFrameResources(true);
+    RtPbrSurvey::g_rrFenceTrace.BeginFrame(m_graphicsDevice.CommandQueue());
+    if (RtPbrSurvey::g_rrFenceTrace.Capturing())
+    {
+        RtPbrSurvey::g_rrFenceTrace.gpuMarker = [this](const char* name)
+        { m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), name); };
+    }
     m_cpuFrameTimer.Begin();
     if (m_pendingResize)
     {
@@ -6294,8 +6507,42 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     m_pathTracingFrameAdvance = advanceFrame;
 
     m_workMeter.Start();
+    // Publish completed history before camera/instance history is prepared.
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    const uint64_t rrEpochBeforeUpdate =
+        m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
+    if (m_ptRrLive)
+        m_ptRrLive->Poll(CompletedRrFenceValue(),
+                         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
+                         m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused &&
+                             m_pathTracingFrameAdvance, m_rrEagerProduction);
+#endif
+
     UpdateFrame(advanceFrame);
-    RenderFrame(uiRenderHandler);
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
+    trace.Record("pose_ready");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_rrVerifiedPresent)
+    {
+        trace.VerifiedPoseReady();
+    }
+    // Scene updates can invalidate history after the early publication poll.
+    // Drain/reconcile that epoch before recording a new immutable packet.
+    const uint64_t rrEpochAfterUpdate =
+        m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
+    if (m_ptRrLive && rrEpochAfterUpdate != rrEpochBeforeUpdate)
+        m_ptRrLive->Poll(CompletedRrFenceValue(), rrEpochAfterUpdate,
+            m_pathTracingSettings.rrContinuous && !m_pathTracingRuntimeState.accumulationPaused && advanceFrame,
+            m_rrEagerProduction);
+#endif
+    FramePasses passes = FramePasses::Combined;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (CanSplitRrFrame() && CanUseRrProductionAllocator() && MakePathTracingReconstructionPlan().runRrConversion)
+    {
+        passes = FramePasses::Production;
+    }
+#endif
+    RenderFrame(uiRenderHandler, passes);
     m_workMeter.End();
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
     m_cpuFrameTimer.End();
@@ -6303,6 +6550,8 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
 
 void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("resize.begin", width, height);
     DBG_PRINT("RtPbrSurveyEngine::ApplyResize() %d %d\n", width, height);
     m_width = width;
     m_height = height;
@@ -6314,16 +6563,23 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 
     if (width == 0 || height == 0)
     {
+        crashLog.Record("resize.skip.zero_extent");
         return;
     }
 
     if (!m_graphicsDevice.HasSwapChain())
     {
+        crashLog.Record("resize.skip.no_swapchain");
         return;
     }
 
     FlushGpu();
+    // RR owns SDK allocations keyed by the old extent. Release them after GPU
+    // completion, before replacing tagged textures or requesting a new extent.
+    if (!Engine::ReleaseStreamlineRayReconstructionResources())
+        throw std::runtime_error("Could not release RR resolution resources after GPU drain");
 
+    crashLog.Record("resize.resources.begin", m_renderWidth, m_renderHeight);
     // Clear RTV
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     if (m_nrdGpu != nullptr)
@@ -6485,11 +6741,20 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_renderViewport = CD3DX12_VIEWPORT(
         0.0f, 0.0f, static_cast<FLOAT>(m_renderWidth), static_cast<FLOAT>(m_renderHeight), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
     m_renderScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_renderWidth), static_cast<LONG>(m_renderHeight));
+    crashLog.Record("resize.end", width, height);
 }
 
 void RtPbrSurveyEngine::Shutdown()
 {
+    RtPbrSurvey::g_rrCrashLog.Record("renderer.shutdown.begin");
     DestroyFrameResources();
+    if (RtPbrSurvey::g_rrFenceTrace.Running())
+    {
+        // DestroyFrameResources drained the queue; include the final pending queries.
+        for (UINT i = 0; i < kFrameCount; ++i)
+            if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), i))
+                RtPbrSurvey::g_rrFenceTrace.Gpu(m_frameResources[i].gpuWorkMeterCheckPoints);
+    }
     ProcessCompletedScreenshot();
     m_mp4Encoder.Shutdown();
     ProcessCompletedScreenshot();
@@ -6513,13 +6778,16 @@ void RtPbrSurveyEngine::Shutdown()
     }
     m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
+    RtPbrSurvey::g_rrCrashLog.Record("renderer.shutdown.end");
 }
 
 void RtPbrSurveyEngine::DestroyFrameResources()
 {
     // Ensure that the GPU is no longer referencing resources that are about to be
     // cleaned up by the destructor.
+    RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.begin");
     WaitForGpu();
+    RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.end");
 
     m_graphicsDevice.CloseFenceEvent();
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
@@ -6573,18 +6841,26 @@ void RtPbrSurveyEngine::RegisterDepthPrePassPipeline(const D3D12_GRAPHICS_PIPELI
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
 
-void RtPbrSurveyEngine::PopulateCommandList()
+void RtPbrSurveyEngine::PopulateCommandList(ID3D12CommandAllocator& allocator, FramePasses passes)
 {
     PIXBeginEvent(1, L"PopulateCommandList");
 
-    BeginFrame();
+    BeginFrame(allocator);
     ResetResourceStates();
-    RebuildAccelerationStructures();
-    BuildRenderPasses();
+    if (passes != FramePasses::Presentation)
+    {
+        RebuildAccelerationStructures();
+    }
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
+    using CpuPoint = RtPbrSurvey::RrFenceTrace::ProductionCpuPoint;
+    trace.MarkVerifiedProductionCpu(CpuPoint::GraphBegin);
+    BuildRenderPasses(passes);
     ValidateRenderPassGraph();
     AnalyzeResourceLifetimes();
     // DebugPrintLifetimes();
-    ExecutePasses();
+    trace.MarkVerifiedProductionCpu(CpuPoint::PassesBegin);
+    ExecutePasses(passes);
+    trace.MarkVerifiedProductionCpu(CpuPoint::PassesEnd);
     EndFrame();
 
     PIXEndEvent();
@@ -6609,25 +6885,107 @@ ID3D12PipelineState* RtPbrSurveyEngine::GetPipelineState(PipelineKey pipeline) c
     return m_renderGraphRuntime.Pipelines().Find(pipeline);
 }
 
-void RtPbrSurveyEngine::ExecutePasses()
+void RtPbrSurveyEngine::ExecutePasses(FramePasses passes)
 {
-    m_renderGraphBarrierDocument = CaptureRenderGraphDocument();
-    Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
-    Engine::ExecuteRenderPassGraph(m_renderGraphRuntime.Graph(),
+    using Trace = RtPbrSurvey::RrFenceTrace;
+    struct
+    {
+        Trace::GraphCpuTiming* timing;
+        uint64_t passStart = 0;
+        std::string passName;
+    } cpu{passes == FramePasses::Combined ? nullptr :
+              RtPbrSurvey::g_rrFenceTrace.VerifiedGraphCpuTiming(passes == FramePasses::Presentation)};
+    const auto& graph = m_renderGraphRuntime.Graph();
+    const bool captureDiagnostics = m_renderGraphBarrierDiagnosticsRequested;
+    m_renderGraphBarrierDiagnosticsRequested = false;
+    Engine::RenderGraphDocument document;
+    std::vector<int> visiblePassIndices;
+    float documentMs = 0.0f;
+    if (captureDiagnostics)
+    {
+        const uint64_t documentStart = cpu.timing ? Trace::Now() : 0;
+        const auto workMeterStart = std::chrono::steady_clock::now();
+        document = CaptureRenderGraphDocument();
+        documentMs =
+            std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - workMeterStart).count();
+        if (cpu.timing)
+        {
+            cpu.timing->documentTicks = Trace::Now() - documentStart;
+        }
+        visiblePassIndices.reserve(graph.Size());
+        int visibleIndex = 0;
+        for (const auto& pass : graph.Passes())
+        {
+            visiblePassIndices.push_back(IsRenderGraphThumbnailPass(pass.name) ? -1 : visibleIndex++);
+        }
+    }
+    if (cpu.timing)
+    {
+        cpu.timing->passes.reserve(graph.Size());
+    }
+    if (passes == FramePasses::Production)
+    {
+        m_productionRenderGraphDocumentCpuMs = documentMs;
+    }
+    else
+    {
+        m_renderGraphDocumentCpuMs = documentMs;
+        if (passes == FramePasses::Presentation)
+        {
+            m_renderGraphDocumentCpuMs += m_productionRenderGraphDocumentCpuMs;
+        }
+        m_productionRenderGraphDocumentCpuMs = 0.0f;
+    }
+    std::unordered_map<std::string, size_t> passNameOccurrences;
+    Engine::ResourceTransitionContext resourceTransitions =
+        MakeResourceTransitionContext(captureDiagnostics ? &visiblePassIndices : nullptr);
+    Engine::ExecuteRenderPassGraph(graph,
                                    {m_commandList.Get(),
                                     &m_renderGraphRuntime.Bindings(),
                                     &m_renderGraphRuntime.Pipelines(),
                                     &m_renderGraphRuntime.Constants(),
                                     &resourceTransitions,
-                                    [this](int passIndex) { CreateResourcesForPass(passIndex); },
-                                    [this](const RenderPass& pass) { ExecutePassOperation(pass); },
-                                    [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); },
-                                    [this](int passIndex, const RenderPass& pass)
+                                    [this, &cpu](int passIndex)
                                     {
-                                        m_gpuWorkMeter.SetCheckPoint(
-                                            m_commandList.Get(), WideToUtf8(pass.name), passIndex);
+                                        if (cpu.timing)
+                                        {
+                                            cpu.passStart = Trace::Now();
+                                        }
+                                        CreateResourcesForPass(passIndex);
+                                    },
+                                    [this](const RenderPass& pass) { ExecutePassOperation(pass); },
+                                    [this, &cpu](int passIndex)
+                                    {
+                                        ReleaseResourcesAfterPass(passIndex);
+                                        if (cpu.timing)
+                                        {
+                                            const uint64_t duration = Trace::Now() - cpu.passStart;
+                                            cpu.timing->passes.push_back({std::move(cpu.passName), duration});
+                                        }
+                                    },
+                                    [this, &cpu, &passNameOccurrences](int passIndex, const RenderPass& pass)
+                                    {
+                                        std::string passName = WideToUtf8(pass.name);
+                                        const uint64_t passNodeId = IsRenderGraphThumbnailPass(pass.name) ? 0 :
+                                            Engine::MakeRenderGraphPassDocumentId(passName,
+                                                passNameOccurrences[passName]++).value;
+                                        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), passName, passIndex, passNodeId);
+                                        if (cpu.timing)
+                                        {
+                                            cpu.passName = std::move(passName);
+                                        }
                                     }});
-    m_hasRenderGraphBarrierEvents = true;
+    if (captureDiagnostics)
+    {
+        m_completedRenderGraphBarrierEvents.swap(m_renderGraphBarrierEvents);
+        m_completedRenderGraphBarrierDocument = std::move(document);
+    }
+    else if (m_hasCompletedRenderGraphBarrierEvents)
+    {
+        m_completedRenderGraphBarrierEvents.clear();
+        m_completedRenderGraphBarrierDocument = {};
+    }
+    m_hasCompletedRenderGraphBarrierEvents = captureDiagnostics;
 }
 
 void RtPbrSurveyEngine::ExecutePassOperation(const RenderPass& pass)
@@ -7095,7 +7453,8 @@ void RtPbrSurveyEngine::ResetResourceStates()
     }
 }
 
-Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionContext()
+Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionContext(
+    const std::vector<int>* visiblePassIndices)
 {
     return {m_commandList.Get(),
             [this](const std::string& name) { return m_renderGraphRuntime.Resources().Resolve(name); },
@@ -7103,14 +7462,15 @@ Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionConte
             [this](const std::string& name, D3D12_RESOURCE_STATES state) { SetResourceState(name, state); },
             [](const ResourceUsage& usage)
             { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); },
-            [this](int passIndex,
+            [this, visiblePassIndices](int passIndex,
                    const ResourceUsage& usage,
                    D3D12_RESOURCE_STATES beforeState,
                    D3D12_RESOURCE_STATES afterState)
             {
-                if (passIndex >= 0)
+                if (visiblePassIndices && passIndex >= 0 && (*visiblePassIndices)[passIndex] >= 0)
                 {
-                    m_renderGraphBarrierEvents.push_back({passIndex, usage.name, beforeState, afterState});
+                    m_renderGraphBarrierEvents.push_back(
+                        {(*visiblePassIndices)[passIndex], usage.name, beforeState, afterState});
                 }
             }};
 }
@@ -7146,27 +7506,17 @@ void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE
     m_resourceRegistry.SetState(name, state);
 }
 
-void RtPbrSurveyEngine::BeginFrame()
+void RtPbrSurveyEngine::BeginFrame(ID3D12CommandAllocator& allocator)
 {
-    if (m_hasRenderGraphBarrierEvents)
-    {
-        m_completedRenderGraphBarrierEvents = m_renderGraphBarrierEvents;
-        m_completedRenderGraphBarrierDocument = m_renderGraphBarrierDocument;
-        m_hasCompletedRenderGraphBarrierEvents = true;
-    }
     m_renderGraphBarrierEvents.clear();
-    m_hasRenderGraphBarrierEvents = false;
 
     // Command list allocators can only be reset when the associated
     // command lists have finished execution on the GPU; apps should use
     // fences to determine GPU execution progress.
-    ThrowIfFailed(m_frameResources[m_currentFrameIndex].commandAllocator->Reset());
+    ThrowIfFailed(allocator.Reset());
 
-    // However, when ExecuteCommandList() is called on a particular command
-    // list, that command list can then be reset at any time and must be before
-    // re-recording.
-    ThrowIfFailed(m_commandList->Reset(m_frameResources[m_currentFrameIndex].commandAllocator.Get(),
-                                       GetPipelineState(PipelineId(Pipe::Forward))));
+    // The command list can be reused with a different, retired allocator.
+    ThrowIfFailed(m_commandList->Reset(&allocator, GetPipelineState(PipelineId(Pipe::Forward))));
 
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
@@ -7409,6 +7759,9 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
         passDesc.debugOutput = 3 + m_pathTracingReferenceComponent;
 #endif
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
+    passDesc.primaryGlassMaxBounces =
+        m_pathTracingSettings.primaryGlassBounceOverride && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
+            ? m_pathTracingSettings.primaryGlassMaxBounces : 0u;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
@@ -7451,6 +7804,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
                                 (passDesc.pixelCenterPrimary ? 2u : 0u) |
                                 (passDesc.denoiserDistanceDiagnostics ? 4u : 0u) |
                                 (produced.frameJitterPrimary ? 8u : 0u) |
+                                (static_cast<uint64_t>(passDesc.primaryGlassMaxBounces) << 16) |
                                 (produced.coherentPrimaryBatch ? uint64_t(passDesc.samplesPerFrame) << 8 : 0u);
     produced.jitterPixels = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
     XMFLOAT4X4 view, projection, previousViewProjection;
@@ -7460,6 +7814,12 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     memcpy(produced.worldToView.data(), &view, sizeof(view));
     memcpy(produced.viewToClip.data(), &projection, sizeof(projection));
     memcpy(produced.previousViewProjection.data(), &previousViewProjection, sizeof(previousViewProjection));
+    RtPbrSurvey::g_rrFenceTrace.Record(
+        "input_snapshot",
+        produced.frameId,
+        m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
+        produced.sampleStartIndex,
+        produced.samplesPerFrame);
     m_pathTracingProduction.Capture(produced, GetPathTracingReconstructionResources());
 #endif
     m_pathTracingGeometryToken = m_nrdGeometrySnapshot.Token();
@@ -7503,6 +7863,52 @@ bool RtPbrSurveyEngine::SupportsPtRrSurfaces() const
     });
 }
 
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+uint64_t RtPbrSurveyEngine::CompletedRrFenceValue() const
+{
+    return m_rrCompletionFence ? m_rrCompletionFence->GetCompletedValue() : m_graphicsDevice.CompletedFenceValue();
+}
+
+bool RtPbrSurveyEngine::CanUseRrProductionAllocator() const
+{
+    if (!m_rrProductionAllocator || !m_sceneResourcesAvailable ||
+        !m_pathTracingFrameAdvance || m_pathTracingRuntimeState.accumulationPaused ||
+        !m_ptRrLive || !m_ptRrLive->CanCapture() ||
+        !CanRunPtRrNative() || !m_rayReconstructionSupport.IsAvailable())
+    {
+        return false;
+    }
+    const uint64_t completed = CompletedRrFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        throw std::runtime_error("Device removed before RR command allocator retirement");
+    }
+    return completed >= m_rrProductionAllocatorFence;
+}
+
+bool RtPbrSurveyEngine::IsVerifiedRrProductionReady() const
+{
+    if (m_rrVerifiedFrameFence == 0)
+    {
+        return true;
+    }
+    const uint64_t completed = CompletedRrFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        throw std::runtime_error("Device removed before verified RR presentation");
+    }
+    return completed >= m_rrVerifiedFrameFence;
+}
+
+bool RtPbrSurveyEngine::CanSplitRrFrame() const
+{
+    return m_rrProductionEvent && m_sceneResourcesAvailable && m_ptRrLive &&
+           CanRunPtRrNative() && m_rayReconstructionSupport.IsAvailable() &&
+           m_pathTracingSettings.rrContinuous && !m_toneMapPass.settings.highlight.enabled &&
+           !m_pixelPickPending && !m_specularDebugRayQueryPending;
+}
+#endif
+
 bool RtPbrSurveyEngine::CanRunPtRrNative() const
 {
     return IsPtRrNativeRequested() && SupportsPtRrSurfaces();
@@ -7541,7 +7947,7 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
     std::array<ID3D12Resource*, 8> inputs;
     for (size_t i = 0; i < inputs.size(); ++i)
         inputs[i] = m_pathTracingGuideTextures[PathTracingGuideRrColor + i].Get();
-    const UINT slot = m_ptRrLive->NextOutputSlot();
+    const UINT slot = m_rrChainedSchedule ? m_rrReservedOutputSlot : m_ptRrLive->NextOutputSlot();
     m_rrInstancePoses[slot] = m_scene.instances;
     const auto* previousPoseKey = m_ptRrLive->PublishedKey();
     const auto previousPoseSlot = m_ptRrLive->PublishedSlot();
@@ -7560,7 +7966,9 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
                             constants,
                             inputs,
                             m_pathTracingGuideTextures[PathTracingGuideRrOutput + slot].Get(),
-                            slot);
+                            slot,
+                            m_rrChainedSchedule,
+                            m_rrRecoveryFault);
 #endif
 }
 
@@ -7568,6 +7976,9 @@ void RtPbrSurveyEngine::ExecutePtRrEvaluatePass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (!m_ptRrLive->CanEvaluate() ||
+        (m_rrChainedSchedule && (m_rrConversionHostGate != 0 || !m_rrSafeInputs)))
+        return;
     // Discard stale graphics bindings before SDK/validation writes resources.
     m_commandList->SetGraphicsRootSignature(nullptr);
     const UINT outputIndex = PathTracingGuideRrOutput + m_ptRrLive->WritingSlot();
@@ -7612,14 +8023,18 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
         XMFLOAT4X4 previousViewProjection;
         XMFLOAT2 jitterNdc;
         UINT stationaryCamera;
+        UINT safeInputProfile;
+        UINT recoveryFault;
     } constants;
-    static_assert(sizeof(Constants) == 39 * sizeof(UINT));
+    static_assert(sizeof(Constants) == 41 * sizeof(UINT));
     XMStoreFloat4x4(&constants.inverseViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection)));
     constants.width = m_renderWidth;
     constants.height = m_renderHeight;
     constants.hostGate = m_rrConversionHostGate;
     constants.actualContinuation = IsPtRrNativeRequested() ? 1u : 0u;
+    constants.safeInputProfile = m_rrSafeInputs ? 1u : 0u;
+    constants.recoveryFault = m_rrChainedSchedule ? static_cast<UINT>(m_rrRecoveryFault) : 0;
     XMStoreFloat4x4(&constants.previousViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection)));
     const auto& jitter = m_rrConversionInputs.frame.jitterPixels;
@@ -7631,7 +8046,7 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
     m_commandList->SetPipelineState(m_rrConversionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideRrColor].gpu);
-    m_commandList->SetComputeRoot32BitConstants(2, 39, &constants, 0);
+    m_commandList->SetComputeRoot32BitConstants(2, 41, &constants, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
     m_rrConversionRecorded = true;
 #endif
@@ -8535,6 +8950,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             metadata["rrConversion"] = {
                 {"recorded", m_rrConversionRecorded},
                 {"hostGate", m_rrConversionHostGate},
+                {"schedule", m_rrChainedSchedule ? "chained" : m_rrSafeInputs ? "safe-serial" : m_rrEagerProduction ? "eager" : "strict"},
+                {"safeInputProfile", m_rrSafeInputs ? 1 : 0},
                 {"frameId", m_rrConversionFrameId},
                 {"distanceSource", IsPtRrNativeRequested() ? "actual-continuation" : "independent-probe"},
                 {"sampleStartIndex", m_rrConversionSampleStartIndex},
@@ -9057,6 +9474,14 @@ auto RtPbrSurveyEngine::ResolveRenderTargets(const PassRenderTargetBinding& rend
     return resolvedRenderTargets;
 }
 
+bool RtPbrSurveyEngine::IsRenderGraphThumbnailPass(const wchar_t* passName)
+{
+    return std::any_of(kDebugTexturePreviewPassNames + kMaxDebugTexturePreviewCount,
+                       kDebugTexturePreviewPassNames + kMaxDebugTextureOutputCount,
+                       [passName](const wchar_t* thumbnailPassName)
+                       { return passName && std::wcscmp(passName, thumbnailPassName) == 0; });
+}
+
 Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() const
 {
     Engine::RenderGraphResourceMetadataMap metadata;
@@ -9116,14 +9541,17 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     registerPingPongGroup(kReflectionResolvedSpecularEstimateResourceNames, "ReflectionResolvedSpecularEstimate");
     registerPingPongGroup(kReflectionSpecularMomentsResourceNames, "ReflectionSpecularMoments");
     registerPingPongGroup(kReflectionSpecularConfidenceResourceNames, "ReflectionSpecularConfidence");
-
-    const auto isThumbnailPass = [](const wchar_t* passName)
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    for (unsigned int i = 0; i < 2; ++i)
     {
-        return std::any_of(kDebugTexturePreviewPassNames + kMaxDebugTexturePreviewCount,
-                           kDebugTexturePreviewPassNames + kMaxDebugTextureOutputCount,
-                           [passName](const wchar_t* thumbnailPassName)
-                           { return std::wcscmp(passName, thumbnailPassName) == 0; });
-    };
+        auto& resource = metadata[kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput + i]];
+        resource.logicalGroupName = "PathTracing.RrOutput";
+        resource.physicalIndex = static_cast<int>(i);
+        resource.pingPongRole = m_ptRrLive && m_ptRrLive->OutputReady() && i == m_ptRrLive->PublishedSlot()
+            ? Engine::RenderGraphPingPongRole::HistoryRead : Engine::RenderGraphPingPongRole::CurrentWrite;
+    }
+#endif
+
     const auto isThumbnailResource = [](const std::string& resourceName)
     {
         return std::any_of(kDebugTexturePreviewResourceNames + kMaxDebugTexturePreviewCount,
@@ -9136,7 +9564,7 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     displayPasses.reserve(m_renderGraphRuntime.Graph().Passes().size());
     for (const RenderPass& pass : m_renderGraphRuntime.Graph().Passes())
     {
-        if (isThumbnailPass(pass.name))
+        if (IsRenderGraphThumbnailPass(pass.name))
         {
             continue;
         }
@@ -9149,6 +9577,11 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
                       { return isThumbnailResource(usage.name); });
     }
     return Engine::BuildRenderGraphDocument(displayPasses, metadata);
+}
+
+const Engine::RenderGraphDocument* RtPbrSurveyEngine::LatestRenderGraphBarrierDocument() const
+{
+    return m_hasCompletedRenderGraphBarrierEvents ? &m_completedRenderGraphBarrierDocument : nullptr;
 }
 
 const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const
@@ -9355,6 +9788,7 @@ void RtPbrSurveyEngine::EndFrame()
 // Wait for pending GPU work to complete.
 void RtPbrSurveyEngine::WaitForGpu()
 {
+    AcquireFrameResources(true);
     PIXBeginEvent(3, L"WaitForGpu");
 
     // Schedule a Signal command in the queue.
@@ -9374,22 +9808,60 @@ void RtPbrSurveyEngine::WaitForGpu()
 
 void RtPbrSurveyEngine::FlushGpu()
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    crashLog.Record("gpu.flush.begin");
+    AcquireFrameResources(true);
     UINT64 fenceValue = m_graphicsDevice.CompletedFenceValue() + 1;
     for (const FrameResource& frameResource : m_frameResources)
     {
         fenceValue = (std::max)(fenceValue, frameResource.fenceValue);
     }
 
+    crashLog.Record("gpu.flush.signal.begin", fenceValue);
     m_graphicsDevice.SignalFence(fenceValue);
+    crashLog.Record("gpu.flush.wait.begin", fenceValue);
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
         m_graphicsDevice.WaitForFenceValue(fenceValue);
     }
+    crashLog.Record("gpu.flush.wait.end", fenceValue);
 
     for (FrameResource& frameResource : m_frameResources)
     {
         frameResource.fenceValue = fenceValue + 1;
     }
+    crashLog.Record("gpu.flush.end", fenceValue);
+}
+
+bool RtPbrSurveyEngine::AcquireFrameResources(bool wait)
+{
+    if (!m_frameAcquisitionPending)
+    {
+        return true;
+    }
+    const UINT64 required = m_frameResources[m_currentFrameIndex].fenceValue;
+    const UINT64 completed = m_graphicsDevice.CompletedFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        throw std::runtime_error("Device removed during frame acquisition");
+    }
+    if (completed < required)
+    {
+        if (!wait)
+        {
+            ++m_frameAcquisitionPolls;
+            RtPbrSurvey::g_rrFenceTrace.Record("resource_pending", required, completed, m_currentFrameIndex);
+            return false;
+        }
+        ++m_frameAcquisitionFallbackWaits;
+        m_graphicsDevice.WaitForFenceValue(required);
+    }
+    m_frameResources[m_currentFrameIndex].fenceValue = m_nextFrameSignalValue;
+    m_frameAcquisitionPending = false;
+    RtPbrSurvey::g_rrFenceTrace.Record(
+        "resource_acquired", required, m_graphicsDevice.CompletedFenceValue(), m_currentFrameIndex);
+    ReadCompletedFrameData();
+    return true;
 }
 
 // Prepare to render the next frame.
@@ -9399,11 +9871,29 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
 
     // Schedule a Signal command in the queue.
     const UINT64 currentFenceValue = m_frameResources[m_currentFrameIndex].fenceValue;
+    RtPbrSurvey::g_rrFenceTrace.Record("signal_begin", currentFenceValue, m_currentFrameIndex);
     m_graphicsDevice.SignalFence(currentFenceValue);
+    RtPbrSurvey::g_rrFenceTrace.Record("signal_end", currentFenceValue, m_graphicsDevice.CompletedFenceValue());
 
     // Update the frame index.
     m_previousFrameIndex = m_currentFrameIndex;
     m_currentFrameIndex = m_graphicsDevice.CurrentBackBufferIndex();
+
+    // Keep the retire fence intact while acquisition is deferred. It must not
+    // become the next signal value until the allocator/CB/staging are reusable.
+    if (m_nonblockingFrameAcquisition &&
+        m_graphicsDevice.CompletedFenceValue() < m_frameResources[m_currentFrameIndex].fenceValue)
+    {
+        m_nextFrameSignalValue = currentFenceValue + 1;
+        m_frameAcquisitionPending = true;
+        RtPbrSurvey::g_rrFenceTrace.Record("resource_deferred",
+                                           m_frameResources[m_currentFrameIndex].fenceValue,
+                                           m_currentFrameIndex,
+                                           currentFenceValue);
+        ++m_frameAcquisitionDeferrals;
+        PIXEndEvent();
+        return currentFenceValue;
+    }
 
     // If the next frame is not ready to be rendered yet, wait until it is ready.
     if (m_graphicsDevice.CompletedFenceValue() < m_frameResources[m_currentFrameIndex].fenceValue)
@@ -9411,7 +9901,15 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
         PIXBeginEvent(4, L"WaitForSingleObjectEx");
         {
             RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+            RtPbrSurvey::g_rrFenceTrace.Record("resource_wait_begin",
+                                               m_frameResources[m_currentFrameIndex].fenceValue,
+                                               m_currentFrameIndex,
+                                               m_graphicsDevice.CompletedFenceValue());
             m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+            RtPbrSurvey::g_rrFenceTrace.Record("resource_wait_end",
+                                               m_frameResources[m_currentFrameIndex].fenceValue,
+                                               m_currentFrameIndex,
+                                               m_graphicsDevice.CompletedFenceValue());
         }
         PIXEndEvent();
     }

@@ -44,6 +44,25 @@ int main()
     try
     {
         int allocation, replacement;
+        for (unsigned int flags = 0; flags < 8; ++flags)
+        {
+            History speculative;
+            const auto key = Frame();
+            const auto pending = speculative.BeginSpeculative(key, &allocation);
+            Check(pending.action == Action::Evaluate && pending.reset, "Speculative first evaluation must reset");
+            Check(speculative.Finish(pending.ticket, true, true) == Completion::PendingGpu &&
+                      !speculative.CanPresent(key, &allocation), "Ordinary Finish must not admit speculative pixels");
+            Check(speculative.FinishSpeculative(pending.ticket + 1, true, true, true) == Completion::StaleTicket,
+                  "Stale speculative completion changed pending work");
+            const bool valid = flags == 7;
+            Check(speculative.FinishSpeculative(pending.ticket, flags & 1, flags & 2, flags & 4) ==
+                      (valid ? Completion::Completed : Completion::Failed), "Speculative completion gates mismatch");
+            Check(speculative.CanPresent(key, &allocation) == valid, "Invalid speculative output published");
+            Check(speculative.FinishSpeculative(pending.ticket, true, true, true) == Completion::StaleTicket,
+                  "Speculative result committed twice");
+            const auto next = speculative.BeginSpeculative(Frame(2), &replacement);
+            Check(next.reset == !valid, "Rejected SDK history must reset on next evaluation");
+        }
         History history;
         auto first = Frame();
         auto request = history.Begin(first, &allocation, true, true);

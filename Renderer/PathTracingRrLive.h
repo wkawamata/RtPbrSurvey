@@ -9,6 +9,21 @@
 
 namespace Engine
 {
+// Diagnostic injection is selected only by the explicit recovery validator.
+enum class RrRecoveryFault : uint32_t
+{
+    None,
+    InputOne,
+    InputAll,
+    OutputNonfinite,
+    OutputIncomplete,
+    StaleInput,
+    StaleOutput,
+    SdkPostRecordFailure,
+    InputInfinity,
+    InputHuge
+};
+
 // One immutable production at a time; a verified output stays published while
 // the next production is admitted/evaluated into the other slot.
 // All GPU work stays on the caller's queue. No CPU fence waits or image copies.
@@ -31,7 +46,8 @@ public:
         return m_lastPacketLatency;
     }
     void Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE validationShader);
-    void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false);
+    void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false, bool eagerProduction = false);
+    bool HasUnsubmittedWork() const { return m_submissionPending; }
     void MarkSubmitted(uint64_t fence);
     void MarkPresented()
     {
@@ -86,6 +102,29 @@ public:
     {
         return m_inputRejectionCount;
     }
+    uint64_t OutputRejectionCount() const
+    {
+        return m_outputRejectionCount;
+    }
+    uint64_t SdkFailureCount() const
+    {
+        return m_sdkFailureCount;
+    }
+    uint64_t ProductionSerial() const
+    {
+        return m_productionSerial;
+    }
+    unsigned int RecoveryFault() const
+    {
+        return static_cast<unsigned int>(m_packetFault);
+    }
+    double RetainedAgeMs() const
+    {
+        return m_publishedReady ? std::chrono::duration<double, std::milli>(Clock::now() - m_publishedAt).count() : 0;
+    }
+    bool ChainedPacket() const { return m_chainedPacket; }
+    bool HistoryDirty() const { return m_historyDirty; }
+    uint64_t FinalFence() const { return m_fence; }
     bool LastReset() const
     {
         return m_lastReset;
@@ -112,7 +151,9 @@ public:
                      const RayReconstructionFrameConstants& constants,
                      const std::array<ID3D12Resource*, 8>& inputs,
                      ID3D12Resource* output,
-                     unsigned int outputSlot = 0);
+                     unsigned int outputSlot = 0,
+                     bool chained = false,
+                     RrRecoveryFault fault = RrRecoveryFault::None);
     void RecordEvaluate(ID3D12GraphicsCommandList* commands,
                         ID3D12DescriptorHeap* heap,
                         D3D12_GPU_DESCRIPTOR_HANDLE outputSrv);
@@ -125,11 +166,13 @@ private:
         Evaluate,
         OutputPending,
         Ready,
-        Rejected
+        Rejected,
+        DrainingRejected
     };
     void RecordValidation(ID3D12GraphicsCommandList* commands, D3D12_GPU_DESCRIPTOR_HANDLE srv, bool output);
     using Clock = std::chrono::steady_clock;
     Clock::time_point m_packetStarted;
+    Clock::time_point m_publishedAt;
     Clock::time_point m_inputAdmitted;
     Clock::time_point m_outputRecorded;
     PacketLatency m_packetLatency;
@@ -138,6 +181,9 @@ private:
     uint64_t m_epoch = 0;
     uint64_t m_fence = 0;
     bool m_submissionPending = false;
+    bool m_chainedPacket = false;
+    bool m_historyDirty = true;
+    uint64_t m_productionSerial = 0;
     uint64_t m_ticket = 0;
     bool m_presented = false;
     bool m_publishedReady = false;
@@ -150,6 +196,9 @@ private:
     uint64_t m_resetCount = 0;
     uint64_t m_cancelledCount = 0;
     uint64_t m_inputRejectionCount = 0;
+    uint64_t m_outputRejectionCount = 0;
+    uint64_t m_sdkFailureCount = 0;
+    RrRecoveryFault m_packetFault = RrRecoveryFault::None;
     std::string m_failure;
     PathTracingRrHistory m_history;
     PathTracingRrHistoryKey m_key;
@@ -158,8 +207,9 @@ private:
     std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 8> m_inputs;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_output;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_publishedOutput;
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_summary;
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 2> m_summaries;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_zero;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_faultUpload;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_readback;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_signature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipeline;

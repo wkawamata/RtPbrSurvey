@@ -41,6 +41,7 @@ private:
     ID3D12Device* m_device = nullptr;
     ID3D12DescriptorHeap* m_srvHeap = nullptr;
     bool m_initialized = false;
+    bool m_frameOpen = false;
 };
 
 } // namespace Engine

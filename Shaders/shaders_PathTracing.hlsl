@@ -648,7 +648,8 @@ float3 TracePath(uint2 pixel,
         shadowEnabled != 0 && emissiveTriangleCount != 0;
     const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
 
-    [loop] for (uint bounce = 0; bounce < max(maxBounces, 1u); ++bounce)
+    uint bounceLimit = max(maxBounces, 1u);
+    [loop] for (uint bounce = 0; bounce < bounceLimit; ++bounce)
     {
         const bool thinScene = (primarySamplingFlags & 4u) != 0;
         RayQuery<RAY_FLAG_NONE> query;
@@ -790,6 +791,13 @@ float3 TracePath(uint2 pixel,
             const bool pureGlass = (primarySamplingFlags & 64u) != 0 && hitMaterial.metallic == 0.0 &&
                 (volumeBoundary || ((hitMaterial.flags & MaterialFlagThinTransmission) != 0 &&
                                     hitMaterial.transmissionFactor == 1.0));
+            const uint primaryGlassMaxBounces = (primarySamplingFlags >> 8) & 31u;
+            if (primaryGlassMaxBounces > bounceLimit && hitMaterial.metallic == 0.0 &&
+                (volumeBoundary || ((hitMaterial.flags & MaterialFlagThinTransmission) != 0 &&
+                                    hitMaterial.transmissionFactor > 0.0)))
+            {
+                bounceLimit = primaryGlassMaxBounces;
+            }
             // Glass transport samples the geometric normal, including at the rim.
             // The RR guide must describe that same lobe, not an interpolated normal.
             primarySurface.normalRoughness = float4(pureGlass ? geometryNormal : hitNormal, hitMaterial.roughness);
@@ -847,7 +855,7 @@ float3 TracePath(uint2 pixel,
                 volumeError = 5;
                 break;
             }
-            if (bounce + 1 >= max(maxBounces, 1u))
+            if (bounce + 1 >= bounceLimit)
             {
                 volumeError = 3;
                 break;
@@ -1003,7 +1011,7 @@ float3 TracePath(uint2 pixel,
         }
         if (sampleThin)
         {
-            if (bounce + 1 >= max(maxBounces, 1u))
+            if (bounce + 1 >= bounceLimit)
             {
                 break;
             }
@@ -1098,7 +1106,7 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        const bool emissiveNeeActive = emissiveNeeEnabled && bounce + 1 < max(maxBounces, 1u);
+        const bool emissiveNeeActive = emissiveNeeEnabled && bounce + 1 < bounceLimit;
         if (emissiveNeeActive)
         {
             const uint emitterIndex = SelectEmissiveTriangle(g_emissiveTriangles, emissiveTriangleCount,
@@ -1162,7 +1170,7 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        if (environmentEnabled != 0 && environmentSamplingMode >= 2 && bounce + 1 < max(maxBounces, 1u))
+        if (environmentEnabled != 0 && environmentSamplingMode >= 2 && bounce + 1 < bounceLimit)
         {
             const float2 environmentRandom = float2(NextRandom(randomState), NextRandom(randomState));
             PathTracingLightSample environmentSample = MakePathTracingConstantEnvironmentSample(
@@ -1212,7 +1220,7 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        if (bounce + 1 >= max(maxBounces, 1u))
+        if (bounce + 1 >= bounceLimit)
         {
             break;
         }

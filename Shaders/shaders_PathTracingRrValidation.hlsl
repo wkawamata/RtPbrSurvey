@@ -5,6 +5,11 @@ cbuffer ValidationFrame : register(b0)
     uint width;
     uint height;
     uint outputMode;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+    uint serialLow;
+    uint serialHigh;
+    uint recoveryFault;
+#endif
 };
 // Reduce within each 8x8 group before updating the shared 8-byte summary.
 // Every lane participates, including padding lanes in partial edge groups.
@@ -14,6 +19,10 @@ groupshared uint g_counts[64];
 void CSMain(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
 {
     bool inside = id.x < width && id.y < height;
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+    if (outputMode != 0 && recoveryFault == 4 && id.x == 0 && id.y == 0)
+        inside = false; // Diagnostic: one output pixel was not validated.
+#endif
     uint mask = 0;
     if (inside)
     {
@@ -22,7 +31,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
         if (!valid)
         {
             // Preserve the original category bits and output RGB-only check.
-            uint category = isfinite(value.x) && value.x >= 1 && value.x <= 6 ? (uint)value.x : 31;
+            uint category = isfinite(value.x) && value.x >= 1 && value.x <= 7 && value.x == floor(value.x) ? (uint)value.x : 31;
             mask = outputMode != 0 ? 1u : (1u << category);
         }
     }
@@ -40,6 +49,10 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
     }
     if (lane == 0)
     {
+#ifdef RTPBRSURVEY_RR_PACKET_SUMMARY
+        if (id.x == 0 && id.y == 0)
+            g_summary.Store2(8, uint2(serialLow, serialHigh));
+#endif
         uint ignored;
         if (g_masks[0] != 0)
             g_summary.InterlockedOr(0, g_masks[0], ignored);

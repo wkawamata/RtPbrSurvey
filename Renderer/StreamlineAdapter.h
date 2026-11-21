@@ -130,6 +130,8 @@ struct StreamlineDlssDiagnostics
 
 TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterInitDesc& desc);
 TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device);
+// Caller must first drain all submitted work using RR resources.
+bool ReleaseStreamlineRayReconstructionResources();
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
 RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupport();

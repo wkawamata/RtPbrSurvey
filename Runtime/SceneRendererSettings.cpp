@@ -114,6 +114,8 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     pathTracing["rrRoughVolumeExperiment"] = settings.pathTracing.rrRoughVolumeExperiment;
     pathTracing["rrTransmissionMotionExperiment"] = settings.pathTracing.rrTransmissionMotionExperiment;
     pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
+    pathTracing["primaryGlassBounceOverride"] = settings.pathTracing.primaryGlassBounceOverride;
+    pathTracing["primaryGlassMaxBounces"] = settings.pathTracing.primaryGlassMaxBounces;
     pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
     pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
     pathTracing["environmentEnabled"] = settings.pathTracing.environmentEnabled;
@@ -398,6 +400,10 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             }
             parsed.pathTracing.maxBounces =
                 (std::clamp)(pathTracing.value("maxBounces", parsed.pathTracing.maxBounces), 1u, 16u);
+            parsed.pathTracing.primaryGlassBounceOverride =
+                pathTracing.value("primaryGlassBounceOverride", parsed.pathTracing.primaryGlassBounceOverride);
+            parsed.pathTracing.primaryGlassMaxBounces =
+                (std::clamp)(pathTracing.value("primaryGlassMaxBounces", parsed.pathTracing.primaryGlassMaxBounces), 1u, 16u);
             parsed.pathTracing.randomSeed = pathTracing.value("randomSeed", parsed.pathTracing.randomSeed);
             parsed.pathTracing.directLightingEnabled =
                 pathTracing.value("directLightingEnabled", parsed.pathTracing.directLightingEnabled);
