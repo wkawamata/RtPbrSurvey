@@ -677,3 +677,24 @@ WinPixEventRuntimeの USE_PIX を有効にし、bin/x64/ReleasePix/ と
 obj/x64/ReleasePix/ にビルドする。通常のReleaseと分けて性能比較に使う。
 次のNsight Graphics収録では PathTracingPass と Native RR の時間および
 カウンターをパスに対応づけられるか確認する。
+
+## PIX付きNsight Graphicsの1080p収録
+
+ReleasePix、1080p、VSync OFF、通常8／初回ガラス16で、
+120 Present後にGPU Traceを16フレーム収録した。アプリはRRエラー0件で
+正常終了した。エクスポートテーブルの16列を直接集計した。
+
+| GPU計測項目 | 中央値 | 最小〜最大 |
+| --- | ---: | ---: |
+| フレーム全体 | 43.81 ms | 38.92〜53.88 ms |
+| PathTracingPass | 27.35 ms | 25.56〜40.41 ms |
+| Native RR評価 | 9.89 ms | 9.82〜17.50 ms |
+| ToneMapPass | 0.057 ms | 0.057〜0.058 ms |
+
+PathTracingPassはD3DPERF_EVENTSとGPUTRACE_REGIMESの両方に現れた。
+SM、L1/TEX、L2、DRAMのカウンターがパス別エクスポートにあることを確認した。
+今回の集計でPTの時間変動を確認した。シェーダー内の原因は未特定。
+計測値はプロファイラ収録中のため、通常実行のFPS基準とは分けて扱う。
+
+トレースと表は build/pf-crash-incident-20261119/
+ngfx-verified-present-1080p-primary-glass-pix-20261121/ にPC内保存した。
