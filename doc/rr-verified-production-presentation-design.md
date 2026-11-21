@@ -650,3 +650,22 @@ CPUの提出をGPU workloadに対応付け、RR評価マーカーのある提出
 
 レポートとSQLiteは build/pf-crash-incident-20261119/
 nsys-verified-present-1080p-primary-glass-steady-20261121/ に保存した。
+
+## Nsight Graphicsの1080p初回収録
+
+cli-anything-nsight-graphicsを通じてNsight Graphics 2026.4.0で、
+Release、1080p、VSync OFF、通常8／初回ガラス16のGPU Traceを1回取得。
+120 Present後から16フレームを収録し、アプリはRRエラー0で正常終了した。
+
+CLIの自動要約ではフレーム時間が空欄だったため、エクスポートの
+16列を直接集計した。GPUフレーム時間は中央値42.90 ms、範囲38.69〜48.78 ms。
+Native RRの評価イベントは中央値9.86 ms、範囲9.83〜18.03 ms。
+グラフィックスまたはコピーエンジンのアクティブ率は中央値99.94%。
+
+エクスポートされた名前付きイベントはNative RR評価のみ。PTパス単体の
+時間やカウンターは、このエクスポートから帰属できない。WinPixEventRuntime
+のヘッダーでは通常のRelease構成でUSE_PIXが有効にならず、アプリ側PTマーカーを
+取得するにはプロファイル用Releaseビルドで明示的に有効にする。
+収録値はプロファイラを付けていない性能計測と分けて扱う。
+ログとトレースは build/pf-crash-incident-20261119/
+ngfx-verified-present-1080p-primary-glass-20261121/ にPC内保存した。
