@@ -7820,6 +7820,20 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
         m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr),
         produced.sampleStartIndex,
         produced.samplesPerFrame);
+    if (auto* inputs = RtPbrSurvey::g_rrFenceTrace.VerifiedProductionPathTracingInputs())
+    {
+        const auto& position = m_scene.camera.pos;
+        *inputs = {produced.frameId,
+                   produced.samplingSignature,
+                   produced.sampleStartIndex,
+                   produced.samplesPerFrame,
+                   passDesc.randomSeed,
+                   {position.x, position.y, position.z},
+                   produced.jitterPixels,
+                   produced.worldToView,
+                   produced.viewToClip,
+                   produced.previousViewProjection};
+    }
     m_pathTracingProduction.Capture(produced, GetPathTracingReconstructionResources());
 #endif
     m_pathTracingGeometryToken = m_nrdGeometrySnapshot.Token();

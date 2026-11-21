@@ -191,6 +191,23 @@ public:
         m_verifiedCpuRecording = m_running && !m_finished;
         MarkVerifiedProductionCpu(ProductionCpuPoint::RecordBegin);
     }
+    struct VerifiedPathTracingInputs
+    {
+        uint64_t frameId = 0;
+        uint64_t samplingSignature = 0;
+        uint32_t sampleStartIndex = 0;
+        uint32_t samplesPerFrame = 0;
+        uint32_t randomSeed = 0;
+        std::array<float, 3> cameraPosition = {};
+        std::array<float, 2> jitterPixels = {};
+        std::array<float, 16> worldToView = {};
+        std::array<float, 16> viewToClip = {};
+        std::array<float, 16> previousViewProjection = {};
+    };
+    VerifiedPathTracingInputs* VerifiedProductionPathTracingInputs()
+    {
+        return m_verifiedCpuRecording ? &m_verifiedPathTracingInputs : nullptr;
+    }
     void MarkVerifiedProductionCpu(ProductionCpuPoint point)
     {
         if (m_verifiedCpuRecording)
@@ -207,6 +224,7 @@ public:
             m_verifiedReadyQpc = 0;
             m_verifiedCpuQpc.fill(0);
             m_verifiedGpuMs.fill(-1.0);
+            m_verifiedPathTracingInputs = {};
             m_verifiedProductionGraph = {};
             m_verifiedPresentationGraph = {};
         }
@@ -278,6 +296,7 @@ public:
                                              m_verifiedGpuMs,
                                              m_verifiedPoseQpc,
                                              m_verifiedCpuQpc,
+                                             m_verifiedPathTracingInputs,
                                              std::move(m_verifiedProductionGraph),
                                              std::move(m_verifiedPresentationGraph)});
             }
@@ -380,6 +399,21 @@ public:
                                        {"productionCpuOffsets", std::move(cpuOffsets)},
                                        {"productionGraphCpu", writeGraphCpu(timing.productionGraph)},
                                        {"presentationGraphCpu", writeGraphCpu(timing.presentationGraph)}});
+            const auto& inputs = timing.pathTracingInputs;
+            if (inputs.frameId != 0)
+            {
+                verifiedTimings.back()["pathTracingInputs"] = {
+                    {"frameId", inputs.frameId},
+                    {"samplingSignature", inputs.samplingSignature},
+                    {"sampleStartIndex", inputs.sampleStartIndex},
+                    {"samplesPerFrame", inputs.samplesPerFrame},
+                    {"randomSeed", inputs.randomSeed},
+                    {"cameraPosition", inputs.cameraPosition},
+                    {"jitterPixels", inputs.jitterPixels},
+                    {"worldToView", inputs.worldToView},
+                    {"viewToClip", inputs.viewToClip},
+                    {"previousViewProjection", inputs.previousViewProjection}};
+            }
         }
         const nlohmann::json report = {{"version", 1},
                                        {"qpcFrequency", m_frequency},
@@ -435,6 +469,7 @@ private:
         std::array<double, kVerifiedGpuPasses.size()> gpuMs;
         uint64_t poseQpc;
         ProductionCpuTimes cpuQpc;
+        VerifiedPathTracingInputs pathTracingInputs;
         GraphCpuTiming productionGraph;
         GraphCpuTiming presentationGraph;
     };
@@ -448,6 +483,7 @@ private:
     uint64_t m_verifiedPoseQpc = 0, m_verifiedSubmitQpc = 0, m_verifiedReadyQpc = 0;
     bool m_verifiedCpuRecording = false;
     ProductionCpuTimes m_verifiedCpuQpc = {};
+    VerifiedPathTracingInputs m_verifiedPathTracingInputs;
     GraphCpuTiming m_verifiedProductionGraph;
     GraphCpuTiming m_verifiedPresentationGraph;
     std::array<double, kVerifiedGpuPasses.size()> m_verifiedGpuMs = {};
