@@ -565,3 +565,14 @@ VSync OFF、RenderGraph閉、1 spp。評価ケースの最大バウンス数だ�
 生ログと集計は
 build/pf-crash-incident-20261119/rr-verified-present-motion-release-1080p-8b-20261121/
 に保存した。
+
+## 1080pの16バウンスと8バウンスの静止画比較
+
+同じWarm Glass Tableの固定視点、Release、1920×1080、VSync OFFで各1枚撮影した。
+両条件とも計測中の全Presentで新規RR画像を使用し、RRエラー0件で正常終了。
+厚い板越しの光帯と木目、グラスの縁と底の反射は両画像で確認できた。
+厚い板の上端やガラスの反射の明るさに小さな違いが見える。
+RGBの画素平均絶対差は8ビット値でR 0.329、G 0.293、B 0.236。
+各1枚の比較で、カメラ移動時の画質は別途確認する。
+PNGは build/pf-crash-incident-20261119/rr-verified-present-quality-1080p-16b-20261121/
+および rr-verified-present-quality-1080p-8b-20261121/ にPC内保存した。
