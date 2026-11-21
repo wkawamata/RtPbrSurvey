@@ -521,3 +521,24 @@ Release x64、Warm Glass Table、960×540固定、VSync OFF、RenderGraph閉で
 実ディスプレイでの表示頻度、他の解像度はこの試験の対象外。
 生ログと集計は build/pf-crash-incident-20261119/rr-verified-present-motion-release-20261121/
 に保存した。
+
+## 1920×1080でのRelease実測
+
+Warm Glass Table、VSync OFF、RenderGraph閉。1920×1080の固定ウィンドウで
+内部描画と出力がともに1920×1080であることを確認した。ウォームアップ5秒、
+カメラ横移動の計測8.0227秒。205回すべてのPresentで新規RR画像を使用。
+代替提示、入出力拒否、キャンセル、SDK失敗0件。終了コード0。
+
+| 指標 | 960×540 | 1920×1080 |
+| --- | ---: | ---: |
+| 姿勢確定からPresent（中央値） | 10.07 ms | 36.32 ms |
+| 同区間（p95） | 10.70 ms | 50.45 ms |
+| 新規RR画像の採用/秒 | 94.20 | 25.55 |
+| GPU生成全体（中央値） | 9.15 ms | 35.14 ms |
+| GPU PTパス（中央値） | 6.56 ms | 25.55 ms |
+| GPU Native RRパス（中央値） | 2.46 ms | 9.01 ms |
+
+1920×1080では16 ms以内が0/205件。GPU生成だけで最短30.12 msだった。
+各条件1回の比較。計測ログは
+build/pf-crash-incident-20261119/rr-verified-present-motion-release-1080p-20261121/
+に保存した。
