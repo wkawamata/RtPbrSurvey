@@ -355,7 +355,9 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
         evaluateStarted - m_inputAdmitted).count();
     RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR SDK begin");
     RtPbrSurvey::g_rrFenceTrace.Record("rr_sdk_begin");
+    RtPbrSurvey::g_rrFenceTrace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::SdkBegin);
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
+    RtPbrSurvey::g_rrFenceTrace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::SdkEnd);
     RtPbrSurvey::g_rrFenceTrace.Record("rr_sdk_end", result.outputAvailable ? 1 : 0);
     RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR SDK end");
     m_packetLatency.evaluateCpuMs = std::chrono::duration<double, std::milli>(

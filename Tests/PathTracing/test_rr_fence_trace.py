@@ -154,5 +154,23 @@ class TraceTests(unittest.TestCase):
         f['events']=[{}]
         with self.assertRaises(AssertionError): analyze(f)
 
+    def test_verified_production_cpu_breakdown_partitions_pose_to_submit(self):
+        trace = fixture()
+        offsets = dict(recordBegin=1, graphBegin=2, passesBegin=4, sdkBegin=7,
+                       sdkEnd=11, passesEnd=16, executeBegin=17, executeEnd=18)
+        trace.update(timingOnly=True, events=[], gpu=[], calibrations=[],
+                     metadata={'rrVerifiedPresent': True}, verifiedProductionSubmissions=1,
+                     verifiedFreshPresentations=1, verifiedFallbackPresentations=0,
+                     verifiedPoseToPresentTicks=[25],
+                     verifiedTimings=[dict(poseToSubmitTicks=20, submitToReadyTicks=3,
+                                           readyToPresentTicks=2, gpuMs={}, productionCpuOffsets=offsets)])
+        stages = analyze(trace)['verifiedProductionCpuBreakdown']
+        self.assertEqual(stages['passRecordingOutsideSdkMs']['p50'], 8)
+        self.assertEqual(stages['rrSdkCallMs']['p50'], 4)
+        self.assertEqual(sum(stage['p50'] for stage in stages.values()), 20)
+        offsets['sdkEnd'] = 6
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+
 
 if __name__=='__main__': unittest.main()

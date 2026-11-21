@@ -161,6 +161,31 @@ public:
         {
             ++m_verifiedProductionSubmissions;
             m_verifiedSubmitQpc = Now();
+            m_verifiedCpuRecording = false;
+        }
+    }
+    enum class ProductionCpuPoint
+    {
+        RecordBegin,
+        GraphBegin,
+        PassesBegin,
+        SdkBegin,
+        SdkEnd,
+        PassesEnd,
+        ExecuteBegin,
+        ExecuteEnd,
+        Count
+    };
+    void BeginVerifiedProductionRecording()
+    {
+        m_verifiedCpuRecording = m_running && !m_finished;
+        MarkVerifiedProductionCpu(ProductionCpuPoint::RecordBegin);
+    }
+    void MarkVerifiedProductionCpu(ProductionCpuPoint point)
+    {
+        if (m_verifiedCpuRecording)
+        {
+            m_verifiedCpuQpc[static_cast<size_t>(point)] = Now();
         }
     }
     void VerifiedPoseReady()
@@ -170,6 +195,7 @@ public:
             m_verifiedPoseQpc = Now();
             m_verifiedSubmitQpc = 0;
             m_verifiedReadyQpc = 0;
+            m_verifiedCpuQpc.fill(0);
             m_verifiedGpuMs.fill(-1.0);
         }
     }
@@ -229,7 +255,9 @@ public:
                 m_verifiedTimings.push_back({m_verifiedSubmitQpc - m_verifiedPoseQpc,
                                              m_verifiedReadyQpc - m_verifiedSubmitQpc,
                                              presentQpc - m_verifiedReadyQpc,
-                                             m_verifiedGpuMs});
+                                             m_verifiedGpuMs,
+                                             m_verifiedPoseQpc,
+                                             m_verifiedCpuQpc});
             }
         }
     }
@@ -306,10 +334,19 @@ public:
                 if (timing.gpuMs[i] >= 0.0)
                     gpuMs[kVerifiedGpuPasses[i].key] = timing.gpuMs[i];
             }
+            auto cpuOffsets = nlohmann::json::object();
+            for (size_t i = 0; i < kProductionCpuPointNames.size(); ++i)
+            {
+                if (timing.cpuQpc[i] >= timing.poseQpc)
+                {
+                    cpuOffsets[kProductionCpuPointNames[i]] = timing.cpuQpc[i] - timing.poseQpc;
+                }
+            }
             verifiedTimings.push_back({{"poseToSubmitTicks", timing.poseToSubmit},
                                        {"submitToReadyTicks", timing.submitToReady},
                                        {"readyToPresentTicks", timing.readyToPresent},
-                                       {"gpuMs", std::move(gpuMs)}});
+                                       {"gpuMs", std::move(gpuMs)},
+                                       {"productionCpuOffsets", std::move(cpuOffsets)}});
         }
         const nlohmann::json report = {{"version", 1},
                                        {"qpcFrequency", m_frequency},
@@ -356,10 +393,15 @@ private:
         {"PT DLSS RR Native", "rrNativePass"},
         {"EndGpu", "productionPacket"},
     }};
+    using ProductionCpuTimes = std::array<uint64_t, static_cast<size_t>(ProductionCpuPoint::Count)>;
+    inline static constexpr std::array<const char*, std::tuple_size_v<ProductionCpuTimes>> kProductionCpuPointNames = {
+        "recordBegin", "graphBegin", "passesBegin", "sdkBegin", "sdkEnd", "passesEnd", "executeBegin", "executeEnd"};
     struct VerifiedTiming
     {
         uint64_t poseToSubmit, submitToReady, readyToPresent;
         std::array<double, kVerifiedGpuPasses.size()> gpuMs;
+        uint64_t poseQpc;
+        ProductionCpuTimes cpuQpc;
     };
     std::filesystem::path m_path;
     bool m_running = false, m_capture = false, m_finished = false, m_overflow = false;
@@ -369,6 +411,8 @@ private:
     uint64_t m_presents = 0, m_freshPresents = 0, m_published = 0, m_lastPresented = 0;
     uint64_t m_verifiedProductionSubmissions = 0, m_verifiedFreshPresentations = 0, m_verifiedFallbackPresentations = 0;
     uint64_t m_verifiedPoseQpc = 0, m_verifiedSubmitQpc = 0, m_verifiedReadyQpc = 0;
+    bool m_verifiedCpuRecording = false;
+    ProductionCpuTimes m_verifiedCpuQpc = {};
     std::array<double, kVerifiedGpuPasses.size()> m_verifiedGpuMs = {};
     std::vector<uint64_t> m_verifiedPoseToPresentTicks;
     std::vector<VerifiedTiming> m_verifiedTimings;

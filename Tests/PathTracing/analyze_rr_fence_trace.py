@@ -26,6 +26,20 @@ def gpu_qpc(tick, frequency, calibrations, qpc_frequency):
     return c['cpu'] + (tick-c['gpu'])*qpc_frequency/frequency
 
 
+def production_cpu_ticks(offsets, total):
+    boundaries = ('recordBegin', 'graphBegin', 'passesBegin', 'sdkBegin', 'sdkEnd',
+                  'passesEnd', 'executeBegin', 'executeEnd')
+    assert set(offsets) == set(boundaries), 'Missing production CPU timestamps'
+    times = [0, *(offsets[key] for key in boundaries), total]
+    assert all(a <= b for a, b in zip(times, times[1:])), 'Production CPU timestamps out of order'
+    (prepare, begin_frame, graph, passes_before_sdk, sdk, passes_after_sdk,
+     close, execute, register) = (b - a for a, b in zip(times, times[1:]))
+    return dict(resourceAndFramePreparation=prepare, commandListSetupAndAccelerationStructures=begin_frame,
+                renderGraphSetup=graph, passRecordingOutsideSdk=passes_before_sdk + passes_after_sdk,
+                rrSdkCall=sdk, commandListCloseAndSubmitPreparation=close,
+                executeCommandLists=execute, fenceSignalAndRegistration=register)
+
+
 def analyze(trace):
     assert trace['finished'] and not trace['overflow'], 'Incomplete/overflowed trace'
     freq = trace['qpcFrequency']
@@ -51,6 +65,7 @@ def analyze(trace):
             assert len(timings) == len(samples), 'Missing verified frame timings'
             phase_ticks = ('poseToSubmitTicks', 'submitToReadyTicks', 'readyToPresentTicks')
             stages = defaultdict(list)
+            production_cpu = defaultdict(list)
             for ticks, timing in zip(samples, timings):
                 assert all(timing[key] >= 0 for key in phase_ticks)
                 assert sum(timing[key] for key in phase_ticks) == ticks
@@ -59,7 +74,15 @@ def analyze(trace):
                 for key, milliseconds in timing['gpuMs'].items():
                     assert milliseconds >= 0
                     stages[key + 'GpuMs'].append(milliseconds)
+                if 'productionCpuOffsets' in timing:
+                    for key, duration in production_cpu_ticks(timing['productionCpuOffsets'],
+                                                             timing['poseToSubmitTicks']).items():
+                        production_cpu[key + 'Ms'].append(duration * 1000 / freq)
             report['verifiedTimingBreakdown'] = {key: stats(values) for key, values in stages.items()}
+            if production_cpu:
+                assert all(len(values) == len(timings) for values in production_cpu.values())
+                report['verifiedProductionCpuBreakdown'] = {
+                    key: stats(values) for key, values in production_cpu.items()}
     if trace['timingOnly']:
         assert not trace['events'] and not trace['gpu'] and not trace['calibrations']
         return report

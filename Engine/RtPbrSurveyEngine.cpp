@@ -6231,6 +6231,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         }
 #endif
         trace.Record("record_begin");
+        if (passes == FramePasses::Production)
+        {
+            trace.BeginVerifiedProductionRecording();
+        }
         PopulateCommandList(*allocator, passes);
         if (!m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.empty())
             trace.Submission(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints.front().frameId);
@@ -6238,7 +6242,9 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         m_activeUiRenderHandler = nullptr;
         ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
         trace.Record("execute_begin");
+        trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteBegin);
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+        trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteEnd);
         trace.Record("execute_end");
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool submittedRrWork = m_ptRrLive && m_ptRrLive->HasUnsubmittedWork();
@@ -6836,11 +6842,16 @@ void RtPbrSurveyEngine::PopulateCommandList(ID3D12CommandAllocator& allocator, F
     {
         RebuildAccelerationStructures();
     }
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
+    using CpuPoint = RtPbrSurvey::RrFenceTrace::ProductionCpuPoint;
+    trace.MarkVerifiedProductionCpu(CpuPoint::GraphBegin);
     BuildRenderPasses(passes);
     ValidateRenderPassGraph();
     AnalyzeResourceLifetimes();
     // DebugPrintLifetimes();
+    trace.MarkVerifiedProductionCpu(CpuPoint::PassesBegin);
     ExecutePasses();
+    trace.MarkVerifiedProductionCpu(CpuPoint::PassesEnd);
     EndFrame();
 
     PIXEndEvent();
