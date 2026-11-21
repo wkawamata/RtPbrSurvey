@@ -134,6 +134,16 @@ class TraceTests(unittest.TestCase):
         report = analyze(trace)
         self.assertEqual(report['verifiedPresentSession'], dict(productions=4, fresh=2, fallback=1))
         self.assertEqual(report['verifiedPoseToFirstPresentMs']['p50'], 25)
+        trace['verifiedTimings'] = [dict(poseToSubmitTicks=5, submitToReadyTicks=18, readyToPresentTicks=2,
+                                         gpuMs={'ptPass': 8, 'rrNativePass': 7})]
+        stages = analyze(trace)['verifiedTimingBreakdown']
+        self.assertEqual(stages['submitToReadyMs']['p50'], 18)
+        self.assertEqual(stages['ptPassGpuMs']['p50'], 8)
+        self.assertNotIn('rrAdmissionPassGpuMs', stages)
+        trace['verifiedTimings'][0]['readyToPresentTicks'] = 3
+        with self.assertRaises(AssertionError):
+            analyze(trace)
+        trace['verifiedTimings'][0]['readyToPresentTicks'] = 2
         trace['verifiedFreshPresentations'] = 4
         with self.assertRaises(AssertionError):
             analyze(trace)

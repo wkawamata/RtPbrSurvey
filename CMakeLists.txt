@@ -254,6 +254,11 @@ if(EXISTS "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}/bin/x64/WinPixEventRuntime.lib")
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}/bin/x64/WinPixEventRuntime.lib")
 endif()
 
+if(MSVC)
+    # The renderer translation unit exceeds the default COFF section limit in Debug builds.
+    set_property(SOURCE Engine/RtPbrSurveyEngine.cpp APPEND PROPERTY COMPILE_OPTIONS /bigobj)
+endif()
+
 if(MSVC AND NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_compile_options(RtPbrSurvey.SceneRenderer PRIVATE /permissive)
     target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:d3d12.dll)

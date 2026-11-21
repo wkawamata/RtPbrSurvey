@@ -46,6 +46,20 @@ def analyze(trace):
         assert len(samples) <= trace['freshPresents'] and all(sample >= 0 for sample in samples)
         if samples:
             report['verifiedPoseToFirstPresentMs'] = stats([sample * 1000 / freq for sample in samples])
+        timings = trace.get('verifiedTimings')
+        if timings is not None:
+            assert len(timings) == len(samples), 'Missing verified frame timings'
+            phase_ticks = ('poseToSubmitTicks', 'submitToReadyTicks', 'readyToPresentTicks')
+            stages = defaultdict(list)
+            for ticks, timing in zip(samples, timings):
+                assert all(timing[key] >= 0 for key in phase_ticks)
+                assert sum(timing[key] for key in phase_ticks) == ticks
+                for key in phase_ticks:
+                    stages[key.removesuffix('Ticks') + 'Ms'].append(timing[key] * 1000 / freq)
+                for key, milliseconds in timing['gpuMs'].items():
+                    assert milliseconds >= 0
+                    stages[key + 'GpuMs'].append(milliseconds)
+            report['verifiedTimingBreakdown'] = {key: stats(values) for key, values in stages.items()}
     if trace['timingOnly']:
         assert not trace['events'] and not trace['gpu'] and not trace['calibrations']
         return report

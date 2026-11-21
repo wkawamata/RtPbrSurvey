@@ -6374,7 +6374,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
     PIXEndEvent();
 }
 
-void RtPbrSurveyEngine::ReadCompletedFrameData()
+void RtPbrSurveyEngine::ReadCompletedFrameData(bool verifiedProduction)
 {
     FrameResource& statisticsFrame = m_frameResources[m_currentFrameIndex];
     if (statisticsFrame.gbufferStatisticsPending)
@@ -6390,8 +6390,14 @@ void RtPbrSurveyEngine::ReadCompletedFrameData()
     }
     if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), m_currentFrameIndex))
     {
-        RtPbrSurvey::g_rrFenceTrace.Gpu(m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
-        m_completedGpuWorkMeterCheckPoints = m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints;
+        const auto& checkPoints = statisticsFrame.gpuWorkMeterCheckPoints;
+        auto& trace = RtPbrSurvey::g_rrFenceTrace;
+        trace.Gpu(checkPoints);
+        if (verifiedProduction)
+        {
+            trace.VerifiedProductionGpu(checkPoints);
+        }
+        m_completedGpuWorkMeterCheckPoints = checkPoints;
         m_completedReconstructionPlan = m_frameResources[m_currentFrameIndex].reconstructionPlan;
     }
 
@@ -6446,7 +6452,8 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
             return;
         }
         m_rrVerifiedFrameFence = 0;
-        ReadCompletedFrameData();
+        RtPbrSurvey::g_rrFenceTrace.VerifiedProductionReady();
+        ReadCompletedFrameData(true);
         const uint64_t currentEpoch =
             m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
         if (!m_pendingResize && CanSplitRrFrame() && currentEpoch == m_rrVerifiedFrameEpoch)

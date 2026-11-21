@@ -514,7 +514,7 @@ public:
     uint64_t FrameAcquisitionDeferrals() const { return m_frameAcquisitionDeferrals; }
     uint64_t FrameAcquisitionPolls() const { return m_frameAcquisitionPolls; }
     uint64_t FrameAcquisitionFallbackWaits() const { return m_frameAcquisitionFallbackWaits; }
-    void ReadCompletedFrameData();
+    void ReadCompletedFrameData(bool verifiedProduction = false);
     void SetRrEagerProduction(bool enabled) { m_rrEagerProduction = enabled; }
     void SetRrSafeInputs(bool enabled) { m_rrSafeInputs = enabled; }
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }

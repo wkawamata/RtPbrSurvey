@@ -394,7 +394,9 @@
     <ClCompile Include="Ui\DebugUiPreferences.cpp" />
     <ClCompile Include="Ui\ImGuiSystem.cpp" />
     <ClCompile Include="Platform\Win32Application.cpp" />
-    <ClCompile Include="Engine\RtPbrSurveyEngine.cpp" />
+    <ClCompile Include="Engine\RtPbrSurveyEngine.cpp">
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="Engine\RtPbrSurveyEnginePasses.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />

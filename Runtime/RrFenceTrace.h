@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <d3d12.h>
 #include <nlohmann/json.hpp>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -157,13 +158,50 @@ public:
     void VerifiedProductionSubmitted()
     {
         if (m_running && !m_finished)
+        {
             ++m_verifiedProductionSubmissions;
+            m_verifiedSubmitQpc = Now();
+        }
     }
     void VerifiedPoseReady()
     {
         if (m_running && !m_finished)
         {
             m_verifiedPoseQpc = Now();
+            m_verifiedSubmitQpc = 0;
+            m_verifiedReadyQpc = 0;
+            m_verifiedGpuMs.fill(-1.0);
+        }
+    }
+    void VerifiedProductionReady()
+    {
+        if (m_running && !m_finished)
+        {
+            m_verifiedReadyQpc = Now();
+        }
+    }
+    template <class Points> void VerifiedProductionGpu(const Points& points)
+    {
+        if (!m_running || !m_windowStart || m_finished || points.size() < 2)
+            return;
+        const uint64_t frequency = points.front().timestampFrequency;
+        if (!frequency)
+            return;
+        for (size_t i = 1; i < points.size(); ++i)
+        {
+            const auto end = points[i].rawTimestamp;
+            const auto begin = points[i - 1].rawTimestamp;
+            if (end < begin)
+                continue;
+            for (size_t pass = 0; pass < kVerifiedGpuPasses.size(); ++pass)
+            {
+                if (points[i].name == kVerifiedGpuPasses[pass].checkpoint)
+                {
+                    const auto from = points[i].name == "EndGpu" ? points.front().rawTimestamp : begin;
+                    m_verifiedGpuMs[pass] = double(end - from) * 1000.0 / frequency;
+                    break;
+                }
+            }
         }
     }
     void VerifiedPresentation(bool newRr, uint64_t presentQpc)
@@ -185,6 +223,14 @@ public:
                 return;
             }
             m_verifiedPoseToPresentTicks.push_back(presentQpc - m_verifiedPoseQpc);
+            if (m_verifiedSubmitQpc >= m_verifiedPoseQpc && m_verifiedReadyQpc >= m_verifiedSubmitQpc &&
+                presentQpc >= m_verifiedReadyQpc)
+            {
+                m_verifiedTimings.push_back({m_verifiedSubmitQpc - m_verifiedPoseQpc,
+                                             m_verifiedReadyQpc - m_verifiedSubmitQpc,
+                                             presentQpc - m_verifiedReadyQpc,
+                                             m_verifiedGpuMs});
+            }
         }
     }
     void Published(uint64_t id)
@@ -251,6 +297,20 @@ public:
                                     {"cpu", c.cpu},
                                     {"frequency", c.frequency},
                                     {"result", c.result}});
+        auto verifiedTimings = nlohmann::json::array();
+        for (const auto& timing : m_verifiedTimings)
+        {
+            auto gpuMs = nlohmann::json::object();
+            for (size_t i = 0; i < kVerifiedGpuPasses.size(); ++i)
+            {
+                if (timing.gpuMs[i] >= 0.0)
+                    gpuMs[kVerifiedGpuPasses[i].key] = timing.gpuMs[i];
+            }
+            verifiedTimings.push_back({{"poseToSubmitTicks", timing.poseToSubmit},
+                                       {"submitToReadyTicks", timing.submitToReady},
+                                       {"readyToPresentTicks", timing.readyToPresent},
+                                       {"gpuMs", std::move(gpuMs)}});
+        }
         const nlohmann::json report = {{"version", 1},
                                        {"qpcFrequency", m_frequency},
                                        {"start", m_start},
@@ -268,6 +328,7 @@ public:
                                        {"verifiedFreshPresentations", m_verifiedFreshPresentations},
                                        {"verifiedFallbackPresentations", m_verifiedFallbackPresentations},
                                        {"verifiedPoseToPresentTicks", m_verifiedPoseToPresentTicks},
+                                       {"verifiedTimings", std::move(verifiedTimings)},
                                        {"metadata", metadata},
                                        {"events", std::move(events)},
                                        {"gpu", std::move(gpu)},
@@ -283,6 +344,23 @@ public:
     std::function<void(const char*)> gpuMarker;
 
 private:
+    struct VerifiedGpuPass
+    {
+        const char* checkpoint;
+        const char* key;
+    };
+    inline static constexpr std::array<VerifiedGpuPass, 5> kVerifiedGpuPasses = {{
+        {"PathTracingPass", "ptPass"},
+        {"PT RR Input Conversion Diagnostics", "rrConversionPass"},
+        {"PT RR Input Admission", "rrAdmissionPass"},
+        {"PT DLSS RR Native", "rrNativePass"},
+        {"EndGpu", "productionPacket"},
+    }};
+    struct VerifiedTiming
+    {
+        uint64_t poseToSubmit, submitToReady, readyToPresent;
+        std::array<double, kVerifiedGpuPasses.size()> gpuMs;
+    };
     std::filesystem::path m_path;
     bool m_running = false, m_capture = false, m_finished = false, m_overflow = false;
     double m_warmup = 0, m_duration = 0;
@@ -290,8 +368,10 @@ private:
     uint64_t m_frame = 0, m_tick = 0, m_submission = 0, m_production = 0, m_epoch = 0, m_lastGpu = 0;
     uint64_t m_presents = 0, m_freshPresents = 0, m_published = 0, m_lastPresented = 0;
     uint64_t m_verifiedProductionSubmissions = 0, m_verifiedFreshPresentations = 0, m_verifiedFallbackPresentations = 0;
-    uint64_t m_verifiedPoseQpc = 0;
+    uint64_t m_verifiedPoseQpc = 0, m_verifiedSubmitQpc = 0, m_verifiedReadyQpc = 0;
+    std::array<double, kVerifiedGpuPasses.size()> m_verifiedGpuMs = {};
     std::vector<uint64_t> m_verifiedPoseToPresentTicks;
+    std::vector<VerifiedTiming> m_verifiedTimings;
     uint64_t m_startPresent = 0, m_startFresh = 0, m_startPublished = 0;
     std::vector<Event> m_events;
     std::vector<GpuPoint> m_gpu;
