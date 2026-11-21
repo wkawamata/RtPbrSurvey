@@ -669,3 +669,11 @@ Native RRの評価イベントは中央値9.86 ms、範囲9.83〜18.03 ms。
 収録値はプロファイラを付けていない性能計測と分けて扱う。
 ログとトレースは build/pf-crash-incident-20261119/
 ngfx-verified-present-1080p-primary-glass-20261121/ にPC内保存した。
+
+## PIXマーカー付きReleaseビルド
+
+MSBuildのRelease x64で /p:RTPBRSURVEY_ENABLE_PIX_MARKERS=true を指定すると、
+WinPixEventRuntimeの USE_PIX を有効にし、bin/x64/ReleasePix/ と
+obj/x64/ReleasePix/ にビルドする。通常のReleaseと分けて性能比較に使う。
+次のNsight Graphics収録では PathTracingPass と Native RR の時間および
+カウンターをパスに対応づけられるか確認する。
