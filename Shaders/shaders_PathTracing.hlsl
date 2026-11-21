@@ -791,11 +791,12 @@ float3 TracePath(uint2 pixel,
             const bool pureGlass = (primarySamplingFlags & 64u) != 0 && hitMaterial.metallic == 0.0 &&
                 (volumeBoundary || ((hitMaterial.flags & MaterialFlagThinTransmission) != 0 &&
                                     hitMaterial.transmissionFactor == 1.0));
-            if ((primarySamplingFlags & 128u) != 0 && hitMaterial.metallic == 0.0 &&
+            const uint primaryGlassMaxBounces = (primarySamplingFlags >> 8) & 31u;
+            if (primaryGlassMaxBounces > bounceLimit && hitMaterial.metallic == 0.0 &&
                 (volumeBoundary || ((hitMaterial.flags & MaterialFlagThinTransmission) != 0 &&
                                     hitMaterial.transmissionFactor > 0.0)))
             {
-                bounceLimit = max(bounceLimit, 16u);
+                bounceLimit = primaryGlassMaxBounces;
             }
             // Glass transport samples the geometric normal, including at the rim.
             // The RR guide must describe that same lobe, not an interpolated normal.

@@ -438,8 +438,6 @@ void RtPbrSurveyApp::OnInit()
     m_sceneRenderer.EngineForDebugTools().SetRrSeparateCompletionFence(
         m_commandLineOptions.pathTracingRrSeparateCompletionFence);
     m_sceneRenderer.EngineForDebugTools().SetRrVerifiedPresent(m_commandLineOptions.pathTracingRrVerifiedPresent);
-    m_sceneRenderer.EngineForDebugTools().SetPathTracingPrimaryGlass16Bounces(
-        m_commandLineOptions.pathTracingPrimaryGlass16Bounces);
     // First-output/lifecycle validators require the observable Ready phase.
     m_sceneRenderer.EngineForDebugTools().SetRrEagerProduction(
         !m_commandLineOptions.pathTracingRrStrictSchedule &&
@@ -786,6 +784,7 @@ void RtPbrSurveyApp::OnInit()
         if (!CaptureEvaluationState(state, &error))
             throw std::runtime_error(error);
         const auto context = m_sceneRenderer.GetUiFrameContext();
+        const auto& ptSettings = m_sceneRenderer.GetPathTracingSettings();
         trace.metadata = {{"evaluation", nlohmann::json::parse(RtPbrSurvey::SerializeEvaluationStates({state}))},
                           {"schedule",
                            m_commandLineOptions.pathTracingRrChained          ? "chained"
@@ -795,7 +794,10 @@ void RtPbrSurveyApp::OnInit()
                           {"nonblocking", m_commandLineOptions.nonblockingFrameAcquisition},
                           {"rrSeparateCompletionFence", m_commandLineOptions.pathTracingRrSeparateCompletionFence},
                           {"rrVerifiedPresent", m_commandLineOptions.pathTracingRrVerifiedPresent},
-                          {"primaryGlass16Bounces", m_commandLineOptions.pathTracingPrimaryGlass16Bounces},
+                          {"primaryGlass16Bounces", ptSettings.primaryGlassBounceOverride &&
+                                                       ptSettings.primaryGlassMaxBounces == 16u},
+                          {"primaryGlassMaxBounces", ptSettings.primaryGlassBounceOverride ?
+                                                        ptSettings.primaryGlassMaxBounces : 0u},
                           {"vsync", m_sceneRenderer.EngineForDebugTools().VSyncEnabled()},
                           {"renderWidth", context.renderWidth},
                           {"renderHeight", context.renderHeight},
@@ -4179,6 +4181,13 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
 
 void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
 {
+    if (m_commandLineOptions.pathTracingPrimaryGlass16Bounces)
+    {
+        auto settings = m_sceneRenderer.GetPathTracingSettings();
+        settings.primaryGlassBounceOverride = true;
+        settings.primaryGlassMaxBounces = 16u;
+        m_sceneRenderer.SetPathTracingSettings(settings);
+    }
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     m_sceneRenderer.EngineForDebugTools().SetNrdContinuousCameraHistory(
         m_commandLineOptions.nrdContinuousCameraHistory);

@@ -1309,6 +1309,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettings.maxBounces = static_cast<UINT>(maxBounces);
                 pathTracingSettingsChanged = true;
             }
+            pathTracingSettingsChanged |= ImGui::Checkbox("Primary Glass Bounce Override",
+                                                          &pathTracingSettings.primaryGlassBounceOverride);
+            if (pathTracingSettings.primaryGlassBounceOverride)
+            {
+                int glassBounces = static_cast<int>(pathTracingSettings.primaryGlassMaxBounces);
+                if (ImGuiWidgets::SliderIntWithControls("Primary Glass Max Bounces", &glassBounces, 1, 16, 1,
+                                                        static_cast<int>(defaults.primaryGlassMaxBounces)))
+                {
+                    pathTracingSettings.primaryGlassMaxBounces = static_cast<UINT>(glassBounces);
+                    pathTracingSettingsChanged = true;
+                }
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Uses the higher of this value and Max Bounces for primary glass hits.");
+            }
             pathTracingSettingsChanged |=
                 ImGuiWidgets::SliderUintWithControls("Random Seed", &pathTracingSettings.randomSeed, 0,
                     (std::numeric_limits<UINT>::max)(), defaults.randomSeed);

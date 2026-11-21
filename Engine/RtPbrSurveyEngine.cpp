@@ -582,8 +582,8 @@ std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
     const UINT maxBounces = (std::max)(m_pathTracingSettings.maxBounces,
-        m_pathTracingPrimaryGlass16Bounces && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
-            ? 16u : 1u);
+        m_pathTracingSettings.primaryGlassBounceOverride && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
+            ? m_pathTracingSettings.primaryGlassMaxBounces : 1u);
     PathTracingDiagnostics pathTracingDiagnostics =
         BuildPathTracingDiagnostics(m_completedGpuWorkMeterCheckPoints,
                                     m_renderWidth,
@@ -789,11 +789,15 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
     validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
     validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
     validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
+    validated.primaryGlassMaxBounces = (std::clamp)(validated.primaryGlassMaxBounces, 1u, 16u);
     const bool changed =
         m_pathTracingSettings.accumulate != validated.accumulate ||
         m_pathTracingSettings.pixelCenterPrimary != validated.pixelCenterPrimary ||
         m_pathTracingSettings.denoiserDistanceDiagnostics != validated.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.maxBounces != validated.maxBounces ||
+        m_pathTracingSettings.primaryGlassBounceOverride != validated.primaryGlassBounceOverride ||
+        (validated.primaryGlassBounceOverride &&
+            m_pathTracingSettings.primaryGlassMaxBounces != validated.primaryGlassMaxBounces) ||
         m_pathTracingSettings.randomSeed != validated.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
         m_pathTracingSettings.environmentEnabled != validated.environmentEnabled ||
@@ -7756,8 +7760,9 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
         passDesc.debugOutput = 3 + m_pathTracingReferenceComponent;
 #endif
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
-    passDesc.primaryGlass16Bounces =
-        m_pathTracingPrimaryGlass16Bounces && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission);
+    passDesc.primaryGlassMaxBounces =
+        m_pathTracingSettings.primaryGlassBounceOverride && (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
+            ? m_pathTracingSettings.primaryGlassMaxBounces : 0u;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
@@ -7800,7 +7805,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
                                 (passDesc.pixelCenterPrimary ? 2u : 0u) |
                                 (passDesc.denoiserDistanceDiagnostics ? 4u : 0u) |
                                 (produced.frameJitterPrimary ? 8u : 0u) |
-                                (passDesc.primaryGlass16Bounces ? 16u : 0u) |
+                                (static_cast<uint64_t>(passDesc.primaryGlassMaxBounces) << 16) |
                                 (produced.coherentPrimaryBatch ? uint64_t(passDesc.samplesPerFrame) << 8 : 0u);
     produced.jitterPixels = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
     XMFLOAT4X4 view, projection, previousViewProjection;
