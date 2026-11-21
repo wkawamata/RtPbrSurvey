@@ -677,7 +677,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,
-            m_completedGpuWorkMeterCheckPoints};
+            m_completedGpuWorkMeterCheckPoints,
+            m_renderGraphDocumentCpuMs};
 }
 
 void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
@@ -6887,12 +6888,28 @@ void RtPbrSurveyEngine::ExecutePasses(FramePasses passes)
     } cpu{passes == FramePasses::Combined ? nullptr :
               RtPbrSurvey::g_rrFenceTrace.VerifiedGraphCpuTiming(passes == FramePasses::Presentation)};
     const uint64_t documentStart = cpu.timing ? Trace::Now() : 0;
+    const auto workMeterStart = std::chrono::steady_clock::now();
     m_renderGraphBarrierDocument = CaptureRenderGraphDocument();
+    const float documentMs =
+        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - workMeterStart).count();
     const auto& graph = m_renderGraphRuntime.Graph();
     if (cpu.timing)
     {
         cpu.timing->documentTicks = Trace::Now() - documentStart;
         cpu.timing->passes.reserve(graph.Size());
+    }
+    if (passes == FramePasses::Production)
+    {
+        m_productionRenderGraphDocumentCpuMs = documentMs;
+    }
+    else
+    {
+        m_renderGraphDocumentCpuMs = documentMs;
+        if (passes == FramePasses::Presentation)
+        {
+            m_renderGraphDocumentCpuMs += m_productionRenderGraphDocumentCpuMs;
+        }
+        m_productionRenderGraphDocumentCpuMs = 0.0f;
     }
     Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
     Engine::ExecuteRenderPassGraph(graph,

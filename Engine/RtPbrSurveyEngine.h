@@ -447,6 +447,7 @@ public:
         XMFLOAT2 temporalJitterHalton;
         XMFLOAT2 temporalJitterOffsetPixels;
         const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& gpuCheckPoints;
+        float renderGraphDocumentCpuMs = 0.0f;
     };
 
     using UiRenderHandler = std::function<void(ID3D12GraphicsCommandList*)>;
@@ -1596,6 +1597,8 @@ private:
     // CPU work meter
     MyDx12Util::WorkMeter m_workMeter;
     float m_cpuFrameTime = 0.f;
+    float m_productionRenderGraphDocumentCpuMs = 0.0f;
+    float m_renderGraphDocumentCpuMs = 0.0f;
     RtPbrSurvey::RendererCpuTimer m_cpuFrameTimer;
     bool m_rasterBenchmarkMode = false;
     bool m_geometryInstancing = false;

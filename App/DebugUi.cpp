@@ -614,7 +614,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     struct WorkMeterHistory
     {
         enum { Capacity = 240 };
-        std::array<float, Capacity> cpu{}, gpu{}, fps{}, frameFps{}, rrSdk{}, rrConversion{};
+        std::array<float, Capacity> cpu{}, renderGraphDocument{}, gpu{}, fps{}, frameFps{}, rrSdk{}, rrConversion{};
         int count = 0;
         int next = 0;
         int lastFrame = -1;
@@ -663,11 +663,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     };
     static WorkMeterAverage workMeterAverage;
     const int workMeterFrame = ImGui::GetFrameCount();
+    constexpr const char* renderGraphCpuLabel = "CPU Render Graph Document (ms)";
     auto& average = workMeterAverage;
     if (average.collecting && average.lastFrame != workMeterFrame)
     {
         average.lastFrame = workMeterFrame;
         average.Add("CPU Frame (ms)", context.cpuFrameTime);
+        average.Add(renderGraphCpuLabel, context.renderGraphDocumentCpuMs);
         const auto& cpuTiming = app.m_sceneRenderer.CpuFrameTiming();
         if (cpuTiming.available)
         {
@@ -729,6 +731,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             history.count = history.next = 0;
         const int index = history.next;
         history.cpu[index] = std::isfinite(context.cpuFrameTime) ? (std::max)(context.cpuFrameTime, 0.0f) : 0.0f;
+        history.renderGraphDocument[index] = context.renderGraphDocumentCpuMs;
         history.fps[index] = history.cpu[index] > 0.0f ? 1000.0f / history.cpu[index] : 0.0f;
         // Win32 NewFrame measures wall-clock time, including frame waits.
         // This is independent of scene simulation time and CPU work duration.
@@ -747,9 +750,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         history.count = (std::min)(history.count + 1, static_cast<int>(WorkMeterHistory::Capacity));
         history.lastFrame = workMeterFrame;
     }
-    const auto drawWorkMeter = [&context, &app]()
+    const auto drawWorkMeter = [&context, &app, renderGraphCpuLabel]()
     {
         auto& history = workMeterHistory;
+        const ImVec4 renderGraphCpuColor(1.0f, 0.68f, 0.25f, 1.0f);
         if (ImGui::TreeNode("Graphs##WorkMeter"))
         {
             if (ImGui::Checkbox("Freeze graphs", &history.frozen) && !history.frozen)
@@ -767,9 +771,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                "readback or a stage absent from that packet. Hold last shows stale data; Zero shows cadence.");
             ImGui::Text("Latest GPU packet: %llu (%s)", static_cast<unsigned long long>(history.lastGpuPacket),
                         history.frozen ? "frozen" : history.newGpuPacket ? "new readback" : "no new readback");
-            const auto plot = [&history](const char* label, const auto& values, float maximum, bool gpuSignal = false)
+            const auto plot = [&history](const char* label, const auto& values, float maximum,
+                                         bool gpuSignal = false, const ImVec4* color = nullptr)
             {
-                ImGui::TextUnformatted(label);
+                if (color)
+                    ImGui::TextColored(*color, "%s", label);
+                else
+                    ImGui::TextUnformatted(label);
                 if (history.count == 0)
                     return;
                 const int offset = history.count == WorkMeterHistory::Capacity ? history.next : 0;
@@ -778,6 +786,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::PushID(label);
                 ImGui::InvisibleButton("##Frames", size);
                 ImDrawList* draw = ImGui::GetWindowDrawList();
+                const ImU32 lineColor = color ? ImGui::GetColorU32(*color) : ImGui::GetColorU32(ImGuiCol_PlotLines);
                 draw->AddRectFilled(start, ImVec2(start.x + size.x, start.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBg));
                 float held = std::numeric_limits<float>::quiet_NaN();
                 float previous = held;
@@ -804,9 +813,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     {
                         const ImVec2 p = point(i, value);
                         if (i > 0 && std::isfinite(previous))
-                            draw->AddLine(point(i - 1, previous), p, ImGui::GetColorU32(ImGuiCol_PlotLines));
+                            draw->AddLine(point(i - 1, previous), p, lineColor);
                         else
-                            draw->AddCircleFilled(p, 1.5f, ImGui::GetColorU32(ImGuiCol_PlotLines));
+                            draw->AddCircleFilled(p, 1.5f, lineColor);
                     }
                     previous = value;
                 }
@@ -823,6 +832,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("1 / elapsed time between UI frames, including waits. This is not the RR output update rate.");
             plot("CPU Frame Time (ms)", history.cpu, history.timeRange);
+            plot(renderGraphCpuLabel, history.renderGraphDocument, history.timeRange, false, &renderGraphCpuColor);
             plot("GPU Total Time (ms)", history.gpu, history.timeRange, true);
             plot("CPU FPS (1000 / CPU Frame Time)", history.fps, history.fpsRange);
             if (history.showRr)
@@ -881,6 +891,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::Separator();
         ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
                     context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
+        ImGui::TextColored(renderGraphCpuColor, "CPU Render Graph Document: %.3f ms", context.renderGraphDocumentCpuMs);
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("CPU time to build debug graph information. Split RR adds production and presentation.");
+        }
 
         struct GpuTimingRow
         {
