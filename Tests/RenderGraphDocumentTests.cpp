@@ -94,6 +94,22 @@ bool TestDeterministicDump()
     return passed;
 }
 
+bool TestPassTimingIds()
+{
+    const std::vector<Engine::RenderPass> passes = {
+        {.name = L"Repeated"},
+        {.name = L"Other"},
+        {.name = L"Repeated"},
+    };
+    const auto document = Engine::BuildRenderGraphDocument(passes);
+    return Check(document.nodes.size() == 3, "each occurrence has a pass node") &&
+        Check(document.nodes[0].id == Engine::MakeRenderGraphPassDocumentId("Repeated", 0) &&
+                  document.nodes[1].id == Engine::MakeRenderGraphPassDocumentId("Other", 0) &&
+                  document.nodes[2].id == Engine::MakeRenderGraphPassDocumentId("Repeated", 1),
+              "timing IDs match the document even when pass names repeat") &&
+        Check(document.nodes[0].id != document.nodes[2].id, "repeated passes have distinct IDs");
+}
+
 bool TestPingPongNodeIdentity()
 {
     const std::vector<Engine::RenderPass> evenPasses = {
@@ -514,6 +530,7 @@ int main()
     passed &= TestObservedStructure();
     passed &= TestDocumentTopology();
     passed &= TestDeterministicDump();
+    passed &= TestPassTimingIds();
     passed &= TestPingPongNodeIdentity();
     passed &= TestStateFormatting();
     passed &= TestStateDiagnostics();

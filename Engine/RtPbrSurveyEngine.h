@@ -502,6 +502,8 @@ public:
     UiFrameContext GetUiFrameContext() const;
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+    void RequestRenderGraphBarrierDiagnostics() { m_renderGraphBarrierDiagnosticsRequested = true; }
+    const Engine::RenderGraphDocument* LatestRenderGraphBarrierDocument() const;
     const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const
     {
         return m_debugResourceViewRegistry;
@@ -1615,9 +1617,8 @@ private:
     Engine::PathTracingReconstructionPlan m_completedReconstructionPlan;
     std::vector<Engine::RenderGraphBarrierEvent> m_renderGraphBarrierEvents;
     std::vector<Engine::RenderGraphBarrierEvent> m_completedRenderGraphBarrierEvents;
-    Engine::RenderGraphDocument m_renderGraphBarrierDocument;
     Engine::RenderGraphDocument m_completedRenderGraphBarrierDocument;
-    bool m_hasRenderGraphBarrierEvents = false;
+    bool m_renderGraphBarrierDiagnosticsRequested = false;
     bool m_hasCompletedRenderGraphBarrierEvents = false;
     const UiRenderHandler* m_activeUiRenderHandler = nullptr;
     UpdateHandler m_updateHandler;
@@ -2155,7 +2156,9 @@ private:
     void ResetResourceStates();
 
     ID3D12PipelineState* GetPipelineState(PipelineKey pipeline) const;
-    Engine::ResourceTransitionContext MakeResourceTransitionContext();
+    Engine::ResourceTransitionContext MakeResourceTransitionContext(
+        const std::vector<int>* visiblePassIndices = nullptr);
+    static bool IsRenderGraphThumbnailPass(const wchar_t* passName);
     void TransitionPassResources(const RenderPass& pass);
     void TransitionResource(const ResourceUsage& usage);
     ID3D12Resource* FindTransientD3DResource(const std::string& name) const;

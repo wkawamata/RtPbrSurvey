@@ -872,7 +872,15 @@ namespace RtPbrSurvey
                                                           const RenderGraphGpuTimingSnapshot* timing,
                                                           const RenderGraphResourceActions* resourceActions)
     {
-        const Engine::RenderGraphDocument document = renderer.CaptureRenderGraphDocument();
+        auto& engine = renderer.EngineForDebugTools();
+        engine.RequestRenderGraphBarrierDiagnostics();
+        const auto* snapshot = engine.LatestRenderGraphBarrierDocument();
+        if (snapshot == nullptr)
+        {
+            ImGui::TextDisabled("Waiting for a recorded render graph.");
+            return;
+        }
+        const auto& document = *snapshot;
         const SceneRenderer::UiFrameContext uiContext = renderer.GetUiFrameContext();
         RenderGraphTechnologyMetadata technologyMetadata;
         if (uiContext.dlssDiagnostics.featureVersionAvailable)

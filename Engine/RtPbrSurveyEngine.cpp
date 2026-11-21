@@ -6887,15 +6887,32 @@ void RtPbrSurveyEngine::ExecutePasses(FramePasses passes)
         std::string passName;
     } cpu{passes == FramePasses::Combined ? nullptr :
               RtPbrSurvey::g_rrFenceTrace.VerifiedGraphCpuTiming(passes == FramePasses::Presentation)};
-    const uint64_t documentStart = cpu.timing ? Trace::Now() : 0;
-    const auto workMeterStart = std::chrono::steady_clock::now();
-    m_renderGraphBarrierDocument = CaptureRenderGraphDocument();
-    const float documentMs =
-        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - workMeterStart).count();
     const auto& graph = m_renderGraphRuntime.Graph();
+    const bool captureDiagnostics = m_renderGraphBarrierDiagnosticsRequested;
+    m_renderGraphBarrierDiagnosticsRequested = false;
+    Engine::RenderGraphDocument document;
+    std::vector<int> visiblePassIndices;
+    float documentMs = 0.0f;
+    if (captureDiagnostics)
+    {
+        const uint64_t documentStart = cpu.timing ? Trace::Now() : 0;
+        const auto workMeterStart = std::chrono::steady_clock::now();
+        document = CaptureRenderGraphDocument();
+        documentMs =
+            std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - workMeterStart).count();
+        if (cpu.timing)
+        {
+            cpu.timing->documentTicks = Trace::Now() - documentStart;
+        }
+        visiblePassIndices.reserve(graph.Size());
+        int visibleIndex = 0;
+        for (const auto& pass : graph.Passes())
+        {
+            visiblePassIndices.push_back(IsRenderGraphThumbnailPass(pass.name) ? -1 : visibleIndex++);
+        }
+    }
     if (cpu.timing)
     {
-        cpu.timing->documentTicks = Trace::Now() - documentStart;
         cpu.timing->passes.reserve(graph.Size());
     }
     if (passes == FramePasses::Production)
@@ -6911,7 +6928,9 @@ void RtPbrSurveyEngine::ExecutePasses(FramePasses passes)
         }
         m_productionRenderGraphDocumentCpuMs = 0.0f;
     }
-    Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
+    std::unordered_map<std::string, size_t> passNameOccurrences;
+    Engine::ResourceTransitionContext resourceTransitions =
+        MakeResourceTransitionContext(captureDiagnostics ? &visiblePassIndices : nullptr);
     Engine::ExecuteRenderPassGraph(graph,
                                    {m_commandList.Get(),
                                     &m_renderGraphRuntime.Bindings(),
@@ -6936,20 +6955,29 @@ void RtPbrSurveyEngine::ExecutePasses(FramePasses passes)
                                             cpu.timing->passes.push_back({std::move(cpu.passName), duration});
                                         }
                                     },
-                                    [this, &cpu](int passIndex, const RenderPass& pass)
+                                    [this, &cpu, &passNameOccurrences](int passIndex, const RenderPass& pass)
                                     {
-                                        const auto node = std::find_if(m_renderGraphBarrierDocument.nodes.begin(),
-                                            m_renderGraphBarrierDocument.nodes.end(), [&](const auto& value)
-                                            { return value.kind == Engine::RenderGraphNodeKind::Pass && value.passIndex == passIndex; });
                                         std::string passName = WideToUtf8(pass.name);
-                                        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), passName, passIndex,
-                                            node == m_renderGraphBarrierDocument.nodes.end() ? 0 : node->id.value);
+                                        const uint64_t passNodeId = IsRenderGraphThumbnailPass(pass.name) ? 0 :
+                                            Engine::MakeRenderGraphPassDocumentId(passName,
+                                                passNameOccurrences[passName]++).value;
+                                        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), passName, passIndex, passNodeId);
                                         if (cpu.timing)
                                         {
                                             cpu.passName = std::move(passName);
                                         }
                                     }});
-    m_hasRenderGraphBarrierEvents = true;
+    if (captureDiagnostics)
+    {
+        m_completedRenderGraphBarrierEvents.swap(m_renderGraphBarrierEvents);
+        m_completedRenderGraphBarrierDocument = std::move(document);
+    }
+    else if (m_hasCompletedRenderGraphBarrierEvents)
+    {
+        m_completedRenderGraphBarrierEvents.clear();
+        m_completedRenderGraphBarrierDocument = {};
+    }
+    m_hasCompletedRenderGraphBarrierEvents = captureDiagnostics;
 }
 
 void RtPbrSurveyEngine::ExecutePassOperation(const RenderPass& pass)
@@ -7417,7 +7445,8 @@ void RtPbrSurveyEngine::ResetResourceStates()
     }
 }
 
-Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionContext()
+Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionContext(
+    const std::vector<int>* visiblePassIndices)
 {
     return {m_commandList.Get(),
             [this](const std::string& name) { return m_renderGraphRuntime.Resources().Resolve(name); },
@@ -7425,14 +7454,15 @@ Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionConte
             [this](const std::string& name, D3D12_RESOURCE_STATES state) { SetResourceState(name, state); },
             [](const ResourceUsage& usage)
             { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); },
-            [this](int passIndex,
+            [this, visiblePassIndices](int passIndex,
                    const ResourceUsage& usage,
                    D3D12_RESOURCE_STATES beforeState,
                    D3D12_RESOURCE_STATES afterState)
             {
-                if (passIndex >= 0)
+                if (visiblePassIndices && passIndex >= 0 && (*visiblePassIndices)[passIndex] >= 0)
                 {
-                    m_renderGraphBarrierEvents.push_back({passIndex, usage.name, beforeState, afterState});
+                    m_renderGraphBarrierEvents.push_back(
+                        {(*visiblePassIndices)[passIndex], usage.name, beforeState, afterState});
                 }
             }};
 }
@@ -7470,14 +7500,7 @@ void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE
 
 void RtPbrSurveyEngine::BeginFrame(ID3D12CommandAllocator& allocator)
 {
-    if (m_hasRenderGraphBarrierEvents)
-    {
-        m_completedRenderGraphBarrierEvents = m_renderGraphBarrierEvents;
-        m_completedRenderGraphBarrierDocument = m_renderGraphBarrierDocument;
-        m_hasCompletedRenderGraphBarrierEvents = true;
-    }
     m_renderGraphBarrierEvents.clear();
-    m_hasRenderGraphBarrierEvents = false;
 
     // Command list allocators can only be reset when the associated
     // command lists have finished execution on the GPU; apps should use
@@ -9439,6 +9462,14 @@ auto RtPbrSurveyEngine::ResolveRenderTargets(const PassRenderTargetBinding& rend
     return resolvedRenderTargets;
 }
 
+bool RtPbrSurveyEngine::IsRenderGraphThumbnailPass(const wchar_t* passName)
+{
+    return std::any_of(kDebugTexturePreviewPassNames + kMaxDebugTexturePreviewCount,
+                       kDebugTexturePreviewPassNames + kMaxDebugTextureOutputCount,
+                       [passName](const wchar_t* thumbnailPassName)
+                       { return passName && std::wcscmp(passName, thumbnailPassName) == 0; });
+}
+
 Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() const
 {
     Engine::RenderGraphResourceMetadataMap metadata;
@@ -9509,13 +9540,6 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     }
 #endif
 
-    const auto isThumbnailPass = [](const wchar_t* passName)
-    {
-        return std::any_of(kDebugTexturePreviewPassNames + kMaxDebugTexturePreviewCount,
-                           kDebugTexturePreviewPassNames + kMaxDebugTextureOutputCount,
-                           [passName](const wchar_t* thumbnailPassName)
-                           { return std::wcscmp(passName, thumbnailPassName) == 0; });
-    };
     const auto isThumbnailResource = [](const std::string& resourceName)
     {
         return std::any_of(kDebugTexturePreviewResourceNames + kMaxDebugTexturePreviewCount,
@@ -9528,7 +9552,7 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     displayPasses.reserve(m_renderGraphRuntime.Graph().Passes().size());
     for (const RenderPass& pass : m_renderGraphRuntime.Graph().Passes())
     {
-        if (isThumbnailPass(pass.name))
+        if (IsRenderGraphThumbnailPass(pass.name))
         {
             continue;
         }
@@ -9541,6 +9565,11 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
                       { return isThumbnailResource(usage.name); });
     }
     return Engine::BuildRenderGraphDocument(displayPasses, metadata);
+}
+
+const Engine::RenderGraphDocument* RtPbrSurveyEngine::LatestRenderGraphBarrierDocument() const
+{
+    return m_hasCompletedRenderGraphBarrierEvents ? &m_completedRenderGraphBarrierDocument : nullptr;
 }
 
 const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const
