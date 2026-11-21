@@ -613,3 +613,17 @@ GPU処理または終了処理のどこが原因かは未特定。GPU試験は�
 生ログ・PNGは build/pf-crash-incident-20261119/ の
 rr-verified-present-motion-1080p-primary-glass-20261121/ と
 rr-verified-present-quality-1080p-primary-glass-20261121/ にPC内保存した。
+
+## Nsight Systemsの1080p収録（2026-11-21）
+
+Release、Warm Glass Table、1920×1080、VSync OFF、通常8・初回ガラス16で
+Nsight Systemsを1回実行した。起動から8秒遅延し、3秒間を収録。
+レポートとSQLiteは build/pf-crash-incident-20261119/
+nsys-verified-present-1080p-primary-glass-20261121/ に保存した。
+
+SQLiteではD3D12 APIが118件、ExecuteCommandListsとGPU workloadは各1件。
+CopyTextureRegionなどの起動時イベントが中心で、Presentは0件。
+今回の収録範囲ではPT＋RRが連続する区間を比較できない。
+アプリ内ログでは計測8.0146秒の197回のPresentすべてで新規RR画像を使用し、
+RR失敗0件で正常終了した。この頻度は収録実行時の参考値。
+再収録時は、起動からの固定待ち時間を見直し、定常描画が収録に入ることを確認する。
