@@ -497,3 +497,27 @@ RenderGraph閉、同じカメラ軌道でReleaseビルドを測る。DebugとRel
 別々に記録し、16 msの合否と各区間の短縮幅を確認する。ビルド構成の変更には
 CPUの最適化とD3D12 Debug Layerの差が含まれる。RenderGraphを開いた時の
 グラフ・バリア表示は独立した動作確認とする。
+
+## Releaseでの16 ms目標の実測
+
+Release x64、Warm Glass Table、960×540固定、VSync OFF、RenderGraph閉で
+同じカメラ軌道をウォームアップ5秒の後に8.0040秒計測した。
+754回すべてのPresentで新規RR画像を使い、全754フレームが16 ms以内だった。
+デバッグ用グラフ情報生成は全フレーム0 ms。代替提示、入出力拒否、
+キャンセル、SDK失敗0件。終了コード0。
+
+| 指標 | Debug | Release |
+| --- | ---: | ---: |
+| 姿勢確定からPresent（中央値） | 15.62 ms | 10.07 ms |
+| 同区間（p95） | 17.64 ms | 10.70 ms |
+| 同区間（最大） | 19.46 ms | 11.71 ms |
+| 新規RR画像の採用/秒 | 60.36 | 94.20 |
+| 姿勢確定から生成提出（中央値） | 3.59 ms | 0.55 ms |
+| GPUの生成処理（中央値） | 10.05 ms | 9.15 ms |
+| 完了観測からPresent（中央値） | 1.69 ms | 0.17 ms |
+
+この条件のRelease単発試行でp95の16 ms目標を達成した。
+比較はCPU最適化とDebug Layerの差を含む。画像の品質や
+実ディスプレイでの表示頻度、他の解像度はこの試験の対象外。
+生ログと集計は build/pf-crash-incident-20261119/rr-verified-present-motion-release-20261121/
+に保存した。
