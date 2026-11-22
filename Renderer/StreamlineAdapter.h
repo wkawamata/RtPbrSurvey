@@ -14,6 +14,7 @@ struct StreamlineAdapterInitDesc
     const wchar_t* applicationName = nullptr;
     const char* projectId = nullptr;
     const char* engineVersion = nullptr;
+    const wchar_t* logDirectory = nullptr;
 };
 
 struct StreamlineEvaluateInputs

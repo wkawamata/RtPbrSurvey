@@ -482,6 +482,18 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-StreamlineLogDirectory"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-StreamlineLogDirectory requires an existing directory");
+            }
+            options.streamlineLogDirectory = std::filesystem::absolute(argv[++i]);
+            if (!std::filesystem::is_directory(options.streamlineLogDirectory))
+            {
+                throw std::invalid_argument("-StreamlineLogDirectory requires an existing directory");
+            }
+        }
         else if (IsCommandLineArg(argv[i], L"-RrCrashLog"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'\0' || argv[i + 1][0] == L'-')

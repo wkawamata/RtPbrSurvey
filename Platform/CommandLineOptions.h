@@ -103,6 +103,7 @@ struct CommandLineOptions
     bool nonblockingFrameAcquisition = false;
     std::filesystem::path rrFenceTracePath;
     std::filesystem::path rrCrashLogPath;
+    std::filesystem::path streamlineLogDirectory;
     UINT rrFenceTraceWarmup = 5;
     UINT rrFenceTraceSeconds = 30;
     bool rrFenceTraceTimingOnly = false;

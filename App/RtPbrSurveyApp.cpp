@@ -364,7 +364,11 @@ void RtPbrSurveyApp::OnInit()
     crashLog.Record("app.init.begin", GetWidth(), GetHeight());
     if (!m_commandLineOptions.enablePathTracing || m_commandLineOptions.enableExperimentalNativeRayReconstruction)
     {
-        const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+        Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+        if (!m_commandLineOptions.streamlineLogDirectory.empty())
+        {
+            streamlineInitDesc.logDirectory = m_commandLineOptions.streamlineLogDirectory.c_str();
+        }
         crashLog.Record("streamline.init.begin");
         Engine::InitializeStreamlineAdapter(streamlineInitDesc);
         crashLog.Record("streamline.init.end");
