@@ -2214,9 +2214,11 @@ void RtPbrSurveyApp::LogRayReconstructionDiagnostics()
         lastEvaluateOutput = diagnostics.lastEvaluateOutputAvailable ? "native-output" : "fallback";
     }
 
+    const auto& adapter = m_sceneRenderer.EngineForDebugTools().AdapterDescription();
     fprintf(m_logFile,
             "[RR] support=%s status=%s supportQueryResult=%s inputReadiness=%s inputReason=%s "
-            "lastEvaluate=%s lastEvaluateStatus=%s lastEvaluateResult=%s lastEvaluateOutput=%s\n",
+            "lastEvaluate=%s lastEvaluateStatus=%s lastEvaluateResult=%s lastEvaluateOutput=%s "
+            "adapter=\"%ls\" vendor=0x%04X device=0x%04X luid=%08lX:%08lX\n",
             context.rayReconstructionAvailable ? "available" : "unavailable",
             diagnostics.StatusText(),
             diagnostics.supportQueryResultName,
@@ -2225,7 +2227,12 @@ void RtPbrSurveyApp::LogRayReconstructionDiagnostics()
             diagnostics.lastEvaluateAvailable ? "available" : "unavailable",
             diagnostics.LastEvaluateStatusText(),
             diagnostics.lastEvaluateResultName,
-            lastEvaluateOutput);
+            lastEvaluateOutput,
+            adapter.Description,
+            adapter.VendorId,
+            adapter.DeviceId,
+            static_cast<unsigned long>(adapter.AdapterLuid.HighPart),
+            static_cast<unsigned long>(adapter.AdapterLuid.LowPart));
     fflush(m_logFile);
 
     m_lastLoggedRayReconstructionAvailable = context.rayReconstructionAvailable;
