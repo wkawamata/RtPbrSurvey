@@ -43,7 +43,11 @@ static void GetHardwareAdapter(IDXGIFactory1* pFactory,
                 continue;
             }
 
-            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            const HRESULT probeResult =
+                D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr);
+            RtPbrSurvey::g_rrCrashLog.Record("graphics.adapter.probe", desc.VendorId, desc.DeviceId,
+                                             static_cast<uint32_t>(probeResult));
+            if (SUCCEEDED(probeResult))
             {
                 break;
             }
@@ -62,7 +66,11 @@ static void GetHardwareAdapter(IDXGIFactory1* pFactory,
                 continue;
             }
 
-            if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+            const HRESULT probeResult =
+                D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr);
+            RtPbrSurvey::g_rrCrashLog.Record("graphics.adapter.probe", desc.VendorId, desc.DeviceId,
+                                             static_cast<uint32_t>(probeResult));
+            if (SUCCEEDED(probeResult))
             {
                 break;
             }
@@ -177,6 +185,11 @@ void GraphicsDevice::Initialize(const GraphicsDeviceDesc& desc)
     else
     {
         GetHardwareAdapter(m_dxgiFactory.Get(), &selectedAdapter);
+    }
+    if (!selectedAdapter)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("graphics.adapter.unavailable");
+        ThrowIfFailed(DXGI_ERROR_NOT_FOUND);
     }
     ThrowIfFailed(selectedAdapter->GetDesc1(&m_adapterDescription));
     ThrowIfFailed(D3D12CreateDevice(selectedAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
