@@ -9834,7 +9834,16 @@ void RtPbrSurveyEngine::WaitForGpu(bool logShutdownDrain)
     AcquireFrameResources(true);
     const UINT64 fenceValue = m_frameResources[m_currentFrameIndex].fenceValue;
     if (recordDrain)
+    {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_rrCompletionFence)
+        {
+            crashLog.Record("shutdown.drain.rr_fence", m_rrVerifiedFrameFence, m_rrCompletionFenceValue,
+                            CompletedRrFenceValue());
+        }
+#endif
         crashLog.Record("shutdown.drain.signal.begin", fenceValue, m_graphicsDevice.CompletedFenceValue());
+    }
     PIXBeginEvent(3, L"WaitForGpu");
 
     // Schedule a Signal command in the queue.

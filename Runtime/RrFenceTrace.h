@@ -464,8 +464,20 @@ public:
                                        {"calibrations", std::move(calibrations)}};
         std::ofstream output(m_path, std::ios::binary);
         output << report.dump();
+        output.close();
         if (!output)
             throw std::runtime_error("Failed to write RR fence trace");
+        if (FinishedTimingOnly())
+        {
+            const HANDLE file = CreateFileW(m_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (file == INVALID_HANDLE_VALUE)
+                throw std::runtime_error("Failed to reopen RR fence trace for flush");
+            const BOOL flushed = FlushFileBuffers(file);
+            CloseHandle(file);
+            if (!flushed)
+                throw std::runtime_error("Failed to flush RR fence trace");
+        }
         m_running = false;
         gpuMarker = {};
     }
