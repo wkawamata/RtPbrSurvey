@@ -721,3 +721,17 @@ D3DPERF_EVENTSの時系列と、GPUTRACE_REGIMESの同名PTイベントの出現
 スループットとPT時間の積（近似指標）は遅い群でSM約3%、L1/TEX・L2・DRAM
 約8%増えた。レイ走査の待ち、光路数や分岐のばらつきの区別には、
 レイ数・バウンス分布かシェーダーの待機サンプルを取得する必要がある。
+
+
+## Release comparison against main 9061171
+
+On RTX 3090, native 1920×1080 Warm Glass Table, VSync OFF, 1 spp, and
+8 max bounces with the first-hit glass override disabled, both Release
+builds completed a capture using native RR. Main used its continuous
+RR path and Work4 d4c95aa used chained RR with verified presentation.
+Using completion-counter changes and wall time over UI frames 60–179,
+main completed 21.00 RR outputs/s and Work4 27.61 outputs/s (+31.5%).
+Observed completion intervals (median/p95) were 48.07/53.18 ms on main
+and 34.07/45.63 ms on Work4. This was one run per build, with different
+starting GPU temperatures (51.25°C and 64.78°C). The counter measures
+RR completions and the sampling window is drawn from UI frames.
