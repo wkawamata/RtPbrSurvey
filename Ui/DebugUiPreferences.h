@@ -3,6 +3,10 @@
 namespace RtPbrSurvey
 {
 
+inline constexpr int kHdrImGuiWhiteMinNits = 40;
+inline constexpr int kHdrImGuiWhiteMaxNits = 400;
+inline constexpr int kHdrImGuiWhiteDefaultNits = 160;
+
 struct DebugUiPreferences
 {
     bool dlssSrDetailed = true;
@@ -10,6 +14,7 @@ struct DebugUiPreferences
     bool hybridReflectionDetailed = false;
     bool informationWindowVisible = false;
     bool evaluationCommentsVisible = true;
+    int hdrImGuiWhiteNits = kHdrImGuiWhiteDefaultNits;
 };
 
 DebugUiPreferences& GetDebugUiPreferences();
