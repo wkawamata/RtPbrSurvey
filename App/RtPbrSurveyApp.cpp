@@ -830,10 +830,9 @@ void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
 {
     if (RtPbrSurvey::g_rrFenceTrace.Running() && m_commandLineOptions.rrFenceTraceCameraMotion)
     {
-        auto camera = m_sceneRenderer.GetCamera();
+        auto& camera = LoadedScene().GetScene().camera;
         camera.pos.x = RtPbrSurvey::g_rrFenceTrace.metadata.at("cameraStartX").get<float>() +
                        0.4f * std::sin(static_cast<float>(RtPbrSurvey::g_rrFenceTrace.ElapsedSeconds()));
-        m_sceneRenderer.SetCamera(camera);
         return;
     }
     if (IsCaptureOrbitActive())
