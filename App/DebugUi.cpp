@@ -1107,12 +1107,54 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen))
     {
         DrawWireframeOverlay(app.m_sceneRenderer.EngineForDebugTools(), true);
+        using ReconstructionBackend = Engine::PathTracingReconstructionBackend;
+        const auto enableDlssForPathTracingRr = [&app]()
+        {
+            auto rrSettings = app.m_sceneRenderer.GetRayReconstructionSettings();
+            rrSettings.enabled = true;
+            rrSettings.experimentalNativeEvaluationEnabled = true;
+            rrSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            app.m_sceneRenderer.SetRayReconstructionSettings(rrSettings);
+
+            auto srSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
+            srSettings.enabled = true;
+            srSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
+            app.m_sceneRenderer.SetTemporalUpscalerSettings(srSettings);
+        };
+
+        RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = app.m_sceneRenderer.GetPathTracingSettings();
+        const bool rrSelected =
+            Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
+                                                pathTracingSettings.nrdPreview) == ReconstructionBackend::Rr;
+        const bool ptSelected = app.m_renderingPath == RenderingPath::PathTracing;
+        bool pathTracingSettingsChanged = false;
         int renderingPath = static_cast<int>(app.m_renderingPath);
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
         ImGui::SameLine();
         ImGui::RadioButton("Deferred", &renderingPath, static_cast<int>(RenderingPath::Deferred));
         ImGui::SameLine();
-        ImGui::RadioButton("Path Tracing", &renderingPath, static_cast<int>(RenderingPath::PathTracing));
+        if (ImGui::RadioButton("Path Tracing", ptSelected && !rrSelected))
+        {
+            renderingPath = static_cast<int>(RenderingPath::PathTracing);
+            if (rrSelected)
+            {
+                pathTracingSettings.reconstructionBackend = ReconstructionBackend::Native;
+                pathTracingSettings.nrdPreview = false;
+                pathTracingSettingsChanged = true;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("PT + RR", ptSelected && rrSelected))
+        {
+            renderingPath = static_cast<int>(RenderingPath::PathTracing);
+            pathTracingSettings.reconstructionBackend = ReconstructionBackend::Rr;
+            pathTracingSettings.nrdPreview = false;
+            pathTracingSettings.rrContinuous = true;
+            pathTracingSettingsChanged = true;
+            enableDlssForPathTracingRr();
+            app.m_commandLineOptions.nonblockingFrameAcquisition = true;
+            app.m_sceneRenderer.EngineForDebugTools().SetNonblockingFrameAcquisition(true);
+        }
         app.m_renderingPath = static_cast<RenderingPath>(renderingPath);
 
         if (app.m_renderingPath == RenderingPath::PathTracing)
@@ -1148,9 +1190,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::TreePop();
             }
 
-            RtPbrSurveyEngine::PathTracingSettings pathTracingSettings =
-                app.m_sceneRenderer.GetPathTracingSettings();
-            bool pathTracingSettingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
                 "Albedo + Emissive", "World Normal", "Emissive", "Radiance", "Volume Boundaries", "Volume Status",
                 "Volume Outgoing Direction", "Volume Exit Position", "Volume Transmittance", "Thin Shadow Status"};
@@ -1181,7 +1220,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             {
                 app.m_sceneRenderer.ResetPathTracingAccumulation();
             }
-            using ReconstructionBackend = Engine::PathTracingReconstructionBackend;
             int reconstructionBackend =
                 static_cast<int>(Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
                                                                      pathTracingSettings.nrdPreview)) -
@@ -1192,6 +1230,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     static_cast<ReconstructionBackend>(reconstructionBackend + 1);
                 pathTracingSettings.nrdPreview =
                     pathTracingSettings.reconstructionBackend == ReconstructionBackend::Nrd;
+                if (pathTracingSettings.reconstructionBackend == ReconstructionBackend::Rr)
+                {
+                    enableDlssForPathTracingRr();
+                }
                 pathTracingSettingsChanged = true;
             }
             if (reconstructionBackend == 2)
