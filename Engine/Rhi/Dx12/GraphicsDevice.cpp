@@ -277,10 +277,41 @@ UINT64 GraphicsDevice::CompletedFenceValue() const
     return m_fence->GetCompletedValue();
 }
 
-void GraphicsDevice::WaitForFenceValue(UINT64 value)
+void GraphicsDevice::WaitForFenceValue(UINT64 value, bool recordShutdownDrain)
 {
-    ThrowIfFailed(m_fence->SetEventOnCompletion(value, m_fenceEvent));
-    WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    if (recordShutdownDrain)
+        crashLog.Record("shutdown.fence.register.begin", value);
+    if (m_fenceEvent == nullptr)
+        ThrowIfFailed(E_HANDLE);
+    const HRESULT registration = m_fence->SetEventOnCompletion(value, m_fenceEvent);
+    if (recordShutdownDrain)
+        crashLog.Record("shutdown.fence.register.end", value, static_cast<uint32_t>(registration));
+    ThrowIfFailed(registration);
+
+    const DWORD waitResult = WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
+    const DWORD waitError = waitResult == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+    if (recordShutdownDrain)
+        crashLog.Record("shutdown.fence.wait.return", value, waitResult, waitError);
+    if (waitResult == WAIT_FAILED)
+        ThrowIfFailed(waitError != ERROR_SUCCESS ? HRESULT_FROM_WIN32(waitError) : E_FAIL);
+    if (waitResult != WAIT_OBJECT_0)
+        ThrowIfFailed(E_UNEXPECTED);
+
+    const UINT64 completed = CompletedFenceValue();
+    if (completed == UINT64_MAX)
+    {
+        const HRESULT reason = m_device->GetDeviceRemovedReason();
+        if (recordShutdownDrain)
+            crashLog.Record("shutdown.fence.device_removed", value, static_cast<uint32_t>(reason));
+        ThrowIfFailed(FAILED(reason) ? reason : DXGI_ERROR_DEVICE_REMOVED);
+    }
+    if (completed < value)
+    {
+        if (recordShutdownDrain)
+            crashLog.Record("shutdown.fence.incomplete", value, completed);
+        ThrowIfFailed(E_UNEXPECTED);
+    }
 }
 
 void GraphicsDevice::CloseFenceEvent()

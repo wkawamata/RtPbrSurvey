@@ -51,7 +51,7 @@ struct GraphicsDevice
     void CreateFence(UINT64 initialValue);
     void SignalFence(UINT64 value);
     UINT64 CompletedFenceValue() const;
-    void WaitForFenceValue(UINT64 value);
+    void WaitForFenceValue(UINT64 value, bool recordShutdownDrain = false);
     void CloseFenceEvent();
     HRESULT Present(UINT syncInterval, UINT flags);
     void SetPresentTearingEnabled(bool enabled) { m_presentTearingEnabled = enabled; }

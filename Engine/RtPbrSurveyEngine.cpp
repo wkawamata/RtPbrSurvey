@@ -9854,7 +9854,7 @@ void RtPbrSurveyEngine::WaitForGpu(bool logShutdownDrain)
     // Wait until the fence has been processed.
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
-        m_graphicsDevice.WaitForFenceValue(fenceValue);
+        m_graphicsDevice.WaitForFenceValue(fenceValue, recordDrain);
     }
     if (recordDrain)
         crashLog.Record("shutdown.drain.wait.end", fenceValue, m_graphicsDevice.CompletedFenceValue());
