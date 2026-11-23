@@ -6372,6 +6372,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         presentResult = m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
     }
 
+    const uint64_t verifiedPresentEndQpc = verifiedPresentQpc ? trace.Now() : 0;
     trace.Record(
         "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
     if (passes != FramePasses::Presentation || presentResult == S_OK)
@@ -6380,7 +6381,8 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
     }
     if (passes == FramePasses::Presentation && presentResult == S_OK)
     {
-        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId, verifiedPresentQpc);
+        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId,
+                                   verifiedPresentQpc, verifiedPresentEndQpc);
     }
     trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
