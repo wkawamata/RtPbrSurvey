@@ -109,6 +109,15 @@ int Win32Application::Run(Platform::IApplication* pApp, HINSTANCE hInstance, int
 
     pApp->OnDestroy();
 
+    // Keep the HWND alive until the renderer has drained its GPU work.
+    if (m_hwnd != nullptr)
+    {
+        const HWND window = m_hwnd;
+        m_hwnd = nullptr;
+        SetWindowLongPtr(window, GWLP_USERDATA, 0);
+        DestroyWindow(window);
+    }
+
     // Return this part of the WM_QUIT message to Windows.
     return static_cast<int>(msg.wParam);
 }
@@ -331,13 +340,17 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         case WM_CLOSE:
             if (!pApp || pApp->OnCloseRequested())
             {
-                DestroyWindow(hWnd);
+                PostQuitMessage(pApp != nullptr ? pApp->GetExitCode() : 0);
             }
             return 0;
 
         case WM_DESTROY:
             m_capturedMouseButtons = 0;
-            PostQuitMessage(pApp != nullptr ? static_cast<UINT>(pApp->GetExitCode()) : 0);
+            if (m_hwnd == hWnd)
+            {
+                m_hwnd = nullptr;
+                PostQuitMessage(pApp != nullptr ? pApp->GetExitCode() : 0);
+            }
             return 0;
     }
 

@@ -1928,7 +1928,7 @@ bool RtPbrSurveyApp::ExecutePendingHostAction(RtPbrSurvey::PendingHostAction act
     switch (action)
     {
     case RtPbrSurvey::PendingHostAction::CloseApplication:
-        DestroyWindow(Win32Application::GetHwnd());
+        PostQuitMessage(GetExitCode());
         return true;
     case RtPbrSurvey::PendingHostAction::CloseRunningScene:
         CloseRunningScene();
