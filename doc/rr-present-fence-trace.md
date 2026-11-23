@@ -14,6 +14,9 @@ existing production-packet timestamp endpoints and CPU Present call boundaries t
 timing-only VerifiedPresent trace.
 Use -DisableVSync -DisablePresentTearing to test interval 0 without ALLOW_TEARING.
 The trace records the final Present interval and flags.
+Completed timing-only traces are flushed to disk before the GPU shutdown drain.
+With -RrCrashLog, shutdown.drain.rr_fence records the pending VerifiedPresent fence,
+the last submitted RR fence and the completed RR fence, in that order.
 -RrFenceTraceCameraMotion translates the camera X by 0.4*sin(elapsed seconds).
 
 No runtime decisions use trace data; Present, Signal, wait and publication ordering
