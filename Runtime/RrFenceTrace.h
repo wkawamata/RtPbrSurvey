@@ -112,6 +112,10 @@ public:
     {
         return m_running && m_finished;
     }
+    bool FinishedTimingOnly() const
+    {
+        return Finished() && !m_capture;
+    }
     void BeginFrame(ID3D12CommandQueue* queue)
     {
         if (!m_running)

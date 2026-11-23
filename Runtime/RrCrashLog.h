@@ -46,6 +46,8 @@ public:
         }
     }
 
+    bool IsOpen() const noexcept { return m_file != INVALID_HANDLE_VALUE; }
+
     void Close() noexcept
     {
         if (m_file != INVALID_HANDLE_VALUE)

@@ -6811,7 +6811,7 @@ void RtPbrSurveyEngine::DestroyFrameResources()
     // Ensure that the GPU is no longer referencing resources that are about to be
     // cleaned up by the destructor.
     RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.begin");
-    WaitForGpu();
+    WaitForGpu(true);
     RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.end");
 
     m_graphicsDevice.CloseFenceEvent();
@@ -9825,19 +9825,30 @@ void RtPbrSurveyEngine::EndFrame()
 }
 
 // Wait for pending GPU work to complete.
-void RtPbrSurveyEngine::WaitForGpu()
+void RtPbrSurveyEngine::WaitForGpu(bool logShutdownDrain)
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    const bool recordDrain = logShutdownDrain && crashLog.IsOpen();
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.acquire.begin");
     AcquireFrameResources(true);
+    const UINT64 fenceValue = m_frameResources[m_currentFrameIndex].fenceValue;
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.signal.begin", fenceValue, m_graphicsDevice.CompletedFenceValue());
     PIXBeginEvent(3, L"WaitForGpu");
 
     // Schedule a Signal command in the queue.
-    m_graphicsDevice.SignalFence(m_frameResources[m_currentFrameIndex].fenceValue);
+    m_graphicsDevice.SignalFence(fenceValue);
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.wait.begin", fenceValue, m_graphicsDevice.CompletedFenceValue());
 
     // Wait until the fence has been processed.
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
-        m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+        m_graphicsDevice.WaitForFenceValue(fenceValue);
     }
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.wait.end", fenceValue, m_graphicsDevice.CompletedFenceValue());
 
     // Increment the fence value for the current frame.
     m_frameResources[m_currentFrameIndex].fenceValue++;

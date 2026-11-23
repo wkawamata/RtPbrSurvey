@@ -184,6 +184,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         m_windowInfo.aspectRatio = static_cast<float>(m_windowInfo.width) / m_windowInfo.height;
     }
     m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
+    m_sceneRenderer.EngineForDebugTools().SetPresentTearingEnabled(!m_commandLineOptions.disablePresentTearing);
     if (m_commandLineOptions.hasPathTracingObjectMotion &&
         (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.capturePath.empty()))
     {
@@ -1151,6 +1152,9 @@ void RtPbrSurveyApp::OnIdle()
         trace.Tick();
         if (trace.Finished())
         {
+            const auto& engine = m_sceneRenderer.EngineForDebugTools();
+            trace.metadata["presentInterval"] = engine.LastPresentInterval();
+            trace.metadata["presentFlags"] = engine.LastPresentFlags();
             const auto& rr = m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics;
             trace.metadata["finalRr"] = {{"completed", rr.rrCompletedCount}, {"cancelled", rr.rrCancelledCount},
                                         {"inputRejected", rr.rrInputRejectionCount}, {"outputRejected", rr.rrOutputRejected},
@@ -2789,8 +2793,26 @@ void RtPbrSurveyApp::OnDestroy()
     {
         FlushD3D12DebugMessages();
     }
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
+    bool traceWritten = false;
+    if (trace.FinishedTimingOnly())
+    {
+        try
+        {
+            trace.Write();
+            traceWritten = true;
+            crashLog.Record("shutdown.trace.written");
+        }
+        catch (const std::exception&)
+        {
+            crashLog.Record("shutdown.trace.write_failed");
+        }
+    }
     m_sceneRenderer.Shutdown();
-    RtPbrSurvey::g_rrFenceTrace.Write();
+    if (!traceWritten)
+    {
+        trace.Write();
+    }
     m_imguiSystem.Shutdown();
     m_imguiHeap.Reset();
     if (m_logFile)

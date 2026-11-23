@@ -12,6 +12,8 @@ capture, clock calibration or extra GPU boundary queries, for overhead control.
 -RrFenceTraceCalibrateVerifiedGpu adds periodic CPU/GPU clock calibration and
 existing production-packet timestamp endpoints and CPU Present call boundaries to a
 timing-only VerifiedPresent trace.
+Use -DisableVSync -DisablePresentTearing to test interval 0 without ALLOW_TEARING.
+The trace records the final Present interval and flags.
 -RrFenceTraceCameraMotion translates the camera X by 0.4*sin(elapsed seconds).
 
 No runtime decisions use trace data; Present, Signal, wait and publication ordering

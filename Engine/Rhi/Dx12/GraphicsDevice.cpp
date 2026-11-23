@@ -294,7 +294,7 @@ void GraphicsDevice::CloseFenceEvent()
 
 HRESULT GraphicsDevice::Present(UINT syncInterval, UINT flags)
 {
-    if (syncInterval == 0 && m_tearingSupported)
+    if (syncInterval == 0 && m_tearingSupported && m_presentTearingEnabled)
     {
         BOOL fullscreen = FALSE;
         if (SUCCEEDED(m_swapChain->GetFullscreenState(&fullscreen, nullptr)) && !fullscreen)
