@@ -1013,6 +1013,7 @@ private:
     struct FrameResource
     {
         ComPtr<ID3D12CommandAllocator> commandAllocator;
+        ComPtr<ID3D12GraphicsCommandList> commandList;
         ComPtr<ID3D12Resource> instanceBuffer;
         ComPtr<ID3D12Resource> emissiveTriangleBuffer;
         UINT emissiveTriangleCapacity = 0;
@@ -1643,6 +1644,7 @@ private:
     ComPtr<ID3D12Fence> m_rrCompletionFence;
     uint64_t m_rrCompletionFenceValue = 0;
     ComPtr<ID3D12CommandAllocator> m_rrProductionAllocator;
+    ComPtr<ID3D12GraphicsCommandList> m_rrProductionCommandList;
     uint64_t m_rrProductionAllocatorFence = 0;
     uint64_t m_rrVerifiedFrameFence = 0;
     uint64_t m_rrVerifiedFrameEpoch = 0;
