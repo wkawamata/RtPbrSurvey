@@ -467,6 +467,10 @@ public:
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     const RtPbrSurvey::RendererCpuTiming& CpuFrameTiming() const { return m_cpuFrameTimer.Completed(); }
     const DXGI_ADAPTER_DESC1& AdapterDescription() const { return m_graphicsDevice.AdapterDescription(); }
+    bool IsHdr10OutputActive() const
+    {
+        return m_hdrOutputPolicy.settings.currentSwapChainColorSpace == kHdr10ColorSpace;
+    }
     void SetRasterBenchmarkMode(bool enabled) { m_rasterBenchmarkMode = enabled; }
     void SetBenchmarkPipelineStats(bool enabled, bool reverse)
     {

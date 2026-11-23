@@ -21,7 +21,7 @@ public:
                     DXGI_FORMAT rtvFormat);
     void BeginFrame();
     void EndFrame();
-    void Render(ID3D12GraphicsCommandList* commandList);
+    void Render(ID3D12GraphicsCommandList* commandList, bool hdr10Output = false);
     void SetDisplaySize(UINT width, UINT height);
     uint64_t UpdateTexture(UINT textureIndex, ID3D12Resource* resource, DXGI_FORMAT format);
     void ClearTexture(UINT textureIndex);

@@ -6594,8 +6594,8 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     if (m_graphicsDevice.Width() != m_width || m_graphicsDevice.Height() != m_height)
     {
         m_graphicsDevice.ResizeSwapChain(kFrameCount, m_width, m_height, m_backBufferFormat, 0);
+        m_hdrOutputPolicy.ReapplyColorSpace(m_graphicsDevice.SwapChain());
     }
-    m_hdrOutputPolicy.ReapplyColorSpace(m_graphicsDevice.SwapChain());
 
     // Preserve the previous frame index before taking the resized swap chain index.
     m_previousFrameIndex = m_currentFrameIndex;

@@ -1501,7 +1501,7 @@ void RtPbrSurveyApp::OnIdle()
             m_imguiSystem.EndFrame();
             uiFrameFinalized = true;
         }
-        m_imguiSystem.Render(commandList);
+        m_imguiSystem.Render(commandList, m_sceneRenderer.EngineForDebugTools().IsHdr10OutputActive());
     }, advanceFrame);
     UpdateAutomatedBenchmark();
     if (!uiFrameFinalized)

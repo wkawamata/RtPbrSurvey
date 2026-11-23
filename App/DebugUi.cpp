@@ -2278,6 +2278,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        const bool hdr10Output = app.m_sceneRenderer.EngineForDebugTools().IsHdr10OutputActive();
+        ImGui::TextUnformatted(hdr10Output ? "Output: HDR10 (PQ / Rec.2020)" : "Output: SDR (Rec.709)");
         ImGui::RadioButton("None", &app.m_toneMapParams.operatorIndex, 0);
         ImGui::SameLine();
         ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
@@ -2288,6 +2290,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                               300.0f, "%.0f nits");
         ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
                                               1000.0f, "%.0f nits");
+        ImGui::BeginDisabled(!hdr10Output);
+        if (ImGuiWidgets::SliderIntWithControls("ImGui White", &debugUiPreferences.hdrImGuiWhiteNits,
+                                               RtPbrSurvey::kHdrImGuiWhiteMinNits, RtPbrSurvey::kHdrImGuiWhiteMaxNits,
+                                               10, RtPbrSurvey::kHdrImGuiWhiteDefaultNits, "%d nits"))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+        ImGui::EndDisabled();
     }
 
     if (app.m_renderingPath == RenderingPath::Deferred &&
