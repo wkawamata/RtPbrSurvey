@@ -1224,19 +1224,19 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 static_cast<int>(Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
                                                                      pathTracingSettings.nrdPreview)) -
                 1;
-            if (ImGui::Combo("Reconstruction", &reconstructionBackend, "Native PT\0NRD RELAX\0DLSS RR\0"))
+            if (reconstructionBackend != 2 && ImGui::Combo("Reconstruction", &reconstructionBackend, "Native PT\0NRD RELAX\0"))
             {
                 pathTracingSettings.reconstructionBackend =
                     static_cast<ReconstructionBackend>(reconstructionBackend + 1);
                 pathTracingSettings.nrdPreview =
                     pathTracingSettings.reconstructionBackend == ReconstructionBackend::Nrd;
-                if (pathTracingSettings.reconstructionBackend == ReconstructionBackend::Rr)
-                {
-                    enableDlssForPathTracingRr();
-                }
                 pathTracingSettingsChanged = true;
             }
-            if (reconstructionBackend == 2)
+            const auto& presentation = context.pathTracingDiagnostics.reconstructionPresentation;
+            ImGui::Text("Reconstruction output: %s (%s)",
+                        Engine::PathTracingReconstructionBackendName(presentation.output),
+                        Engine::PathTracingReconstructionStatusName(presentation.status));
+            if (reconstructionBackend == 2 && ImGui::TreeNode("RR Settings"))
             {
                 pathTracingSettingsChanged |=
                     ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
@@ -1265,6 +1265,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                        "and transmission motion enabled. Continuous RR must also be ON.");
                     ImGui::TreePop();
                 }
+                ImGui::TreePop();
             }
             if (ImGui::TreeNode("Reconstruction Details"))
             {
@@ -1275,10 +1276,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     ImGui::TextWrapped(
                         "NRD Presentation: %s",
                         Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
-                const auto& presentation = context.pathTracingDiagnostics.reconstructionPresentation;
-                ImGui::Text("Reconstruction output: %s (%s)",
-                            Engine::PathTracingReconstructionBackendName(presentation.output),
-                            Engine::PathTracingReconstructionStatusName(presentation.status));
                 if (reconstructionBackend == 2)
                 {
                     ImGui::Text("RR: %s", context.pathTracingDiagnostics.rrLivePhase.c_str());
@@ -1968,7 +1965,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("DLSS", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("DLSS"))
     {
         ImGui::Text("Temporal Upscaler: %s (Backend: %s, Status: %s)",
                     context.temporalUpscalerAvailable ? "Available" : "Unavailable",

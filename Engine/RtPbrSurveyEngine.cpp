@@ -3095,6 +3095,10 @@ void RtPbrSurveyEngine::LoadAssets()
             0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_rrCompletionFence)));
         ThrowIfFailed(m_graphicsDevice.Device()->CreateCommandAllocator(
             D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_rrProductionAllocator)));
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateCommandList(
+            0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_rrProductionAllocator.Get(), nullptr,
+            IID_PPV_ARGS(&m_rrProductionCommandList)));
+        ThrowIfFailed(m_rrProductionCommandList->Close());
         if (m_rrVerifiedPresent)
         {
             m_rrProductionEvent.reset(CreateEventW(nullptr, FALSE, FALSE, nullptr));
@@ -3951,6 +3955,13 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
 
 void RtPbrSurveyEngine::CreateInitialCommandList()
 {
+    for (FrameResource& frame : m_frameResources)
+    {
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateCommandList(
+            0, D3D12_COMMAND_LIST_TYPE_DIRECT, frame.commandAllocator.Get(), nullptr,
+            IID_PPV_ARGS(&frame.commandList)));
+        ThrowIfFailed(frame.commandList->Close());
+    }
     ThrowIfFailed(
         m_graphicsDevice.Device()->CreateCommandList(0,
                                                      D3D12_COMMAND_LIST_TYPE_DIRECT,
@@ -6227,7 +6238,9 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::RecordSubmit);
         // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
-        ID3D12CommandAllocator* allocator = m_frameResources[m_currentFrameIndex].commandAllocator.Get();
+        FrameResource& frame = m_frameResources[m_currentFrameIndex];
+        ID3D12CommandAllocator* allocator = frame.commandAllocator.Get();
+        ComPtr<ID3D12GraphicsCommandList>* commandList = std::addressof(frame.commandList);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool usingRrAllocator = passes != FramePasses::Presentation && CanUseRrProductionAllocator();
         if (passes == FramePasses::Production && !usingRrAllocator)
@@ -6237,8 +6250,18 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         if (usingRrAllocator)
         {
             allocator = m_rrProductionAllocator.Get();
+            commandList = std::addressof(m_rrProductionCommandList);
         }
 #endif
+        // Pair each list with the allocator's retirement fence. Recording helpers use m_commandList.
+        struct RestoreCommandList
+        {
+            ComPtr<ID3D12GraphicsCommandList>& active;
+            ComPtr<ID3D12GraphicsCommandList>& stored;
+            ~RestoreCommandList() { active.Swap(stored); }
+        } restoreCommandList{m_commandList, *commandList};
+        m_commandList.Swap(*commandList);
+
         trace.Record("record_begin");
         if (passes == FramePasses::Production)
         {
