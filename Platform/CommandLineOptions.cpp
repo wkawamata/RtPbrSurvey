@@ -526,6 +526,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.rrFenceTraceTimingOnly = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceCalibrateVerifiedGpu"))
+        {
+            options.rrFenceTraceCalibrateVerifiedGpu = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-RrFenceTraceVSyncCycle"))
         {
             options.rrFenceTraceVSyncCycle = true;
@@ -1190,6 +1194,12 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         !options.autoSelectHybridReflectionEstimatorTest)
     {
         options.autoSelectGltfDamagedHelmet = true;
+    }
+
+    if (options.rrFenceTraceCalibrateVerifiedGpu &&
+        (options.rrFenceTracePath.empty() || !options.rrFenceTraceTimingOnly || !options.pathTracingRrVerifiedPresent))
+    {
+        throw std::invalid_argument("-RrFenceTraceCalibrateVerifiedGpu requires a timing-only VerifiedPresent trace.");
     }
 
     if (options.rrFenceTraceVSyncCycle &&

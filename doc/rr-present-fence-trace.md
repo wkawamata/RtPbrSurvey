@@ -9,6 +9,8 @@ identity, original fence values, raw GPU timestamps and queue clock calibrations
 after the fixed-time observation, drains existing work normally and writes data.
 -RrFenceTraceTimingOnly retains the same observation clock/counters without event
 capture, clock calibration or extra GPU boundary queries, for overhead control.
+-RrFenceTraceCalibrateVerifiedGpu adds periodic CPU/GPU clock calibration and
+existing production-packet timestamp endpoints to a timing-only VerifiedPresent trace.
 -RrFenceTraceCameraMotion translates the camera X by 0.4*sin(elapsed seconds).
 
 No runtime decisions use trace data; Present, Signal, wait and publication ordering
