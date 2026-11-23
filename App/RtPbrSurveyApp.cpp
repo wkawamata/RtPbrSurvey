@@ -782,7 +782,8 @@ void RtPbrSurveyApp::OnInit()
         trace.Configure(m_commandLineOptions.rrFenceTracePath,
                         m_commandLineOptions.rrFenceTraceWarmup,
                         m_commandLineOptions.rrFenceTraceSeconds,
-                        m_commandLineOptions.rrFenceTraceTimingOnly);
+                        m_commandLineOptions.rrFenceTraceTimingOnly,
+                        m_commandLineOptions.rrFenceTraceCalibrateVerifiedGpu);
         RtPbrSurvey::EvaluationState state;
         std::string error;
         if (!CaptureEvaluationState(state, &error))
