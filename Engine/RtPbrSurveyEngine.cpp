@@ -6240,7 +6240,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
         FrameResource& frame = m_frameResources[m_currentFrameIndex];
         ID3D12CommandAllocator* allocator = frame.commandAllocator.Get();
-        ComPtr<ID3D12GraphicsCommandList>* commandList = &frame.commandList;
+        ComPtr<ID3D12GraphicsCommandList>* commandList = std::addressof(frame.commandList);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool usingRrAllocator = passes != FramePasses::Presentation && CanUseRrProductionAllocator();
         if (passes == FramePasses::Production && !usingRrAllocator)
@@ -6250,7 +6250,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         if (usingRrAllocator)
         {
             allocator = m_rrProductionAllocator.Get();
-            commandList = &m_rrProductionCommandList;
+            commandList = std::addressof(m_rrProductionCommandList);
         }
 #endif
         // Pair each list with the allocator's retirement fence. Recording helpers use m_commandList.
