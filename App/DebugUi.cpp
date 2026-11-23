@@ -2278,6 +2278,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        ImGui::TextUnformatted(app.m_sceneRenderer.EngineForDebugTools().IsHdr10OutputActive() ?
+                                   "Output: HDR10 (PQ / Rec.2020)" : "Output: SDR (Rec.709)");
         ImGui::RadioButton("None", &app.m_toneMapParams.operatorIndex, 0);
         ImGui::SameLine();
         ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);

@@ -54,7 +54,9 @@ void HdrOutputPolicy::Update(IDXGIFactory4* dxgiFactory, IDXGISwapChain3* swapCh
 
 void HdrOutputPolicy::ReapplyColorSpace(IDXGISwapChain3* swapChain)
 {
+    settings.currentSwapChainColorSpace = DXGI_COLOR_SPACE_CUSTOM;
     ApplySwapChainColorSpace(swapChain, settings.TargetColorSpace());
+    ApplyHdr10Metadata(swapChain, settings.hdr10Enabled);
 }
 
 bool HdrOutputPolicy::CheckSwapChainColorSpaceSupport(IDXGISwapChain3* swapChain,
@@ -68,28 +70,41 @@ bool HdrOutputPolicy::CheckSwapChainColorSpaceSupport(IDXGISwapChain3* swapChain
 bool HdrOutputPolicy::CheckCurrentOutputHdr10Support(IDXGIFactory4* dxgiFactory, HWND hwnd) const
 {
     RECT windowRect = {};
-    GetWindowRect(hwnd, &windowRect);
-
-    ComPtr<IDXGIAdapter1> adapter;
-    ThrowIfFailed(dxgiFactory->EnumAdapters1(0, &adapter));
+    if (!GetWindowRect(hwnd, &windowRect))
+    {
+        return false;
+    }
 
     ComPtr<IDXGIOutput> bestOutput;
-    ComPtr<IDXGIOutput> output;
-    int bestIntersectArea = -1;
-
-    for (UINT outputIndex = 0; adapter->EnumOutputs(outputIndex, &output) != DXGI_ERROR_NOT_FOUND; ++outputIndex)
+    int bestIntersectArea = 0;
+    for (UINT adapterIndex = 0;; ++adapterIndex)
     {
-        DXGI_OUTPUT_DESC outputDesc = {};
-        ThrowIfFailed(output->GetDesc(&outputDesc));
-
-        const int intersectArea = ComputeIntersectionArea(windowRect, outputDesc.DesktopCoordinates);
-        if (intersectArea > bestIntersectArea)
+        ComPtr<IDXGIAdapter1> adapter;
+        if (FAILED(dxgiFactory->EnumAdapters1(adapterIndex, &adapter)))
         {
-            bestOutput = output;
-            bestIntersectArea = intersectArea;
+            break;
         }
 
-        output.Reset();
+        for (UINT outputIndex = 0;; ++outputIndex)
+        {
+            ComPtr<IDXGIOutput> output;
+            if (FAILED(adapter->EnumOutputs(outputIndex, &output)))
+            {
+                break;
+            }
+
+            DXGI_OUTPUT_DESC outputDesc = {};
+            if (FAILED(output->GetDesc(&outputDesc)) || !outputDesc.AttachedToDesktop)
+            {
+                continue;
+            }
+            const int intersectArea = ComputeIntersectionArea(windowRect, outputDesc.DesktopCoordinates);
+            if (intersectArea > bestIntersectArea)
+            {
+                bestOutput = output;
+                bestIntersectArea = intersectArea;
+            }
+        }
     }
 
     if (!bestOutput)
