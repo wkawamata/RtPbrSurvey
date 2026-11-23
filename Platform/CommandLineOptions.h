@@ -89,6 +89,7 @@ struct CommandLineOptions
     bool enablePathTracing = false;
     std::string pathTracingReconstruction;
     bool disableVSync = false;
+    bool disablePresentTearing = false;
     bool disableD3D12DebugLayer = false;
     UINT pathTracingSampleTarget = 0;
     std::filesystem::path pathTracingHistoryValidationDirectory;

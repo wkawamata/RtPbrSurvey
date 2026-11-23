@@ -484,6 +484,7 @@ public:
     bool GeometryInstancingEnabled() const { return m_geometryInstancing; }
     void SetConstantGBufferBenchmark(bool enabled) { m_constantGBufferBenchmark = enabled; }
     void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
+    void SetPresentTearingEnabled(bool enabled) { m_graphicsDevice.SetPresentTearingEnabled(enabled); }
     bool VSyncEnabled() const { return m_vSyncEnabled; }
     bool TearingSupported() const { return m_graphicsDevice.TearingSupported(); }
     UINT LastPresentInterval() const { return m_graphicsDevice.LastPresentInterval(); }
@@ -2255,7 +2256,7 @@ private:
 
     void ApplyResize(UINT width, UINT height);
 
-    void WaitForGpu();
+    void WaitForGpu(bool logShutdownDrain = false);
     UINT64 MoveToNextFrame();
     void FlushGpu();
 
