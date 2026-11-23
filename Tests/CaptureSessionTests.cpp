@@ -401,6 +401,23 @@ bool TestValidationAndLegacyCli()
     passed &= Check(!Platform::HasPathTracingDlssConflict(nativeRrOptions) &&
                         nativeRrOptions.enableExperimentalNativeRayReconstruction,
                     "PT RR selection permits native opt-in");
+    WCHAR completionFenceOption[] = L"-PathTracingRrSeparateCompletionFence";
+    WCHAR chainedScheduleOption[] = L"-PathTracingRrSchedule";
+    WCHAR chainedScheduleValue[] = L"chained";
+    WCHAR* completionFenceArgv[] = {executable, completionFenceOption, chainedScheduleOption, chainedScheduleValue};
+    const auto completionFenceOptions = Platform::ParseCommandLineOptions(completionFenceArgv, 4);
+    passed &= Check(completionFenceOptions.pathTracingRrSeparateCompletionFence && completionFenceOptions.pathTracingRrChained,
+                    "Chained RR accepts the separate completion fence");
+    bool completionFenceWithoutChainedRejected = false;
+    try
+    {
+        Platform::ParseCommandLineOptions(completionFenceArgv, 2);
+    }
+    catch (const std::invalid_argument&)
+    {
+        completionFenceWithoutChainedRejected = true;
+    }
+    passed &= Check(completionFenceWithoutChainedRejected, "Separate RR completion requires Chained");
     WCHAR continuousRrOption[] = L"-PathTracingRrContinuous";
     WCHAR* continuousRrArgv[] = {executable, continuousRrOption, nativeRrOption};
     const auto continuousRrOptions = Platform::ParseCommandLineOptions(continuousRrArgv, 3);

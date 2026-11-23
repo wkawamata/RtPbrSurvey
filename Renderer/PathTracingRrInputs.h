@@ -27,7 +27,7 @@ inline constexpr auto kPathTracingRrLiveSignals = []()
     return signals;
 }();
 
-inline constexpr size_t kPathTracingRrStatusCount = 7;
+inline constexpr size_t kPathTracingRrStatusCount = 8;
 
 // Fill only after completion of conversion/readback for the stamped production.
 // Partial coverage is not sufficient for whole-frame numeric admission.

@@ -482,6 +482,90 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-StreamlineLogDirectory"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-StreamlineLogDirectory requires an existing directory");
+            }
+            options.streamlineLogDirectory = std::filesystem::absolute(argv[++i]);
+            if (!std::filesystem::is_directory(options.streamlineLogDirectory))
+            {
+                throw std::invalid_argument("-StreamlineLogDirectory requires an existing directory");
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrCrashLog"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0' || argv[i + 1][0] == L'-')
+            {
+                throw std::invalid_argument("-RrCrashLog requires a new log file path");
+            }
+            options.rrCrashLogPath = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTrace"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-RrFenceTrace requires a path");
+            options.rrFenceTracePath = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceSeconds") ||
+                 IsCommandLineArg(argv[i], L"-RrFenceTraceWarmup"))
+        {
+            const bool warmup = IsCommandLineArg(argv[i], L"-RrFenceTraceWarmup");
+            if (i + 1 >= argc)
+                throw std::invalid_argument("Trace duration requires seconds");
+            UINT seconds = 0;
+            if (!TryParseUint(argv[++i], false, seconds) || seconds > 120)
+                throw std::invalid_argument("Trace seconds must be 1..120");
+            if (warmup)
+                options.rrFenceTraceWarmup = static_cast<UINT>(seconds);
+            else
+                options.rrFenceTraceSeconds = static_cast<UINT>(seconds);
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceTimingOnly"))
+        {
+            options.rrFenceTraceTimingOnly = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceVSyncCycle"))
+        {
+            options.rrFenceTraceVSyncCycle = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceNonblockingCycle"))
+        {
+            options.rrFenceTraceNonblockingCycle = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceCameraMotion"))
+        {
+            options.rrFenceTraceCameraMotion = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-NonblockingFrameAcquisition"))
+        {
+            options.nonblockingFrameAcquisition = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrSchedule"))
+        {
+            if (i + 1 >= argc || (!IsCommandLineArg(argv[i + 1], L"safe-serial") &&
+                                  !IsCommandLineArg(argv[i + 1], L"chained")))
+                throw std::invalid_argument("-PathTracingRrSchedule expects safe-serial or chained.");
+            options.pathTracingRrChained = IsCommandLineArg(argv[++i], L"chained");
+            options.pathTracingRrSafeSerial = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrSeparateCompletionFence"))
+        {
+            options.pathTracingRrSeparateCompletionFence = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrVerifiedPresent"))
+        {
+            options.pathTracingRrVerifiedPresent = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingPrimaryGlass16Bounces"))
+        {
+            options.pathTracingPrimaryGlass16Bounces = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrStrictSchedule"))
+        {
+            options.pathTracingRrStrictSchedule = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrContinuous"))
         {
             options.enablePathTracing = true;
@@ -521,6 +605,45 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.enablePathTracing = true;
             options.pathTracingReconstruction = "rr";
             options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrRecoveryMaxCheckpoints"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.pathTracingRrRecoveryMaxCheckpoints) ||
+                options.pathTracingRrRecoveryMaxCheckpoints > 31)
+                throw std::invalid_argument("-PathTracingRrRecoveryMaxCheckpoints expects 1..31.");
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrComparisonCamera"))
+        {
+            options.pathTracingRrComparisonCamera = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrComparisonCapture"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrComparisonCapture expects a directory.");
+            options.pathTracingRrComparisonCaptureDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrRegressionValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrRegressionValidation expects an output directory.");
+            options.pathTracingRrRegressionValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrSafeSerial = options.pathTracingRrChained = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrRecoveryValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrRecoveryValidation expects an output directory.");
+            options.pathTracingRrRecoveryValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrSafeSerial = options.pathTracingRrChained = true;
         }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrLifecycleValidation"))
         {
@@ -1067,6 +1190,38 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         !options.autoSelectHybridReflectionEstimatorTest)
     {
         options.autoSelectGltfDamagedHelmet = true;
+    }
+
+    if (options.rrFenceTraceVSyncCycle &&
+        (options.rrFenceTracePath.empty() || options.rrFenceTraceTimingOnly || options.rrFenceTraceSeconds < 12 ||
+         options.disableVSync))
+    {
+        throw std::invalid_argument("-RrFenceTraceVSyncCycle requires a detailed trace of at least 12 seconds "
+                                    "starting with VSync enabled.");
+    }
+
+    if (options.rrFenceTraceNonblockingCycle &&
+        (options.rrFenceTracePath.empty() || options.rrFenceTraceTimingOnly || options.rrFenceTraceSeconds < 12 ||
+         options.disableVSync || options.rrFenceTraceVSyncCycle || options.nonblockingFrameAcquisition))
+    {
+        throw std::invalid_argument("-RrFenceTraceNonblockingCycle requires a detailed trace of at least 12 seconds "
+                                    "with VSync enabled and blocking acquisition at startup.");
+    }
+
+    if (options.pathTracingRrSeparateCompletionFence && !options.pathTracingRrChained)
+    {
+        throw std::invalid_argument("-PathTracingRrSeparateCompletionFence requires -PathTracingRrSchedule chained.");
+    }
+
+    if (options.pathTracingRrVerifiedPresent &&
+        (!options.pathTracingRrSeparateCompletionFence ||
+         (!options.rrFenceTracePath.empty() && !options.rrFenceTraceTimingOnly) ||
+         !options.pathTracingRrComparisonCaptureDirectory.empty() ||
+         !options.pathTracingRrRegressionValidationDirectory.empty() ||
+         !options.pathTracingRrRecoveryValidationDirectory.empty()))
+    {
+        throw std::invalid_argument("-PathTracingRrVerifiedPresent requires the separate RR completion fence and "
+                                    "supports timing-only traces and regular scene rendering.");
     }
 
     return options;

@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -203,6 +204,7 @@ struct RenderGraphValidationMessage
     RenderGraphDocumentId passNodeId;
 };
 
+RenderGraphDocumentId MakeRenderGraphPassDocumentId(std::string_view name, size_t occurrence);
 RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& renderPasses,
                                              const RenderGraphResourceMetadataMap& resourceMetadata = {});
 

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Engine/FrameGraph/RenderGraphDocument.h"
+#include "Runtime/RenderGraphObservation.h"
 
 #include <algorithm>
 #include <iostream>
@@ -91,6 +92,22 @@ bool TestDeterministicDump()
     passed &= Check(dot.find("digraph RenderGraph") != std::string::npos, "DOT dump contains graph header");
     passed &= Check(dot.find("read PIXEL_SHADER_RESOURCE") != std::string::npos, "DOT dump contains read edge state");
     return passed;
+}
+
+bool TestPassTimingIds()
+{
+    const std::vector<Engine::RenderPass> passes = {
+        {.name = L"Repeated"},
+        {.name = L"Other"},
+        {.name = L"Repeated"},
+    };
+    const auto document = Engine::BuildRenderGraphDocument(passes);
+    return Check(document.nodes.size() == 3, "each occurrence has a pass node") &&
+        Check(document.nodes[0].id == Engine::MakeRenderGraphPassDocumentId("Repeated", 0) &&
+                  document.nodes[1].id == Engine::MakeRenderGraphPassDocumentId("Other", 0) &&
+                  document.nodes[2].id == Engine::MakeRenderGraphPassDocumentId("Repeated", 1),
+              "timing IDs match the document even when pass names repeat") &&
+        Check(document.nodes[0].id != document.nodes[2].id, "repeated passes have distinct IDs");
 }
 
 bool TestPingPongNodeIdentity()
@@ -447,13 +464,73 @@ bool TestAuthoringModelCommands()
                     "rejected authoring command does not mutate the current model");
     return passed;
 }
+bool TestObservedStructure()
+{
+    const auto snapshot = [](bool evaluate, bool alternate)
+    {
+        std::vector<Engine::RenderPass> passes;
+        if (evaluate)
+            passes.push_back({.name = L"RR Evaluate", .reads = {{"Input", D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}},
+                .writes = {{alternate ? "Output1" : "Output0", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}});
+        else
+            passes.push_back({.name = L"PT", .writes = {{"Input", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}});
+        passes.push_back({.name = L"ToneMap", .reads = {{alternate ? "Output1" : "Output0", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}});
+        return Engine::BuildRenderGraphDocument(passes);
+    };
+    const auto nodeNamed = [](const auto& document, const char* name) -> const Engine::RenderGraphDocumentNode&
+    {
+        return *std::find_if(document.nodes.begin(), document.nodes.end(),
+            [&](const auto& node) { return node.name == name; });
+    };
+    const auto first = snapshot(false, false);
+    const auto second = snapshot(true, true);
+    const auto third = snapshot(true, false);
+    RtPbrSurvey::RenderGraphObservation history;
+    history.Observe(first);
+    const auto toneSlot = nodeNamed(history.Document(), "ToneMap").passIndex;
+    const auto ptId = nodeNamed(first, "PT").id;
+    history.Observe(second);
+    bool passed = Check(nodeNamed(history.Document(), "ToneMap").passIndex == toneSlot,
+                        "pass insertion does not move existing observation slots");
+    passed &= Check(!history.IsCurrent(ptId), "absent PT remains visible but idle");
+    passed &= Check(nodeNamed(history.Document(), "Output0").lastPass >= 0 &&
+                    nodeNamed(history.Document(), "Output1").lastPass >= 0, "both ping-pong resources remain visible");
+    history.Observe(third);
+    const auto nodes = history.Document().nodes.size();
+    const auto pins = history.Document().pins.size();
+    const auto links = history.Document().links.size();
+    const auto outputFirst = nodeNamed(history.Document(), "Output0").firstPass;
+    const auto outputLast = nodeNamed(history.Document(), "Output0").lastPass;
+    for (int i = 0; i < 20; ++i)
+        history.Observe(i % 3 == 0 ? first : i % 3 == 1 ? second : third);
+    passed &= Check(history.Document().nodes.size() == nodes && history.Document().pins.size() == pins &&
+                    history.Document().links.size() == links, "alternating frames do not grow or remove structure");
+    passed &= Check(nodeNamed(history.Document(), "Output0").firstPass == outputFirst &&
+                    nodeNamed(history.Document(), "Output0").lastPass == outputLast, "observed use spans remain fixed");
+    passed &= Check(first.nodes.size() == 4 && second.nodes.size() == 4, "inspection leaves runtime documents untouched");
+    RtPbrSurvey::RenderGraphObservation reordered;
+    std::vector<Engine::RenderPass> reads = {{.name = L"Optional inputs",
+        .reads = {{"A", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}, {"B", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}}};
+    reordered.Observe(Engine::BuildRenderGraphDocument(reads));
+    const auto oldLinks = reordered.Document().links;
+    const auto oldPins = reordered.Document().pins.size();
+    std::swap(reads[0].reads[0], reads[0].reads[1]);
+    reordered.Observe(Engine::BuildRenderGraphDocument(reads));
+    passed &= Check(reordered.Document().pins.size() == oldPins && reordered.Document().links.size() == oldLinks.size() &&
+        reordered.Document().links[0].id == oldLinks[0].id, "usage order changes preserve semantic pins and connections");
+    history.Clear();
+    passed &= Check(history.Document().nodes.empty(), "explicit reset clears observation history");
+    return passed;
+}
 } // namespace
 
 int main()
 {
     bool passed = true;
+    passed &= TestObservedStructure();
     passed &= TestDocumentTopology();
     passed &= TestDeterministicDump();
+    passed &= TestPassTimingIds();
     passed &= TestPingPongNodeIdentity();
     passed &= TestStateFormatting();
     passed &= TestStateDiagnostics();

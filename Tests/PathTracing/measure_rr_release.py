@@ -74,7 +74,7 @@ def parse_log(text, warmup, frames):
 
 def require_isolation():
     command = ['powershell', '-NoProfile', '-Command',
-               '@(Get-Process RtPbrSurvey -ErrorAction SilentlyContinue | Select-Object Id,Path) | ConvertTo-Json -Compress']
+               '@(Get-Process RtPbrSurvey* -ErrorAction SilentlyContinue | Select-Object Id,Path) | ConvertTo-Json -Compress']
     result = subprocess.run(command, check=True, capture_output=True, text=True,
                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if result.stdout.strip() and json.loads(result.stdout):

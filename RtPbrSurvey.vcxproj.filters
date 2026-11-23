@@ -165,6 +165,9 @@
     <ClInclude Include="Renderer\PathTracingRrHistory.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingRrProductionQueue.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\PathTracingRrLive.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -526,6 +529,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrProductionQueue.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrLive.cpp">

@@ -53,7 +53,7 @@ struct GraphicsDevice
     UINT64 CompletedFenceValue() const;
     void WaitForFenceValue(UINT64 value);
     void CloseFenceEvent();
-    void Present(UINT syncInterval, UINT flags);
+    HRESULT Present(UINT syncInterval, UINT flags);
     bool TearingSupported() const { return m_tearingSupported; }
     UINT LastPresentInterval() const { return m_lastPresentInterval; }
     UINT LastPresentFlags() const { return m_lastPresentFlags; }

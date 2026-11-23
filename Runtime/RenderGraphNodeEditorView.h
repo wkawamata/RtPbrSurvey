@@ -26,12 +26,15 @@ struct RenderGraphGpuTimingSample
 {
     int passIndex = -1;
     float durationMs = 0.0f;
+    std::string passName;
+    uint64_t passNodeId = 0;
 };
 
 struct RenderGraphGpuTimingSnapshot
 {
     std::vector<RenderGraphGpuTimingSample> samples;
     float totalGpuTimeMs = 0.0f;
+    uint64_t frameId = 0;
 };
 
 struct RenderGraphResourceActions

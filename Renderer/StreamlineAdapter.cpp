@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "StreamlineAdapter.h"
+#include "Runtime/RrCrashLog.h"
 
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
 #include <sl.h>
@@ -30,6 +31,7 @@ struct StreamlineAdapterState
         RayReconstructionSupportStatus::NotIntegrated;
 #endif
     bool sdkInitialized = false;
+    bool rayReconstructionResourcesAllocated = false;
     bool initialized = false;
     bool lastRayReconstructionInputReadinessAvailable = false;
     bool lastRayReconstructionInputReady = false;
@@ -598,10 +600,11 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
     preferences.projectId =
         desc.projectId != nullptr ? desc.projectId : "a0f57b54-1daf-4934-90ae-c4035c19df04";
     preferences.renderAPI = sl::RenderAPI::eD3D12;
-#if defined(_DEBUG)
-    preferences.logLevel = sl::LogLevel::eDefault;
-    preferences.pathToLogsAndData = nullptr;
-#endif
+    if (desc.logDirectory != nullptr)
+    {
+        preferences.logLevel = sl::LogLevel::eVerbose;
+        preferences.pathToLogsAndData = desc.logDirectory;
+    }
 
     const sl::Result initResult = slInit(preferences);
     if (initResult != sl::Result::eOk)
@@ -643,7 +646,13 @@ void ShutdownStreamlineAdapterWithSdk()
 {
     if (g_streamlineAdapterState.sdkInitialized)
     {
-        slShutdown();
+        // Callers drain submitted GPU work before shutdown. Release viewport feature
+        // allocations while the device and tagged resources are still alive.
+        if (!ReleaseStreamlineRayReconstructionResources())
+            OutputDebugStringA("RR resource release failed during shutdown.\n");
+        RtPbrSurvey::g_rrCrashLog.Record("streamline.shutdown.begin");
+        const sl::Result result = slShutdown();
+        RtPbrSurvey::g_rrCrashLog.Record("streamline.shutdown.end", static_cast<uint32_t>(result));
     }
 }
 
@@ -854,9 +863,19 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
+    const bool firstEvaluateForResources = !g_streamlineAdapterState.rayReconstructionResourcesAllocated;
+    if (firstEvaluateForResources)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.evaluate.first.begin");
+    }
+    g_streamlineAdapterState.rayReconstructionResourcesAllocated = true;
     ++g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     const sl::Result evaluateResult =
         slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
+    if (firstEvaluateForResources)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.evaluate.first.end", static_cast<uint32_t>(evaluateResult));
+    }
     // Streamline v2.12 commonInterface.cpp returns eWarnOutOfVRAM only
     // after a successful evaluate. Preserve the warning in diagnostics, but
     // let the PT GPU output validation decide whether the result can publish.
@@ -1085,6 +1104,23 @@ TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device)
 #endif
     g_streamlineAdapterState.initialized = g_streamlineAdapterState.status == TemporalUpscalerSupportStatus::Available;
     return MakeSupportInfo(g_streamlineAdapterState.status);
+}
+
+bool ReleaseStreamlineRayReconstructionResources()
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    if (g_streamlineAdapterState.sdkInitialized && g_streamlineAdapterState.rayReconstructionResourcesAllocated)
+    {
+        RtPbrSurvey::g_rrCrashLog.Record("rr.resources.free.begin");
+        const sl::Result result = slFreeResources(sl::kFeatureDLSS_RR, sl::ViewportHandle(0));
+        RtPbrSurvey::g_rrCrashLog.Record("rr.resources.free.end", static_cast<uint32_t>(result));
+        if (result != sl::Result::eOk)
+            return false;
+        g_streamlineAdapterState.rayReconstructionResourcesAllocated = false;
+        g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable = false;
+    }
+#endif
+    return true;
 }
 
 void ShutdownStreamlineAdapter()

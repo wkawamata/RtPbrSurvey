@@ -1,4 +1,4 @@
-#include "RayReconstructionInputConversion.hlsli"
+#include "RayReconstructionInputSafety.hlsli"
 
 // Standalone tests use uint status. Live diagnostics use a float scalar so the
 // existing raw screenshot/preview path can expose the same exact integer codes.
@@ -38,6 +38,8 @@ cbuffer ConversionFrame : register(b0)
     row_major float4x4 previousViewProjection;
     float2 jitterNdc;
     uint stationaryCamera;
+    uint safeInputProfile;
+    uint recoveryFault;
 #endif
 };
 
@@ -116,6 +118,17 @@ cbuffer ConversionFrame : register(b0)
                                     allowTracedSpecularMiss);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     }
+#endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (safeInputProfile != 0 && (recoveryFault == 2 || (recoveryFault == 1 && all(pixel == 0))))
+        converted.color.x = asfloat(0x7fc00000); // Sanitize before the SDK, preserve rejection status.
+    if (safeInputProfile != 0 && all(pixel == 0) && (recoveryFault == 8 || recoveryFault == 9))
+        converted.color.x = asfloat(recoveryFault == 8 ? 0x7f800000 : 0x7f7fffff);
+    if (safeInputProfile != 0)
+        converted = SanitizeRrInputs(converted,
+            actualContinuation != 0 && all(g_primaryPosition[pixel] == 0) && converted.diagnostics.x == 0);
+#elif defined(RTPBRSURVEY_RR_SAFE_INPUT_TEST)
+    converted = SanitizeRrInputs(converted, false);
 #endif
     g_color[pixel] = converted.color;
     g_diffuseAlbedo[pixel] = converted.diffuseAlbedo;

@@ -6,7 +6,8 @@
 namespace Engine
 {
 
-// Supplied only for an admitted, immutable production. Pixel/backend admission
+// Supplied for a CPU-valid immutable production. Confirm GPU admission before commit.
+// Pixel/backend admission
 // and ownership of GPU allocations/fences remain the caller's responsibility.
 // Sample stride belongs to the immutable batch. Reset tokens track discontinuities.
 struct PathTracingRrHistoryKey
@@ -72,6 +73,10 @@ class PathTracingRrHistory
 public:
     PathTracingRrHistoryDecision
     Begin(const PathTracingRrHistoryKey& key, const void* outputAllocation, bool requested, bool inputsAdmitted);
+    // CPU metadata and numeric sanitization are guaranteed; GPU admission is deferred.
+    PathTracingRrHistoryDecision BeginSpeculative(const PathTracingRrHistoryKey& key, const void* outputAllocation);
+    PathTracingRrCompletion FinishSpeculative(uint64_t ticket, bool sdkOutputAvailable,
+                                               bool inputVerified, bool outputVerified);
     // false verification means "not ready". A failed fence/pixel check must
     // invalidate the state. Retain allocations while pending or presentable.
     PathTracingRrCompletion Finish(uint64_t ticket, bool sdkOutputAvailable, bool gpuOutputVerified);
@@ -80,6 +85,8 @@ public:
     void Invalidate();
 
 private:
+    PathTracingRrHistoryDecision BeginEligible(const PathTracingRrHistoryKey& key, const void* outputAllocation);
+    bool m_pendingSpeculative = false;
     bool m_hasHistory = false;
     bool m_outputReady = false;
     uint64_t m_lastSeenFrame = 0;

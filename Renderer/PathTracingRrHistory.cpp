@@ -9,6 +9,7 @@ namespace Engine
 {
 void PathTracingRrHistory::Invalidate()
 {
+    m_pendingSpeculative = false;
     m_hasHistory = false;
     m_outputReady = false;
     m_pendingTicket = 0;
@@ -27,6 +28,23 @@ PathTracingRrHistoryDecision PathTracingRrHistory::Begin(const PathTracingRrHist
         Invalidate();
         return {Action::NativeFallback, requested ? Reason::InputsRejected : Reason::Disabled};
     }
+    return BeginEligible(key, outputAllocation);
+}
+
+PathTracingRrHistoryDecision PathTracingRrHistory::BeginSpeculative(
+    const PathTracingRrHistoryKey& key, const void* outputAllocation)
+{
+    const auto decision = BeginEligible(key, outputAllocation);
+    if (decision.action == PathTracingRrHistoryAction::Evaluate)
+        m_pendingSpeculative = true;
+    return decision;
+}
+
+PathTracingRrHistoryDecision PathTracingRrHistory::BeginEligible(
+    const PathTracingRrHistoryKey& key, const void* outputAllocation)
+{
+    using Action = PathTracingRrHistoryAction;
+    using Reason = PathTracingRrHistoryReason;
     // A caller must finish/invalidate its in-flight submission before replacing
     // the packet. A different consumer frame cannot present its output.
     if (m_pendingTicket != 0)
@@ -48,6 +66,7 @@ PathTracingRrHistoryDecision PathTracingRrHistory::Begin(const PathTracingRrHist
     m_outputReady = false;
     if (key.frameId <= m_lastSeenFrame || m_lastTicket == std::numeric_limits<uint64_t>::max())
     {
+        m_pendingSpeculative = false;
         m_hasHistory = false;
         return {Action::NativeFallback, Reason::StaleProduction};
     }
@@ -74,6 +93,7 @@ PathTracingRrHistoryDecision PathTracingRrHistory::Begin(const PathTracingRrHist
     m_lastSeenFrame = key.frameId;
     m_pending = key;
     m_pendingAllocation = outputAllocation;
+    m_pendingSpeculative = false;
     m_pendingTicket = ++m_lastTicket;
     return {Action::Evaluate, reason, reason != Reason::Continuous, m_pendingTicket};
 }
@@ -87,7 +107,7 @@ PathTracingRrCompletion PathTracingRrHistory::Finish(uint64_t ticket, bool sdkOu
         Invalidate();
         return PathTracingRrCompletion::Failed;
     }
-    if (!gpuOutputVerified)
+    if (!gpuOutputVerified || m_pendingSpeculative)
         return PathTracingRrCompletion::PendingGpu;
     m_lastSuccess = m_pending;
     m_outputAllocation = m_pendingAllocation;
@@ -95,6 +115,20 @@ PathTracingRrCompletion PathTracingRrHistory::Finish(uint64_t ticket, bool sdkOu
     m_pendingAllocation = nullptr;
     m_hasHistory = m_outputReady = true;
     return PathTracingRrCompletion::Completed;
+}
+
+PathTracingRrCompletion PathTracingRrHistory::FinishSpeculative(
+    uint64_t ticket, bool sdkOutputAvailable, bool inputVerified, bool outputVerified)
+{
+    if (ticket == 0 || ticket != m_pendingTicket || !m_pendingSpeculative)
+        return PathTracingRrCompletion::StaleTicket;
+    if (!sdkOutputAvailable || !inputVerified || !outputVerified)
+    {
+        Invalidate();
+        return PathTracingRrCompletion::Failed;
+    }
+    m_pendingSpeculative = false;
+    return Finish(ticket, true, true);
 }
 
 bool PathTracingRrHistory::CanPresent(const PathTracingRrHistoryKey& expected, const void* outputAllocation) const

@@ -164,6 +164,14 @@ void AddUsage(RenderGraphDocument& document,
 }
 } // namespace
 
+RenderGraphDocumentId MakeRenderGraphPassDocumentId(std::string_view name, size_t occurrence)
+{
+    std::string identity(name);
+    identity.push_back(':');
+    identity += std::to_string(occurrence);
+    return MakeDocumentId("pass", identity);
+}
+
 RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& renderPasses,
                                              const RenderGraphResourceMetadataMap& resourceMetadata)
 {
@@ -216,10 +224,10 @@ RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& rend
         const RenderPass& pass = renderPasses[passIndex];
         const std::string passName = Narrow(pass.name);
         const size_t occurrence = passNameOccurrences[passName]++;
-        const std::string passIdentity = passName + ":" + std::to_string(occurrence);
         const size_t nodeIndex = document.nodes.size();
         document.nodes.push_back(
-            {MakeDocumentId("pass", passIdentity), RenderGraphNodeKind::Pass, passName, static_cast<int>(passIndex)});
+            {MakeRenderGraphPassDocumentId(passName, occurrence), RenderGraphNodeKind::Pass, passName,
+             static_cast<int>(passIndex)});
         const RenderGraphDocumentNode passNode = document.nodes[nodeIndex];
 
         for (size_t usageIndex = 0; usageIndex < pass.reads.size(); ++usageIndex)

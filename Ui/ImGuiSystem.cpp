@@ -87,19 +87,23 @@ void ImGuiSystem::BeginFrame()
         return;
     }
 
+    // A graph without a UI pass may leave the previous CPU frame unrendered.
+    EndFrame();
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+    m_frameOpen = true;
 }
 
 void ImGuiSystem::EndFrame()
 {
-    if (!m_initialized)
+    if (!m_initialized || !m_frameOpen)
     {
         return;
     }
 
     ImGui::Render();
+    m_frameOpen = false;
 }
 
 void ImGuiSystem::Render(ID3D12GraphicsCommandList* commandList)
@@ -109,9 +113,15 @@ void ImGuiSystem::Render(ID3D12GraphicsCommandList* commandList)
         return;
     }
 
+    // Diagnostic frame loops also use Render directly, without the normal
+    // application's late-overlay callback. Finalize exactly once in both paths.
+    EndFrame();
+    ImDrawData* drawData = ImGui::GetDrawData();
+    if (drawData == nullptr)
+        return;
     ID3D12DescriptorHeap* imguiHeaps[] = {m_srvHeap};
     commandList->SetDescriptorHeaps(1, imguiHeaps);
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+    ImGui_ImplDX12_RenderDrawData(drawData, commandList);
 }
 
 void ImGuiSystem::SetDisplaySize(UINT width, UINT height)

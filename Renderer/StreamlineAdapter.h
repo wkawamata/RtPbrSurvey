@@ -14,6 +14,7 @@ struct StreamlineAdapterInitDesc
     const wchar_t* applicationName = nullptr;
     const char* projectId = nullptr;
     const char* engineVersion = nullptr;
+    const wchar_t* logDirectory = nullptr;
 };
 
 struct StreamlineEvaluateInputs
@@ -130,6 +131,8 @@ struct StreamlineDlssDiagnostics
 
 TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterInitDesc& desc);
 TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device);
+// Caller must first drain all submitted work using RR resources.
+bool ReleaseStreamlineRayReconstructionResources();
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
 RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupport();
