@@ -6,7 +6,9 @@ for the investigation and subsequent results for the actual findings.
 The opt-in -RrFenceTrace <json> records QPC CPU events, submission/production/epoch
 identity, original fence values, raw GPU timestamps and queue clock calibrations.
 -RrFenceTraceWarmup and -RrFenceTraceSeconds select 1..120 seconds each. It closes
-after the fixed-time observation, drains existing work normally and writes data.
+after the timed observation, drains existing work normally and writes data.
+VerifiedPresent allows a pending frame up to one extra second to reach presentation
+before the observation closes. The trace reports whether a frame was still pending.
 -RrFenceTraceTimingOnly retains the same observation clock/counters without event
 capture, clock calibration or extra GPU boundary queries, for overhead control.
 -RrFenceTraceCalibrateVerifiedGpu adds periodic CPU/GPU clock calibration and

@@ -530,6 +530,7 @@ public:
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
     void SetRrSeparateCompletionFence(bool enabled) { m_rrSeparateCompletionFence = enabled; }
     void SetRrVerifiedPresent(bool enabled) { m_rrVerifiedPresent = enabled; }
+    bool HasPendingVerifiedRrFrame() const;
     bool WaitForVerifiedRrProduction();
     void SetRrRecoveryFault(Engine::RrRecoveryFault fault)
     {

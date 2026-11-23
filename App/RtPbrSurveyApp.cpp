@@ -1149,10 +1149,12 @@ void RtPbrSurveyApp::OnIdle()
             trace.metadata["windowVisibleAtFirstTick"] = IsWindowVisible(Win32Application::GetHwnd()) != FALSE;
             trace.metadata["iconicAtFirstTick"] = IsIconic(Win32Application::GetHwnd()) != FALSE;
         }
-        trace.Tick();
+        const auto& engine = m_sceneRenderer.EngineForDebugTools();
+        const bool verifiedRrFramePending = engine.HasPendingVerifiedRrFrame();
+        trace.Tick(verifiedRrFramePending);
         if (trace.Finished())
         {
-            const auto& engine = m_sceneRenderer.EngineForDebugTools();
+            trace.metadata["endedWithPendingVerifiedRrFrame"] = verifiedRrFramePending;
             trace.metadata["presentInterval"] = engine.LastPresentInterval();
             trace.metadata["presentFlags"] = engine.LastPresentFlags();
             const auto& rr = m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics;

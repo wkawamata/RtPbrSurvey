@@ -6464,6 +6464,15 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
     m_pendingResizeHeight = height;
 }
 
+bool RtPbrSurveyEngine::HasPendingVerifiedRrFrame() const
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    return m_rrVerifiedFrameFence != 0;
+#else
+    return false;
+#endif
+}
+
 bool RtPbrSurveyEngine::WaitForVerifiedRrProduction()
 {
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS

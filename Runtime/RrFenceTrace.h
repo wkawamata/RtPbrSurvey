@@ -87,7 +87,7 @@ public:
     {
         return m_capture && !m_finished;
     }
-    void Tick()
+    void Tick(bool verifiedRrFramePending = false)
     {
         if (!m_running || m_finished)
             return;
@@ -102,10 +102,16 @@ public:
             m_startFresh = m_freshPresents;
             m_startPublished = m_published;
         }
-        if (m_windowStart && double(now - m_windowStart) / m_frequency >= m_duration)
+        if (m_windowStart)
         {
-            m_windowEnd = now;
-            m_finished = true;
+            const double elapsed = double(now - m_windowStart) / m_frequency;
+            constexpr double kVerifiedFrameFinishGraceSeconds = 1.0;
+            if (elapsed >= m_duration &&
+                (!verifiedRrFramePending || elapsed >= m_duration + kVerifiedFrameFinishGraceSeconds))
+            {
+                m_windowEnd = now;
+                m_finished = true;
+            }
         }
     }
     bool Finished() const
