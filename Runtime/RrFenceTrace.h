@@ -278,7 +278,7 @@ public:
             }
         }
     }
-    void VerifiedPresentation(bool newRr, uint64_t presentQpc)
+    void VerifiedPresentation(bool newRr, uint64_t presentQpc, uint64_t presentEndQpc)
     {
         if (!m_running || m_finished)
             return;
@@ -310,7 +310,9 @@ public:
                                              std::move(m_verifiedProductionGraph),
                                              std::move(m_verifiedPresentationGraph),
                                              m_verifiedGpuBegin,
-                                             m_verifiedGpuEnd});
+                                             m_verifiedGpuEnd,
+                                             presentQpc,
+                                             presentEndQpc});
             }
         }
     }
@@ -415,6 +417,8 @@ public:
             {
                 verifiedTimings.back()["gpuClock"] = {{"begin", timing.gpuBegin}, {"end", timing.gpuEnd},
                                                       {"poseQpc", timing.poseQpc}};
+                verifiedTimings.back()["presentClock"] = {{"beginQpc", timing.presentBeginQpc},
+                                                          {"endQpc", timing.presentEndQpc}};
             }
             const auto& inputs = timing.pathTracingInputs;
             if (inputs.frameId != 0)
@@ -490,6 +494,7 @@ private:
         GraphCpuTiming productionGraph;
         GraphCpuTiming presentationGraph;
         uint64_t gpuBegin, gpuEnd;
+        uint64_t presentBeginQpc, presentEndQpc;
     };
     std::filesystem::path m_path;
     bool m_running = false, m_capture = false, m_finished = false, m_overflow = false;
