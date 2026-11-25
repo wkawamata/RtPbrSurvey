@@ -500,7 +500,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
     static bool renderGraphWindowOpen = false;
     static bool workMeterWindowOpen = false;
-    static bool evaluationCasesWindowOpen = true;
+    static bool evaluationCasesWindowOpen = false;
     static bool arrangeDebugTexturePreviewsRequested = false;
     static uint64_t activeDiagnosticInspectorId = 0;
 
@@ -519,8 +519,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (app.m_appMode == RtPbrSurveyApp::AppMode::TopMenu)
     {
-        App::DrawSceneSelectUi(app);
-        App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::AllScenes);
+        App::DrawSceneSelectUi(app, evaluationCasesWindowOpen);
+        if (evaluationCasesWindowOpen)
+        {
+            App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::AllScenes);
+        }
         return;
     }
 

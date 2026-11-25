@@ -10,10 +10,11 @@
 namespace App
 {
 
-void DrawSceneSelectUi(RtPbrSurveyApp& app)
+void DrawSceneSelectUi(RtPbrSurveyApp& app, bool& evaluationCasesWindowOpen)
 {
     ImGui::SetNextWindowSize(ImVec2(360, 400), ImGuiCond_FirstUseEver);
     ImGui::Begin("Top Menu");
+    ImGui::Checkbox("Evaluation Cases", &evaluationCasesWindowOpen);
 
     if (ImGui::Button("Scene Editor"))
     {
