@@ -89,7 +89,7 @@ private:
     void ApplyCaptureOrbitCamera();
     friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
     friend void App::DrawEvaluationCasesWindow(RtPbrSurveyApp& app, App::EvaluationCaseScope scope);
-    friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
+    friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app, bool& evaluationCasesWindowOpen);
     friend void App::DrawSceneEditorStartUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorEditUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorTransformUi(RtPbrSurveyApp& app);
