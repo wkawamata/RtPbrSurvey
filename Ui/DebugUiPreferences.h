@@ -5,7 +5,7 @@ namespace RtPbrSurvey
 
 inline constexpr int kHdrImGuiWhiteMinNits = 40;
 inline constexpr int kHdrImGuiWhiteMaxNits = 400;
-inline constexpr int kHdrImGuiWhiteDefaultNits = 160;
+inline constexpr int kHdrImGuiWhiteDefaultNits = 300;
 
 struct DebugUiPreferences
 {

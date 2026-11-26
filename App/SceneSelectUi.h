@@ -5,6 +5,6 @@ class RtPbrSurveyApp;
 namespace App
 {
 
-void DrawSceneSelectUi(RtPbrSurveyApp& app);
+void DrawSceneSelectUi(RtPbrSurveyApp& app, bool& evaluationCasesWindowOpen);
 
 } // namespace App
