@@ -6274,10 +6274,18 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         m_activeUiRenderHandler = nullptr;
         ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
         trace.Record("execute_begin");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_ptRrLive)
+            m_ptRrLive->LogEvaluateSubmission("rr.packet.execute.begin");
+#endif
         trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteBegin);
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
         trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteEnd);
         trace.Record("execute_end");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_ptRrLive)
+            m_ptRrLive->LogEvaluateSubmission("rr.packet.execute.end");
+#endif
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool submittedRrWork = m_ptRrLive && m_ptRrLive->HasUnsubmittedWork();
         if (m_rrCompletionFence && (usingRrAllocator || submittedRrWork))

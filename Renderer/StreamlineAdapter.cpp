@@ -870,8 +870,13 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     }
     g_streamlineAdapterState.rayReconstructionResourcesAllocated = true;
     ++g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
+    if (inputs.crashLogPacketId)
+        RtPbrSurvey::g_rrCrashLog.Record("rr.packet.sdk.begin", inputs.crashLogPacketId);
     const sl::Result evaluateResult =
         slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
+    if (inputs.crashLogPacketId)
+        RtPbrSurvey::g_rrCrashLog.Record("rr.packet.sdk.end", inputs.crashLogPacketId,
+                                       static_cast<uint32_t>(evaluateResult));
     if (firstEvaluateForResources)
     {
         RtPbrSurvey::g_rrCrashLog.Record("rr.evaluate.first.end", static_cast<uint32_t>(evaluateResult));
