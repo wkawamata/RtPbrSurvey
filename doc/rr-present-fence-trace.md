@@ -19,6 +19,8 @@ The trace records the final Present interval and flags.
 Completed timing-only traces are flushed to disk before the GPU shutdown drain.
 With -RrCrashLog, shutdown.drain.rr_fence records the pending VerifiedPresent fence,
 the last submitted RR fence and the completed RR fence, in that order.
+If the -RrCrashLog path already exists, use the next numbered filename and emit a warning.
+Existing logs are kept, and the new log records log.path.collision.
 For PT RR, -RrCrashLog samples at most one evaluated packet per second. Its serial
 links rr.packet.evaluate, rr.packet.sdk, rr.packet.execute and rr.packet.fence records.
 The SDK result is the CPU return code. The completed fence records GPU completion

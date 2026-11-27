@@ -502,7 +502,7 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'\0' || argv[i + 1][0] == L'-')
             {
-                throw std::invalid_argument("-RrCrashLog requires a new log file path");
+                throw std::invalid_argument("-RrCrashLog requires a log file path");
             }
             options.rrCrashLogPath = argv[++i];
         }
