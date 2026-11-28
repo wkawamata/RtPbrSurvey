@@ -15,9 +15,14 @@
 #include <cmath>
 #include <ctime>
 #include <iomanip>
+#include <commdlg.h>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <limits>
 #include "Scene/SceneDocumentRuntimeScene.h"
+
+#pragma comment(lib, "Comdlg32.lib")
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
@@ -545,27 +550,38 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
 
+    bool collapseAllRequested = false;
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {
         const char* sceneName = loadedScene.Name();
         const char* sceneNameBreak = strchr(sceneName, ':');
-        bool closeSceneRequested = false;
-        if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+        const bool splitSceneName = sceneNameBreak != nullptr && sceneNameBreak[1] == ' ';
+        if (splitSceneName)
         {
             ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
                                static_cast<int>(sceneNameBreak - sceneName),
                                sceneName);
             ImGui::Indent();
-            ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
-            ImGui::SameLine(0.0f, 12.0f);
-            closeSceneRequested = ImGui::Button("Close Scene");
-            ImGui::Unindent();
         }
-        else
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s",
+                           splitSceneName ? sceneNameBreak + 2 : sceneName);
+
+        constexpr const char* closeSceneLabel = "Close Scene";
+        constexpr const char* collapseAllLabel = "Collapse All";
+        const ImGuiStyle& style = ImGui::GetStyle();
+        const float buttonsWidth = ImGui::CalcTextSize(closeSceneLabel).x + ImGui::CalcTextSize(collapseAllLabel).x +
+                                   style.FramePadding.x * 4.0f + style.ItemSpacing.x;
+        const float rightEdge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+        if (ImGui::GetItemRectMax().x + 12.0f + buttonsWidth <= rightEdge)
         {
-            ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
             ImGui::SameLine(0.0f, 12.0f);
-            closeSceneRequested = ImGui::Button("Close Scene");
+        }
+        const bool closeSceneRequested = ImGui::Button(closeSceneLabel);
+        ImGui::SameLine();
+        collapseAllRequested = ImGui::Button(collapseAllLabel);
+        if (splitSceneName)
+        {
+            ImGui::Unindent();
         }
         if (closeSceneRequested)
         {
@@ -613,6 +629,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     ImGui::Separator();
     ImGui::BeginChild("DebugControls");
+    if (collapseAllRequested)
+    {
+        // Use the header IDs directly so conditional sections close even while hidden.
+        constexpr const char* headers[] = {
+            "Basic Settings###Scene", "Camera", "Direct Lighting###PBR Lighting",
+            "Image Based Lighting (IBL)", "Rendering", "Path Tracing Ray Settings", "Hybrid Reflection",
+            "Material Controls", "RayQuery Shadow", "DLSS", "DLSS Input Debug", "Tone Mapping",
+            "Pixel Pick (Ctrl+Click)", "Specular Debug Lines", "Scene Config",
+        };
+        ImGuiStorage* storage = ImGui::GetStateStorage();
+        for (const char* header : headers)
+        {
+            storage->SetInt(ImGui::GetID(header), 0);
+        }
+    }
 
     struct WorkMeterHistory
     {
@@ -646,6 +677,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         bool collecting = false;
         std::string description;
         std::vector<Value> values;
+        std::filesystem::path outputPath;
+        std::string status;
 
         void Add(const std::string& name, double value)
         {
@@ -724,7 +757,19 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                        << " (samples=" << value.samples << ")\n";
             }
             output << "[WorkMeter Average End]\n";
-            OutputDebugStringA(output.str().c_str());
+            const std::string result = output.str();
+            if (average.outputPath.empty())
+            {
+                OutputDebugStringA(result.c_str());
+                average.status = "Sent to debugger";
+            }
+            else
+            {
+                std::ofstream file(average.outputPath, std::ios::binary);
+                file << result;
+                file.close();
+                average.status = file ? "Saved to text file" : "Could not save the text file";
+            }
         }
     }
     if (!workMeterHistory.frozen && workMeterHistory.lastFrame != workMeterFrame)
@@ -860,8 +905,36 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::BeginDisabled(average.collecting);
             ImGuiWidgets::SliderIntWithControls("FrameCount", &average.frameCount, 1, 1000000, 1, 120);
             average.frameCount = (std::clamp)(average.frameCount, 1, 1000000);
-            if (ImGui::Button("OutputAverage"))
+            bool startCollection = ImGui::Button("OutputAverage");
+            if (startCollection)
             {
+                average.outputPath.clear();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Save Average to File"))
+            {
+                wchar_t fileName[32768] = L"workmeter-average.txt";
+                OPENFILENAMEW dialog{};
+                dialog.lStructSize = sizeof(dialog);
+                dialog.hwndOwner = GetActiveWindow();
+                dialog.lpstrFilter = L"Text files (*.txt)\0*.txt\0All files (*.*)\0*.*\0";
+                dialog.lpstrFile = fileName;
+                dialog.nMaxFile = static_cast<DWORD>(std::size(fileName));
+                dialog.lpstrDefExt = L"txt";
+                dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+                if (GetSaveFileNameW(&dialog))
+                {
+                    average.outputPath = fileName;
+                    startCollection = true;
+                }
+                else if (CommDlgExtendedError() != 0)
+                {
+                    average.status = "Could not open the save dialog";
+                }
+            }
+            if (startCollection)
+            {
+                average.status.clear();
                 average.targetFrames = average.frameCount;
                 average.collectedFrames = 0;
                 average.lastFrame = ImGui::GetFrameCount();
@@ -883,12 +956,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             {
                 ImGui::Text("Collecting: %d / %d", average.collectedFrames, average.targetFrames);
             }
-            else if (average.collectedFrames > 0)
+            else if (!average.status.empty())
             {
-                ImGui::Text("Output complete: %d frames", average.collectedFrames);
+                ImGui::TextUnformatted(average.status.c_str());
             }
-            ImGui::TextWrapped("Collects the following UI frames, independent of Freeze graphs. "
-                               "Keep the scene and settings unchanged. Results go to the debugger Output window.");
+            ImGui::TextWrapped("Collects the next UI frames, independent of Freeze graphs. "
+                               "Keep the scene and settings unchanged.");
             ImGui::TreePop();
         }
         ImGui::Separator();
@@ -1239,6 +1312,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::Text("Reconstruction output: %s (%s)",
                         Engine::PathTracingReconstructionBackendName(presentation.output),
                         Engine::PathTracingReconstructionStatusName(presentation.status));
+            if (reconstructionBackend == 2)
+            {
+                ImGui::Text("RR Schedule: %s",
+                            context.pathTracingDiagnostics.rrChainedPacket ? "chained" : "safe-serial");
+            }
             if (reconstructionBackend == 2 && ImGui::TreeNode("RR Settings"))
             {
                 pathTracingSettingsChanged |=
