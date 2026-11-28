@@ -487,6 +487,8 @@ public:
     void SetPresentTearingEnabled(bool enabled) { m_graphicsDevice.SetPresentTearingEnabled(enabled); }
     bool VSyncEnabled() const { return m_vSyncEnabled; }
     bool TearingSupported() const { return m_graphicsDevice.TearingSupported(); }
+    uint64_t RrImagesPresented() const { return m_rrImagesPresented; }
+    bool LastPresentUsedRr() const { return m_lastPresentUsedRr; }
     UINT LastPresentInterval() const { return m_graphicsDevice.LastPresentInterval(); }
     UINT LastPresentFlags() const { return m_graphicsDevice.LastPresentFlags(); }
     void Shutdown();
@@ -1642,6 +1644,9 @@ private:
     bool m_rrChainedSchedule = false;
     bool m_rrSeparateCompletionFence = false;
     bool m_rrVerifiedPresent = false;
+    uint64_t m_lastPresentedRrImage = 0;
+    uint64_t m_rrImagesPresented = 0;
+    bool m_lastPresentUsedRr = false;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     ComPtr<ID3D12Fence> m_rrCompletionFence;
     uint64_t m_rrCompletionFenceValue = 0;
