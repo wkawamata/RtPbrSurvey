@@ -51,7 +51,8 @@ public:
         QueryPerformanceCounter(&value);
         return static_cast<uint64_t>(value.QuadPart);
     }
-    void Configure(const std::filesystem::path& path, double warmup, double duration, bool timingOnly)
+    void Configure(const std::filesystem::path& path, double warmup, double duration, bool timingOnly,
+                   bool calibrateVerifiedGpu = false)
     {
         m_path = path;
         LARGE_INTEGER frequency;
@@ -61,11 +62,13 @@ public:
         m_duration = duration;
         m_running = true;
         m_capture = !timingOnly;
+        m_calibrateVerifiedGpu = calibrateVerifiedGpu;
+        if (m_capture || m_calibrateVerifiedGpu)
+            m_calibrations.reserve(256);
         if (m_capture)
         {
             m_events.reserve(500000);
             m_gpu.reserve(200000);
-            m_calibrations.reserve(256);
         }
     }
     bool Running() const
@@ -84,7 +87,7 @@ public:
     {
         return m_capture && !m_finished;
     }
-    void Tick()
+    void Tick(bool verifiedRrFramePending = false)
     {
         if (!m_running || m_finished)
             return;
@@ -99,15 +102,25 @@ public:
             m_startFresh = m_freshPresents;
             m_startPublished = m_published;
         }
-        if (m_windowStart && double(now - m_windowStart) / m_frequency >= m_duration)
+        if (m_windowStart)
         {
-            m_windowEnd = now;
-            m_finished = true;
+            const double elapsed = double(now - m_windowStart) / m_frequency;
+            constexpr double kVerifiedFrameFinishGraceSeconds = 1.0;
+            if (elapsed >= m_duration &&
+                (!verifiedRrFramePending || elapsed >= m_duration + kVerifiedFrameFinishGraceSeconds))
+            {
+                m_windowEnd = now;
+                m_finished = true;
+            }
         }
     }
     bool Finished() const
     {
         return m_running && m_finished;
+    }
+    bool FinishedTimingOnly() const
+    {
+        return Finished() && !m_capture;
     }
     void BeginFrame(ID3D12CommandQueue* queue)
     {
@@ -116,7 +129,7 @@ public:
         ++m_frame;
         m_submission = 0;
         Record("frame_begin");
-        if (!Capturing())
+        if (!Capturing() && !(m_calibrateVerifiedGpu && m_windowStart && !m_finished))
             return;
         const uint64_t before = Now();
         if (!m_lastCalibration || before - m_lastCalibration >= m_frequency)
@@ -224,6 +237,7 @@ public:
             m_verifiedReadyQpc = 0;
             m_verifiedCpuQpc.fill(0);
             m_verifiedGpuMs.fill(-1.0);
+            m_verifiedGpuBegin = m_verifiedGpuEnd = 0;
             m_verifiedPathTracingInputs = {};
             m_verifiedProductionGraph = {};
             m_verifiedPresentationGraph = {};
@@ -251,6 +265,12 @@ public:
         const uint64_t frequency = points.front().timestampFrequency;
         if (!frequency)
             return;
+        if (m_calibrateVerifiedGpu && points.back().name == "EndGpu" &&
+            points.back().rawTimestamp >= points.front().rawTimestamp)
+        {
+            m_verifiedGpuBegin = points.front().rawTimestamp;
+            m_verifiedGpuEnd = points.back().rawTimestamp;
+        }
         for (size_t i = 1; i < points.size(); ++i)
         {
             const auto end = points[i].rawTimestamp;
@@ -268,7 +288,7 @@ public:
             }
         }
     }
-    void VerifiedPresentation(bool newRr, uint64_t presentQpc)
+    void VerifiedPresentation(bool newRr, uint64_t presentQpc, uint64_t presentEndQpc)
     {
         if (!m_running || m_finished)
             return;
@@ -298,7 +318,11 @@ public:
                                              m_verifiedCpuQpc,
                                              m_verifiedPathTracingInputs,
                                              std::move(m_verifiedProductionGraph),
-                                             std::move(m_verifiedPresentationGraph)});
+                                             std::move(m_verifiedPresentationGraph),
+                                             m_verifiedGpuBegin,
+                                             m_verifiedGpuEnd,
+                                             presentQpc,
+                                             presentEndQpc});
             }
         }
     }
@@ -399,6 +423,13 @@ public:
                                        {"productionCpuOffsets", std::move(cpuOffsets)},
                                        {"productionGraphCpu", writeGraphCpu(timing.productionGraph)},
                                        {"presentationGraphCpu", writeGraphCpu(timing.presentationGraph)}});
+            if (timing.gpuEnd)
+            {
+                verifiedTimings.back()["gpuClock"] = {{"begin", timing.gpuBegin}, {"end", timing.gpuEnd},
+                                                      {"poseQpc", timing.poseQpc}};
+                verifiedTimings.back()["presentClock"] = {{"beginQpc", timing.presentBeginQpc},
+                                                          {"endQpc", timing.presentEndQpc}};
+            }
             const auto& inputs = timing.pathTracingInputs;
             if (inputs.frameId != 0)
             {
@@ -439,8 +470,20 @@ public:
                                        {"calibrations", std::move(calibrations)}};
         std::ofstream output(m_path, std::ios::binary);
         output << report.dump();
+        output.close();
         if (!output)
             throw std::runtime_error("Failed to write RR fence trace");
+        if (FinishedTimingOnly())
+        {
+            const HANDLE file = CreateFileW(m_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (file == INVALID_HANDLE_VALUE)
+                throw std::runtime_error("Failed to reopen RR fence trace for flush");
+            const BOOL flushed = FlushFileBuffers(file);
+            CloseHandle(file);
+            if (!flushed)
+                throw std::runtime_error("Failed to flush RR fence trace");
+        }
         m_running = false;
         gpuMarker = {};
     }
@@ -472,15 +515,19 @@ private:
         VerifiedPathTracingInputs pathTracingInputs;
         GraphCpuTiming productionGraph;
         GraphCpuTiming presentationGraph;
+        uint64_t gpuBegin, gpuEnd;
+        uint64_t presentBeginQpc, presentEndQpc;
     };
     std::filesystem::path m_path;
     bool m_running = false, m_capture = false, m_finished = false, m_overflow = false;
+    bool m_calibrateVerifiedGpu = false;
     double m_warmup = 0, m_duration = 0;
     uint64_t m_frequency = 0, m_start = 0, m_windowStart = 0, m_windowEnd = 0, m_lastCalibration = 0;
     uint64_t m_frame = 0, m_tick = 0, m_submission = 0, m_production = 0, m_epoch = 0, m_lastGpu = 0;
     uint64_t m_presents = 0, m_freshPresents = 0, m_published = 0, m_lastPresented = 0;
     uint64_t m_verifiedProductionSubmissions = 0, m_verifiedFreshPresentations = 0, m_verifiedFallbackPresentations = 0;
     uint64_t m_verifiedPoseQpc = 0, m_verifiedSubmitQpc = 0, m_verifiedReadyQpc = 0;
+    uint64_t m_verifiedGpuBegin = 0, m_verifiedGpuEnd = 0;
     bool m_verifiedCpuRecording = false;
     ProductionCpuTimes m_verifiedCpuQpc = {};
     VerifiedPathTracingInputs m_verifiedPathTracingInputs;

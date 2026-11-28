@@ -184,6 +184,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         m_windowInfo.aspectRatio = static_cast<float>(m_windowInfo.width) / m_windowInfo.height;
     }
     m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
+    m_sceneRenderer.EngineForDebugTools().SetPresentTearingEnabled(!m_commandLineOptions.disablePresentTearing);
     if (m_commandLineOptions.hasPathTracingObjectMotion &&
         (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.capturePath.empty()))
     {
@@ -782,7 +783,8 @@ void RtPbrSurveyApp::OnInit()
         trace.Configure(m_commandLineOptions.rrFenceTracePath,
                         m_commandLineOptions.rrFenceTraceWarmup,
                         m_commandLineOptions.rrFenceTraceSeconds,
-                        m_commandLineOptions.rrFenceTraceTimingOnly);
+                        m_commandLineOptions.rrFenceTraceTimingOnly,
+                        m_commandLineOptions.rrFenceTraceCalibrateVerifiedGpu);
         RtPbrSurvey::EvaluationState state;
         std::string error;
         if (!CaptureEvaluationState(state, &error))
@@ -830,10 +832,9 @@ void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
 {
     if (RtPbrSurvey::g_rrFenceTrace.Running() && m_commandLineOptions.rrFenceTraceCameraMotion)
     {
-        auto camera = m_sceneRenderer.GetCamera();
+        auto& camera = LoadedScene().GetScene().camera;
         camera.pos.x = RtPbrSurvey::g_rrFenceTrace.metadata.at("cameraStartX").get<float>() +
                        0.4f * std::sin(static_cast<float>(RtPbrSurvey::g_rrFenceTrace.ElapsedSeconds()));
-        m_sceneRenderer.SetCamera(camera);
         return;
     }
     if (IsCaptureOrbitActive())
@@ -1148,9 +1149,14 @@ void RtPbrSurveyApp::OnIdle()
             trace.metadata["windowVisibleAtFirstTick"] = IsWindowVisible(Win32Application::GetHwnd()) != FALSE;
             trace.metadata["iconicAtFirstTick"] = IsIconic(Win32Application::GetHwnd()) != FALSE;
         }
-        trace.Tick();
+        const auto& engine = m_sceneRenderer.EngineForDebugTools();
+        const bool verifiedRrFramePending = engine.HasPendingVerifiedRrFrame();
+        trace.Tick(verifiedRrFramePending);
         if (trace.Finished())
         {
+            trace.metadata["endedWithPendingVerifiedRrFrame"] = verifiedRrFramePending;
+            trace.metadata["presentInterval"] = engine.LastPresentInterval();
+            trace.metadata["presentFlags"] = engine.LastPresentFlags();
             const auto& rr = m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics;
             trace.metadata["finalRr"] = {{"completed", rr.rrCompletedCount}, {"cancelled", rr.rrCancelledCount},
                                         {"inputRejected", rr.rrInputRejectionCount}, {"outputRejected", rr.rrOutputRejected},
@@ -1924,7 +1930,7 @@ bool RtPbrSurveyApp::ExecutePendingHostAction(RtPbrSurvey::PendingHostAction act
     switch (action)
     {
     case RtPbrSurvey::PendingHostAction::CloseApplication:
-        DestroyWindow(Win32Application::GetHwnd());
+        PostQuitMessage(GetExitCode());
         return true;
     case RtPbrSurvey::PendingHostAction::CloseRunningScene:
         CloseRunningScene();
@@ -2789,8 +2795,26 @@ void RtPbrSurveyApp::OnDestroy()
     {
         FlushD3D12DebugMessages();
     }
+    auto& trace = RtPbrSurvey::g_rrFenceTrace;
+    bool traceWritten = false;
+    if (trace.FinishedTimingOnly())
+    {
+        try
+        {
+            trace.Write();
+            traceWritten = true;
+            crashLog.Record("shutdown.trace.written");
+        }
+        catch (const std::exception&)
+        {
+            crashLog.Record("shutdown.trace.write_failed");
+        }
+    }
     m_sceneRenderer.Shutdown();
-    RtPbrSurvey::g_rrFenceTrace.Write();
+    if (!traceWritten)
+    {
+        trace.Write();
+    }
     m_imguiSystem.Shutdown();
     m_imguiHeap.Reset();
     if (m_logFile)

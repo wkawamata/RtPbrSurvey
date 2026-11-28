@@ -51,9 +51,10 @@ struct GraphicsDevice
     void CreateFence(UINT64 initialValue);
     void SignalFence(UINT64 value);
     UINT64 CompletedFenceValue() const;
-    void WaitForFenceValue(UINT64 value);
+    void WaitForFenceValue(UINT64 value, bool recordShutdownDrain = false);
     void CloseFenceEvent();
     HRESULT Present(UINT syncInterval, UINT flags);
+    void SetPresentTearingEnabled(bool enabled) { m_presentTearingEnabled = enabled; }
     bool TearingSupported() const { return m_tearingSupported; }
     UINT LastPresentInterval() const { return m_lastPresentInterval; }
     UINT LastPresentFlags() const { return m_lastPresentFlags; }
@@ -67,6 +68,7 @@ private:
     UINT m_width = 0;
     UINT m_height = 0;
     bool m_tearingSupported = false;
+    bool m_presentTearingEnabled = true;
     UINT m_swapChainFlags = 0;
     UINT m_lastPresentInterval = 0;
     UINT m_lastPresentFlags = 0;

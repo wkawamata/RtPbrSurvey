@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Runtime/RrFenceTrace.h"
+#include "Runtime/RrCrashLog.h"
 
 #include "PathTracingRrLive.h"
 #include "Shared/Error.h"
@@ -101,12 +102,20 @@ const char* PathTracingRrLive::Status() const
     return "unknown";
 }
 
+void PathTracingRrLive::LogEvaluateSubmission(const char* event) const
+{
+    if (m_logEvaluatePacket && m_submissionPending)
+        RtPbrSurvey::g_rrCrashLog.Record(event, m_productionSerial);
+}
+
 void PathTracingRrLive::MarkSubmitted(uint64_t fence)
 {
     if (m_submissionPending)
     {
         RtPbrSurvey::g_rrFenceTrace.Production(m_key.frameId, m_key.resetToken);
         RtPbrSurvey::g_rrFenceTrace.Record("rr_mark_submitted", fence, static_cast<uint64_t>(m_phase));
+        if (m_logEvaluatePacket)
+            RtPbrSurvey::g_rrCrashLog.Record("rr.packet.fence.submitted", m_productionSerial, fence);
         m_fence = fence;
         m_submissionPending = false;
     }
@@ -126,6 +135,8 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
     // Drain cancelled work before reusing its summary/readback allocations.
     if (m_submissionPending || (m_fence != 0 && completedFence < m_fence))
         return;
+    if (m_logEvaluatePacket && m_fence != 0)
+        RtPbrSurvey::g_rrCrashLog.Record("rr.packet.fence.completed", m_productionSerial, m_fence, completedFence);
     if (currentEpoch != m_epoch)
     {
         RtPbrSurvey::g_rrFenceTrace.Record("rr_epoch_change", m_epoch, currentEpoch, static_cast<uint64_t>(m_phase));
@@ -296,6 +307,7 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
     if (m_productionSerial == (std::numeric_limits<uint64_t>::max)())
         throw std::overflow_error("RR production serial exhausted");
     ++m_productionSerial;
+    m_logEvaluatePacket = false;
     m_chainedPacket = chained;
     m_packetFault = chained ? fault : RrRecoveryFault::None;
     m_packetStarted = Clock::now();
@@ -351,12 +363,23 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     inputs.enableNativeEvaluation = true;
     inputs.frameConstants = m_constants;
     const auto evaluateStarted = Clock::now();
+    if (RtPbrSurvey::g_rrCrashLog.IsOpen() && evaluateStarted >= m_nextCrashLogSample)
+    {
+        m_logEvaluatePacket = true;
+        m_nextCrashLogSample = evaluateStarted + std::chrono::seconds(1);
+        inputs.crashLogPacketId = m_productionSerial;
+        RtPbrSurvey::g_rrCrashLog.Record("rr.packet.evaluate.begin", m_productionSerial,
+                                       m_key.frameId, m_key.resetToken);
+    }
     m_packetLatency.admittedWaitMs = m_chainedPacket ? 0 : std::chrono::duration<double, std::milli>(
         evaluateStarted - m_inputAdmitted).count();
     RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR SDK begin");
     RtPbrSurvey::g_rrFenceTrace.Record("rr_sdk_begin");
     RtPbrSurvey::g_rrFenceTrace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::SdkBegin);
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
+    if (m_logEvaluatePacket)
+        RtPbrSurvey::g_rrCrashLog.Record("rr.packet.evaluate.end", m_productionSerial,
+                                       result.outputAvailable, static_cast<uint64_t>(result.status));
     RtPbrSurvey::g_rrFenceTrace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::SdkEnd);
     RtPbrSurvey::g_rrFenceTrace.Record("rr_sdk_end", result.outputAvailable ? 1 : 0);
     RtPbrSurvey::g_rrFenceTrace.MarkGpu("PF RR SDK end");

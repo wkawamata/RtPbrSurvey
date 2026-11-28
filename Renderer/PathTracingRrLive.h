@@ -48,6 +48,7 @@ public:
     void Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE validationShader);
     void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false, bool eagerProduction = false);
     bool HasUnsubmittedWork() const { return m_submissionPending; }
+    void LogEvaluateSubmission(const char* event) const;
     void MarkSubmitted(uint64_t fence);
     void MarkPresented()
     {
@@ -172,6 +173,7 @@ private:
     void RecordValidation(ID3D12GraphicsCommandList* commands, D3D12_GPU_DESCRIPTOR_HANDLE srv, bool output);
     using Clock = std::chrono::steady_clock;
     Clock::time_point m_packetStarted;
+    Clock::time_point m_nextCrashLogSample = {};
     Clock::time_point m_publishedAt;
     Clock::time_point m_inputAdmitted;
     Clock::time_point m_outputRecorded;
@@ -181,6 +183,7 @@ private:
     uint64_t m_epoch = 0;
     uint64_t m_fence = 0;
     bool m_submissionPending = false;
+    bool m_logEvaluatePacket = false;
     bool m_chainedPacket = false;
     bool m_historyDirty = true;
     uint64_t m_productionSerial = 0;

@@ -6,9 +6,27 @@ for the investigation and subsequent results for the actual findings.
 The opt-in -RrFenceTrace <json> records QPC CPU events, submission/production/epoch
 identity, original fence values, raw GPU timestamps and queue clock calibrations.
 -RrFenceTraceWarmup and -RrFenceTraceSeconds select 1..120 seconds each. It closes
-after the fixed-time observation, drains existing work normally and writes data.
+after the timed observation, drains existing work normally and writes data.
+VerifiedPresent allows a pending frame up to one extra second to reach presentation
+before the observation closes. The trace reports whether a frame was still pending.
 -RrFenceTraceTimingOnly retains the same observation clock/counters without event
 capture, clock calibration or extra GPU boundary queries, for overhead control.
+-RrFenceTraceCalibrateVerifiedGpu adds periodic CPU/GPU clock calibration and
+existing production-packet timestamp endpoints and CPU Present call boundaries to a
+timing-only VerifiedPresent trace.
+Use -DisableVSync -DisablePresentTearing to test interval 0 without ALLOW_TEARING.
+The trace records the final Present interval and flags.
+Completed timing-only traces are flushed to disk before the GPU shutdown drain.
+With -RrCrashLog, shutdown.drain.rr_fence records the pending VerifiedPresent fence,
+the last submitted RR fence and the completed RR fence, in that order.
+If the -RrCrashLog path already exists, use the next numbered filename and emit a warning.
+Existing logs are kept, and the new log records log.path.collision.
+For PT RR, -RrCrashLog samples at most one evaluated packet per second. Its serial
+links rr.packet.evaluate, rr.packet.sdk, rr.packet.execute and rr.packet.fence records.
+The SDK result is the CPU return code. The completed fence records GPU completion
+observed by the host, before output validation or publication.
+The shutdown.fence records distinguish fence event registration from the OS wait
+and report any incomplete fence or device removal before resource retirement.
 -RrFenceTraceCameraMotion translates the camera X by 0.4*sin(elapsed seconds).
 
 No runtime decisions use trace data; Present, Signal, wait and publication ordering

@@ -484,6 +484,7 @@ public:
     bool GeometryInstancingEnabled() const { return m_geometryInstancing; }
     void SetConstantGBufferBenchmark(bool enabled) { m_constantGBufferBenchmark = enabled; }
     void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
+    void SetPresentTearingEnabled(bool enabled) { m_graphicsDevice.SetPresentTearingEnabled(enabled); }
     bool VSyncEnabled() const { return m_vSyncEnabled; }
     bool TearingSupported() const { return m_graphicsDevice.TearingSupported(); }
     UINT LastPresentInterval() const { return m_graphicsDevice.LastPresentInterval(); }
@@ -529,6 +530,7 @@ public:
     void SetRrChainedSchedule(bool enabled) { m_rrChainedSchedule = enabled; }
     void SetRrSeparateCompletionFence(bool enabled) { m_rrSeparateCompletionFence = enabled; }
     void SetRrVerifiedPresent(bool enabled) { m_rrVerifiedPresent = enabled; }
+    bool HasPendingVerifiedRrFrame() const;
     bool WaitForVerifiedRrProduction();
     void SetRrRecoveryFault(Engine::RrRecoveryFault fault)
     {
@@ -2255,7 +2257,7 @@ private:
 
     void ApplyResize(UINT width, UINT height);
 
-    void WaitForGpu();
+    void WaitForGpu(bool logShutdownDrain = false);
     UINT64 MoveToNextFrame();
     void FlushGpu();
 

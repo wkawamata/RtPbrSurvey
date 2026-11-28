@@ -6274,10 +6274,18 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         m_activeUiRenderHandler = nullptr;
         ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
         trace.Record("execute_begin");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_ptRrLive)
+            m_ptRrLive->LogEvaluateSubmission("rr.packet.execute.begin");
+#endif
         trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteBegin);
         m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
         trace.MarkVerifiedProductionCpu(RtPbrSurvey::RrFenceTrace::ProductionCpuPoint::ExecuteEnd);
         trace.Record("execute_end");
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_ptRrLive)
+            m_ptRrLive->LogEvaluateSubmission("rr.packet.execute.end");
+#endif
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool submittedRrWork = m_ptRrLive && m_ptRrLive->HasUnsubmittedWork();
         if (m_rrCompletionFence && (usingRrAllocator || submittedRrWork))
@@ -6372,6 +6380,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         presentResult = m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
     }
 
+    const uint64_t verifiedPresentEndQpc = verifiedPresentQpc ? trace.Now() : 0;
     trace.Record(
         "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
     if (passes != FramePasses::Presentation || presentResult == S_OK)
@@ -6380,7 +6389,8 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
     }
     if (passes == FramePasses::Presentation && presentResult == S_OK)
     {
-        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId, verifiedPresentQpc);
+        trace.VerifiedPresentation(expectedRrInputId != 0 && presentedRr == expectedRrInputId,
+                                   verifiedPresentQpc, verifiedPresentEndQpc);
     }
     trace.Record("resource_mode", m_nonblockingFrameAcquisition ? 1 : 0);
     UINT64 submittedFenceValue = MoveToNextFrame();
@@ -6460,6 +6470,15 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
     m_pendingResize = true;
     m_pendingResizeWidth = width;
     m_pendingResizeHeight = height;
+}
+
+bool RtPbrSurveyEngine::HasPendingVerifiedRrFrame() const
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    return m_rrVerifiedFrameFence != 0;
+#else
+    return false;
+#endif
 }
 
 bool RtPbrSurveyEngine::WaitForVerifiedRrProduction()
@@ -6809,7 +6828,7 @@ void RtPbrSurveyEngine::DestroyFrameResources()
     // Ensure that the GPU is no longer referencing resources that are about to be
     // cleaned up by the destructor.
     RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.begin");
-    WaitForGpu();
+    WaitForGpu(true);
     RtPbrSurvey::g_rrCrashLog.Record("shutdown.drain.end");
 
     m_graphicsDevice.CloseFenceEvent();
@@ -9823,19 +9842,39 @@ void RtPbrSurveyEngine::EndFrame()
 }
 
 // Wait for pending GPU work to complete.
-void RtPbrSurveyEngine::WaitForGpu()
+void RtPbrSurveyEngine::WaitForGpu(bool logShutdownDrain)
 {
+    auto& crashLog = RtPbrSurvey::g_rrCrashLog;
+    const bool recordDrain = logShutdownDrain && crashLog.IsOpen();
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.acquire.begin");
     AcquireFrameResources(true);
+    const UINT64 fenceValue = m_frameResources[m_currentFrameIndex].fenceValue;
+    if (recordDrain)
+    {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (m_rrCompletionFence)
+        {
+            crashLog.Record("shutdown.drain.rr_fence", m_rrVerifiedFrameFence, m_rrCompletionFenceValue,
+                            CompletedRrFenceValue());
+        }
+#endif
+        crashLog.Record("shutdown.drain.signal.begin", fenceValue, m_graphicsDevice.CompletedFenceValue());
+    }
     PIXBeginEvent(3, L"WaitForGpu");
 
     // Schedule a Signal command in the queue.
-    m_graphicsDevice.SignalFence(m_frameResources[m_currentFrameIndex].fenceValue);
+    m_graphicsDevice.SignalFence(fenceValue);
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.wait.begin", fenceValue, m_graphicsDevice.CompletedFenceValue());
 
     // Wait until the fence has been processed.
     {
         RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
-        m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+        m_graphicsDevice.WaitForFenceValue(fenceValue, recordDrain);
     }
+    if (recordDrain)
+        crashLog.Record("shutdown.drain.wait.end", fenceValue, m_graphicsDevice.CompletedFenceValue());
 
     // Increment the fence value for the current frame.
     m_frameResources[m_currentFrameIndex].fenceValue++;

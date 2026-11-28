@@ -76,6 +76,7 @@ struct RayReconstructionEvaluateInputs
     bool historyValid = false;
     bool enableNativeEvaluation = false;
     RayReconstructionFrameConstants frameConstants;
+    std::uint64_t crashLogPacketId = 0;
 };
 
 struct RayReconstructionEvaluateResult

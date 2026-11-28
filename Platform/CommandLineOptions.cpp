@@ -474,6 +474,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.disableVSync = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisablePresentTearing"))
+        {
+            options.disablePresentTearing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-DisableD3D12DebugLayer"))
         {
             options.disableD3D12DebugLayer = true;
@@ -498,7 +502,7 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'\0' || argv[i + 1][0] == L'-')
             {
-                throw std::invalid_argument("-RrCrashLog requires a new log file path");
+                throw std::invalid_argument("-RrCrashLog requires a log file path");
             }
             options.rrCrashLogPath = argv[++i];
         }
@@ -525,6 +529,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-RrFenceTraceTimingOnly"))
         {
             options.rrFenceTraceTimingOnly = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-RrFenceTraceCalibrateVerifiedGpu"))
+        {
+            options.rrFenceTraceCalibrateVerifiedGpu = true;
         }
         else if (IsCommandLineArg(argv[i], L"-RrFenceTraceVSyncCycle"))
         {
@@ -1190,6 +1198,12 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         !options.autoSelectHybridReflectionEstimatorTest)
     {
         options.autoSelectGltfDamagedHelmet = true;
+    }
+
+    if (options.rrFenceTraceCalibrateVerifiedGpu &&
+        (options.rrFenceTracePath.empty() || !options.rrFenceTraceTimingOnly || !options.pathTracingRrVerifiedPresent))
+    {
+        throw std::invalid_argument("-RrFenceTraceCalibrateVerifiedGpu requires a timing-only VerifiedPresent trace.");
     }
 
     if (options.rrFenceTraceVSyncCycle &&
