@@ -647,7 +647,15 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     struct WorkMeterHistory
     {
-        enum { Capacity = 240 };
+        enum { Capacity = 4096 };
+        enum class RrImage { None, New, Repeated };
+        std::array<double, Capacity> sampleTimes{};
+        std::array<RrImage, Capacity> rrImages{};
+        double rrRateStart = -1.0;
+        uint64_t rrRateStartCount = 0;
+        uint64_t lastRrImageCount = 0;
+        float rrImageRate = 0.0f;
+        float historySeconds = 2.0f;
         std::array<float, Capacity> cpu{}, renderGraphDocument{}, gpu{}, fps{}, frameFps{}, rrSdk{}, rrConversion{};
         int count = 0;
         int next = 0;
@@ -784,6 +792,30 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         // Win32 NewFrame measures wall-clock time, including frame waits.
         // This is independent of scene simulation time and CPU work duration.
         const float frameSeconds = ImGui::GetIO().DeltaTime;
+        const auto& engine = app.m_sceneRenderer.EngineForDebugTools();
+        const uint64_t rrImageCount = engine.RrImagesPresented();
+        const double now = ImGui::GetTime();
+        history.sampleTimes[index] = now;
+        history.rrImages[index] = WorkMeterHistory::RrImage::None;
+        if (history.count == 0)
+        {
+            history.rrRateStart = now;
+            history.rrRateStartCount = rrImageCount;
+            history.rrImageRate = 0.0f;
+        }
+        else if (engine.LastPresentUsedRr())
+        {
+            history.rrImages[index] = rrImageCount != history.lastRrImageCount
+                ? WorkMeterHistory::RrImage::New : WorkMeterHistory::RrImage::Repeated;
+        }
+        history.lastRrImageCount = rrImageCount;
+        const double rrRateElapsed = now - history.rrRateStart;
+        if (rrRateElapsed >= 1.0)
+        {
+            history.rrImageRate = static_cast<float>((rrImageCount - history.rrRateStartCount) / rrRateElapsed);
+            history.rrRateStart = now;
+            history.rrRateStartCount = rrImageCount;
+        }
         history.frameFps[index] = std::isfinite(frameSeconds) && frameSeconds > 0.0f ? 1.0f / frameSeconds : 0.0f;
         const float missing = std::numeric_limits<float>::quiet_NaN();
         const uint64_t packet = context.gpuCheckPoints.size() >= 2 ? context.gpuCheckPoints.front().frameId : 0;
@@ -802,6 +834,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         auto& history = workMeterHistory;
         const ImVec4 renderGraphCpuColor(1.0f, 0.68f, 0.25f, 1.0f);
+        if (context.pathTracingDiagnostics.reconstructionPresentation.requested ==
+            Engine::PathTracingReconstructionBackend::Rr)
+        {
+            ImGui::Text("New RR images presented: %.1f FPS", history.rrImageRate);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Distinct RR images in successful Present calls per elapsed second.");
+        }
         if (ImGui::TreeNode("Graphs##WorkMeter"))
         {
             if (ImGui::Checkbox("Freeze graphs", &history.frozen) && !history.frozen)
@@ -814,13 +853,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                          "Gaps\0Hold last (stale)\0Zero (execution cadence)\0");
             ImGui::SliderFloat("Time range (ms)", &history.timeRange, 1.0f, 200.0f, "%.1f");
             ImGui::SliderFloat("FPS range", &history.fpsRange, 10.0f, 500.0f, "%.0f");
-            ImGui::Text("X: Frame (last %d of %d), Y: ms / FPS", history.count, WorkMeterHistory::Capacity);
+            ImGui::SliderFloat("History span (s)", &history.historySeconds, 0.25f, 10.0f, "%.2f");
+            ImGui::Text("X: -%.2f to 0 s, Y: ms / FPS", history.historySeconds);
             ImGui::TextWrapped("No smoothing. GPU/RR samples use completed GPU packet IDs. Gaps mean no new "
                                "readback or a stage absent from that packet. Hold last shows stale data; Zero shows cadence.");
             ImGui::Text("Latest GPU packet: %llu (%s)", static_cast<unsigned long long>(history.lastGpuPacket),
                         history.frozen ? "frozen" : history.newGpuPacket ? "new readback" : "no new readback");
             const auto plot = [&history](const char* label, const auto& values, float maximum,
-                                         bool gpuSignal = false, const ImVec4* color = nullptr)
+                                         bool gpuSignal = false, const ImVec4* color = nullptr, bool markRrImages = false)
             {
                 if (color)
                     ImGui::TextColored(*color, "%s", label);
@@ -829,6 +869,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 if (history.count == 0)
                     return;
                 const int offset = history.count == WorkMeterHistory::Capacity ? history.next : 0;
+                const int newest = (offset + history.count - 1) % WorkMeterHistory::Capacity;
+                const double endTime = history.sampleTimes[newest];
+                const double startTime = endTime - history.historySeconds;
                 const ImVec2 start = ImGui::GetCursorScreenPos();
                 const ImVec2 size((std::max)(ImGui::GetContentRegionAvail().x, 1.0f), 72.0f);
                 ImGui::PushID(label);
@@ -841,7 +884,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 int latestMeasured = -1;
                 for (int i = 0; i < history.count; ++i)
                 {
-                    const float raw = values[(offset + i) % WorkMeterHistory::Capacity];
+                    const int sample = (offset + i) % WorkMeterHistory::Capacity;
+                    if (history.sampleTimes[sample] < startTime)
+                        continue;
+                    const float raw = values[sample];
                     float value = raw;
                     if (std::isfinite(raw))
                     {
@@ -854,16 +900,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                         value = 0;
                     const auto point = [&](int x, float y)
                     {
-                        return ImVec2(start.x + size.x * x / (std::max)(history.count - 1, 1),
+                        const double elapsed = history.sampleTimes[(offset + x) % WorkMeterHistory::Capacity] - startTime;
+                        return ImVec2(start.x + size.x * static_cast<float>(elapsed / history.historySeconds),
                                       start.y + size.y * (1.0f - std::clamp(y / maximum, 0.0f, 1.0f)));
                     };
                     if (std::isfinite(value))
                     {
+                        ImU32 sampleColor = lineColor;
+                        if (markRrImages && history.rrImages[sample] == WorkMeterHistory::RrImage::Repeated)
+                            sampleColor = IM_COL32(145, 150, 158, 255);
+                        else if (markRrImages && history.rrImages[sample] == WorkMeterHistory::RrImage::New)
+                            sampleColor = IM_COL32(85, 181, 255, 255);
                         const ImVec2 p = point(i, value);
                         if (i > 0 && std::isfinite(previous))
-                            draw->AddLine(point(i - 1, previous), p, lineColor);
+                            draw->AddLine(point(i - 1, previous), p, sampleColor);
                         else
-                            draw->AddCircleFilled(p, 1.5f, lineColor);
+                            draw->AddCircleFilled(p, 1.5f, sampleColor);
                     }
                     previous = value;
                 }
@@ -876,9 +928,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 draw->AddText(ImVec2(start.x + 5, start.y + 3), ImGui::GetColorU32(ImGuiCol_Text), overlay);
                 ImGui::PopID();
             };
-            plot("FPS (wall-clock frame interval)", history.frameFps, history.fpsRange);
+            plot("FPS (wall-clock frame interval)", history.frameFps, history.fpsRange, false, nullptr, true);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("1 / elapsed time between UI frames, including waits. This is not the RR output update rate.");
+            if (context.pathTracingDiagnostics.reconstructionPresentation.requested ==
+                Engine::PathTracingReconstructionBackend::Rr)
+                ImGui::TextUnformatted("Blue: new RR image   Gray: repeated RR image");
             plot("CPU Frame Time (ms)", history.cpu, history.timeRange);
             plot(renderGraphCpuLabel, history.renderGraphDocument, history.timeRange, false, &renderGraphCpuColor);
             plot("GPU Total Time (ms)", history.gpu, history.timeRange, true);
@@ -892,8 +947,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 plot("RR SDK (ms)", history.rrSdk, history.timeRange, true);
                 plot("RR Input Conversion (ms)", history.rrConversion, history.timeRange, true);
             }
-            ImGui::Text("Frame: %d -> %d (left -> right)", history.count > 0 ? history.lastFrame - history.count + 1 : 0,
-                        history.count > 0 ? history.lastFrame : 0);
+
             ImGui::TreePop();
         }
         const auto& presentation = app.m_sceneRenderer.EngineForDebugTools();

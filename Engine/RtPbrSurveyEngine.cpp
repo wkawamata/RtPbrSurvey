@@ -6380,6 +6380,13 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler,
         presentResult = m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
     }
 
+    m_lastPresentUsedRr = presentResult == S_OK && presentedRr != 0;
+    if (m_lastPresentUsedRr && presentedRr != m_lastPresentedRrImage)
+    {
+        m_lastPresentedRrImage = presentedRr;
+        ++m_rrImagesPresented;
+    }
+
     const uint64_t verifiedPresentEndQpc = verifiedPresentQpc ? trace.Now() : 0;
     trace.Record(
         "present_end", presentedRr, m_graphicsDevice.LastPresentInterval(), m_graphicsDevice.LastPresentFlags());
